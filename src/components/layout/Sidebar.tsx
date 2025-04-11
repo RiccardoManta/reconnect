@@ -30,6 +30,22 @@ export default function Sidebar({ servers, categories, onCategoryClick, onServer
     return acc;
   }, {} as Record<string, ServerData[]>);
 
+  // Get effective status based on user presence and explicitly set status
+  const getEffectiveStatus = (server: ServerData) => {
+    if (server.status === 'offline') return 'offline';
+    return server.user && server.user.trim() !== '' ? 'in_use' : 'online';
+  };
+
+  // Update the status indicator in the sidebar
+  const getStatusColor = (server: ServerData) => {
+    const effectiveStatus = getEffectiveStatus(server);
+    switch (effectiveStatus) {
+      case 'online': return "#10b981"; // Green
+      case 'offline': return "#9ca3af"; // Grey
+      case 'in_use': return "#ef4444"; // Red
+    }
+  };
+
   return (
     <div style={{
       width: '380px',
@@ -126,16 +142,16 @@ export default function Sidebar({ servers, categories, onCategoryClick, onServer
                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
                       <Circle 
                         size={8} 
-                        fill={server.isOnline ? "#10b981" : "#ef4444"} 
-                        color={server.isOnline ? "#10b981" : "#ef4444"}
+                        fill={getStatusColor(server)}
+                        color={getStatusColor(server)}
                         style={{ marginRight: '0.25rem' }}
                       />
                       <span style={{ 
                         fontSize: '0.75rem', 
-                        color: server.user ? '#64748b' : '#94a3b8',
-                        fontStyle: server.user ? 'normal' : 'italic'
+                        color: server.status === 'offline' ? '#9ca3af' : (server.user && server.user.trim() !== '' ? '#64748b' : '#94a3b8'),
+                        fontStyle: server.status === 'offline' || !(server.user && server.user.trim() !== '') ? 'italic' : 'normal'
                       }}>
-                        {server.user || 'No user'}
+                        {server.status === 'offline' ? 'Offline' : (server.user && server.user.trim() !== '' ? server.user : 'No user')}
                       </span>
                     </div>
                   </div>

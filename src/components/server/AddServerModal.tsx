@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Tag, FileText } from 'lucide-react';
+import { X, User, Tag, FileText, Activity } from 'lucide-react';
 
 const categories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
 
@@ -14,7 +14,7 @@ export interface ServerData {
   category: string;
   subcategory: string;
   description: string;
-  isOnline: boolean;
+  status: 'online' | 'offline' | 'in_use';
   user: string;
 }
 
@@ -24,7 +24,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
     category: 'Servers',
     subcategory: '',
     description: '',
-    isOnline: true,
+    status: 'online',
     user: '',
   });
 
@@ -49,7 +49,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
       category: 'Servers',
       subcategory: '',
       description: '',
-      isOnline: true,
+      status: 'online',
       user: '',
     });
   };
@@ -308,56 +308,43 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
               />
             </div>
 
-            <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center' }}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  id="isOnline"
-                  name="isOnline"
-                  checked={formData.isOnline}
-                  onChange={handleChange}
-                  style={{
-                    appearance: 'none',
-                    width: '20px',
-                    height: '20px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '4px',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    position: 'relative'
-                  }}
-                  className="custom-checkbox"
-                />
-                <style>{`
-                  .custom-checkbox:checked {
-                    background-color: #39A2DB;
-                    border-color: #39A2DB;
-                  }
-                  .custom-checkbox:checked::before {
-                    content: '';
-                    position: absolute;
-                    top: 4px;
-                    left: 7px;
-                    width: 5px;
-                    height: 10px;
-                    border: solid white;
-                    border-width: 0 2px 2px 0;
-                    transform: rotate(45deg);
-                  }
-                `}</style>
-                <label 
-                  htmlFor="isOnline" 
-                  style={{ 
-                    marginLeft: '10px', 
-                    fontSize: '14px', 
-                    fontWeight: '500',
-                    color: '#4b5563',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Online
-                </label>
-              </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label 
+                htmlFor="status" 
+                style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#4b5563', 
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Activity size={16} color="#0F3460" />
+                Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  transition: 'all 0.2s',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+              >
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+                <option value="in_use">In Use</option>
+              </select>
             </div>
 
             <div style={{ 

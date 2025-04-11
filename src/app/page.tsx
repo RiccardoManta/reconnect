@@ -7,7 +7,7 @@ import ServerCard from '@/components/server/ServerCard';
 import AddServerCard from '@/components/server/AddServerCard';
 import AddServerModal, { ServerData } from '@/components/server/AddServerModal';
 
-// Initial sample data with subcategories added
+// Initial sample data with updated status to match user presence
 const initialServers: ServerData[] = [
   // Servers category
   {
@@ -15,7 +15,7 @@ const initialServers: ServerData[] = [
     category: 'Servers',
     subcategory: 'Frontend',
     description: 'Primary web server for production environment.',
-    isOnline: true,
+    status: 'online', // Will show as in_use due to user presence
     user: 'John Doe',
   },
   {
@@ -23,8 +23,8 @@ const initialServers: ServerData[] = [
     category: 'Servers',
     subcategory: 'Backend',
     description: 'Backup web server for failover.',
-    isOnline: false,
-    user: 'Admin User',
+    status: 'online', // Will show as green (no user)
+    user: '',
   },
   
   // Databases category
@@ -33,7 +33,7 @@ const initialServers: ServerData[] = [
     category: 'Databases',
     subcategory: 'SQL',
     description: 'Main relational database for user data.',
-    isOnline: true,
+    status: 'online', // Will show as in_use due to user presence
     user: 'Cargoroy',
   },
   {
@@ -41,8 +41,8 @@ const initialServers: ServerData[] = [
     category: 'Databases',
     subcategory: 'NoSQL',
     description: 'NoSQL database for analytics.',
-    isOnline: true,
-    user: 'John Doe',
+    status: 'online', // Will show as green (no user)
+    user: '',
   },
   
   // Applications category
@@ -51,7 +51,7 @@ const initialServers: ServerData[] = [
     category: 'Applications',
     subcategory: 'Business',
     description: 'Customer relationship management system.',
-    isOnline: true,
+    status: 'online', // Will show as in_use due to user presence
     user: 'Sales Team',
   },
   {
@@ -59,8 +59,8 @@ const initialServers: ServerData[] = [
     category: 'Applications',
     subcategory: 'Operations',
     description: 'Enterprise resource planning application.',
-    isOnline: false,
-    user: 'Operations',
+    status: 'offline', // Explicitly offline
+    user: '', // No user for offline server
   },
   
   // Networks category
@@ -69,16 +69,16 @@ const initialServers: ServerData[] = [
     category: 'Networks',
     subcategory: 'Routing',
     description: 'Primary network router for office.',
-    isOnline: true,
-    user: 'IT Admin',
+    status: 'online', // Will show as green (no user)
+    user: '',
   },
   {
     name: 'VPN Gateway',
     category: 'Networks',
     subcategory: 'Security',
     description: 'Secure remote access connection.',
-    isOnline: false,
-    user: 'Security Team',
+    status: 'offline', // Explicitly offline
+    user: '', // No user for offline server
   },
   
   // Cloud category
@@ -87,7 +87,7 @@ const initialServers: ServerData[] = [
     category: 'Cloud',
     subcategory: 'Compute',
     description: 'Cloud server for application hosting.',
-    isOnline: true,
+    status: 'online', // Will show as in_use due to user presence
     user: 'DevOps',
   },
   {
@@ -95,8 +95,8 @@ const initialServers: ServerData[] = [
     category: 'Cloud',
     subcategory: 'Storage',
     description: 'Cloud storage for backups and media.',
-    isOnline: true,
-    user: 'Cloud Admin',
+    status: 'online', // Will show as online (green) if no user
+    user: '', // No user assigned
   },
 ];
 
@@ -198,7 +198,7 @@ export default function Home() {
             category={server.category}
             subcategory={server.subcategory}
             description={server.description}
-            isOnline={server.isOnline}
+            status={server.status}
             user={server.user}
           />
         ))}

@@ -102,3 +102,52 @@ a {
     transform: translateY(0);
   }
 }
+
+.connect-button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.connect-button.online {
+  background-color: #10b981;
+  color: white;
+}
+
+.connect-button.offline {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.connect-button.in-use {
+  background-color: #ef4444;
+  color: white;
+}
+
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  margin-right: 0.25rem;
+}
+
+.status-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 5px #10b981;
+}
+
+.status-dot.offline {
+  background-color: #9ca3af;
+  box-shadow: 0 0 5px #9ca3af;
+}
+
+.status-dot.in-use {
+  background-color: #ef4444;
+  box-shadow: 0 0 5px #ef4444;
+}
