@@ -7,12 +7,13 @@ import ServerCard from '@/components/server/ServerCard';
 import AddServerCard from '@/components/server/AddServerCard';
 import AddServerModal, { ServerData } from '@/components/server/AddServerModal';
 
-// Initial sample data with 2 servers in each category
+// Initial sample data with subcategories added
 const initialServers: ServerData[] = [
   // Servers category
   {
     name: 'Web Server 1',
     category: 'Servers',
+    subcategory: 'Frontend',
     description: 'Primary web server for production environment.',
     isOnline: true,
     user: 'John Doe',
@@ -20,6 +21,7 @@ const initialServers: ServerData[] = [
   {
     name: 'Web Server 2',
     category: 'Servers',
+    subcategory: 'Backend',
     description: 'Backup web server for failover.',
     isOnline: false,
     user: 'Admin User',
@@ -29,6 +31,7 @@ const initialServers: ServerData[] = [
   {
     name: 'MySQL Database',
     category: 'Databases',
+    subcategory: 'SQL',
     description: 'Main relational database for user data.',
     isOnline: true,
     user: 'Cargoroy',
@@ -36,6 +39,7 @@ const initialServers: ServerData[] = [
   {
     name: 'MongoDB Instance',
     category: 'Databases',
+    subcategory: 'NoSQL',
     description: 'NoSQL database for analytics.',
     isOnline: true,
     user: 'John Doe',
@@ -45,6 +49,7 @@ const initialServers: ServerData[] = [
   {
     name: 'CRM App',
     category: 'Applications',
+    subcategory: 'Business',
     description: 'Customer relationship management system.',
     isOnline: true,
     user: 'Sales Team',
@@ -52,6 +57,7 @@ const initialServers: ServerData[] = [
   {
     name: 'ERP System',
     category: 'Applications',
+    subcategory: 'Operations',
     description: 'Enterprise resource planning application.',
     isOnline: false,
     user: 'Operations',
@@ -61,6 +67,7 @@ const initialServers: ServerData[] = [
   {
     name: 'Main Router',
     category: 'Networks',
+    subcategory: 'Routing',
     description: 'Primary network router for office.',
     isOnline: true,
     user: 'IT Admin',
@@ -68,6 +75,7 @@ const initialServers: ServerData[] = [
   {
     name: 'VPN Gateway',
     category: 'Networks',
+    subcategory: 'Security',
     description: 'Secure remote access connection.',
     isOnline: false,
     user: 'Security Team',
@@ -77,6 +85,7 @@ const initialServers: ServerData[] = [
   {
     name: 'AWS EC2 Instance',
     category: 'Cloud',
+    subcategory: 'Compute',
     description: 'Cloud server for application hosting.',
     isOnline: true,
     user: 'DevOps',
@@ -84,6 +93,7 @@ const initialServers: ServerData[] = [
   {
     name: 'Azure Storage',
     category: 'Cloud',
+    subcategory: 'Storage',
     description: 'Cloud storage for backups and media.',
     isOnline: true,
     user: 'Cloud Admin',
@@ -117,6 +127,23 @@ export default function Home() {
         block: 'start',
         inline: 'nearest'
       });
+    }
+  };
+
+  // Scroll to a specific server when clicked in sidebar
+  const handleServerClick = (serverId: string) => {
+    const serverElement = document.getElementById(serverId);
+    if (serverElement) {
+      serverElement.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center',
+      });
+      
+      // Add a brief highlight effect
+      serverElement.style.boxShadow = '0 0 0 2px #39A2DB';
+      setTimeout(() => {
+        serverElement.style.boxShadow = '';
+      }, 1500);
     }
   };
 
@@ -166,8 +193,10 @@ export default function Home() {
         {serversList.map((server, index) => (
           <ServerCard
             key={`${category}-${index}`}
+            id={`server-${category.toLowerCase()}-${index}`}
             name={server.name}
             category={server.category}
+            subcategory={server.subcategory}
             description={server.description}
             isOnline={server.isOnline}
             user={server.user}
@@ -187,11 +216,12 @@ export default function Home() {
       <Header />
       
       <div style={{ display: 'flex', flex: 1 }}>
-        {/* Sidebar */}
+        {/* Sidebar with server click handler */}
         <Sidebar 
           servers={servers} 
           categories={categories} 
-          onCategoryClick={handleCategoryClick} 
+          onCategoryClick={handleCategoryClick}
+          onServerClick={handleServerClick}
         />
         
         {/* Main content */}

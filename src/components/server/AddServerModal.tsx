@@ -12,17 +12,20 @@ interface AddServerModalProps {
 export interface ServerData {
   name: string;
   category: string;
+  subcategory: string;
   description: string;
-  user?: string;
   isOnline: boolean;
+  user: string;
 }
 
 export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModalProps) {
   const [formData, setFormData] = useState<ServerData>({
     name: '',
-    category: categories[0], // Default to first category
+    category: 'Servers',
+    subcategory: '',
     description: '',
     isOnline: true,
+    user: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -43,9 +46,11 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
     // Reset form
     setFormData({
       name: '',
-      category: categories[0],
+      category: 'Servers',
+      subcategory: '',
       description: '',
       isOnline: true,
+      user: '',
     });
   };
 
@@ -191,6 +196,42 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label 
+                htmlFor="subcategory" 
+                style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#4b5563', 
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <FileText size={16} color="#0F3460" />
+                Subcategory
+              </label>
+              <input
+                type="text"
+                id="subcategory"
+                name="subcategory"
+                value={formData.subcategory}
+                onChange={handleChange}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  transition: 'all 0.2s',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+              />
             </div>
 
             <div style={{ marginBottom: '20px' }}>

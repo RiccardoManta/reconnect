@@ -3,21 +3,25 @@ import { Link, User, Info, Settings } from 'lucide-react';
 
 interface ServerCardProps {
   name: string;
-  category?: string;
+  category: string;
+  subcategory: string;
   description: string;
   isOnline: boolean;
   user?: string;
+  id: string;
 }
 
 export default function ServerCard({
+  id,
   name,
-  category = 'Category',
+  category,
+  subcategory,
   description,
   isOnline,
   user,
 }: ServerCardProps) {
   return (
-    <div className="server-card">
+    <div className="server-card" id={id}>
       <div className="card-header">
         <h3 className="card-title">{name}</h3>
         
@@ -28,7 +32,14 @@ export default function ServerCard({
           <span className="user-name">{user || "No User"}</span>
         </div>
         
-        <div className="category">{category}</div>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <div className="category">{category}</div>
+          {subcategory && (
+            <div className="category">
+              {subcategory}
+            </div>
+          )}
+        </div>
         
         <p className="description">{description}</p>
       </div>
@@ -44,7 +55,7 @@ export default function ServerCard({
             style={{ 
               background: 'none', 
               border: 'none', 
-              cursor: 'pointer', 
+              cursor: 'pointer',
               padding: '5px',
               borderRadius: '50%',
               display: 'flex',
@@ -68,7 +79,7 @@ export default function ServerCard({
             style={{ 
               background: 'none', 
               border: 'none', 
-              cursor: 'pointer', 
+              cursor: 'pointer',
               padding: '5px',
               borderRadius: '50%',
               display: 'flex',

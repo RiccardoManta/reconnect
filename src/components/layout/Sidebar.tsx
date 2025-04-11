@@ -6,9 +6,10 @@ interface SidebarProps {
   servers: ServerData[];
   categories: string[];
   onCategoryClick: (category: string) => void;
+  onServerClick: (serverId: string) => void;
 }
 
-export default function Sidebar({ servers, categories, onCategoryClick }: SidebarProps) {
+export default function Sidebar({ servers, categories, onCategoryClick, onServerClick }: SidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
     // Initialize all categories as expanded
     categories.reduce((acc, category) => ({ ...acc, [category]: true }), {})
@@ -31,7 +32,7 @@ export default function Sidebar({ servers, categories, onCategoryClick }: Sideba
 
   return (
     <div style={{
-      width: '280px',
+      width: '380px',
       borderRight: '1px solid #e2e8f0',
       backgroundColor: '#f8fafc',
       height: 'calc(100vh - 73px)', // Subtract header height
@@ -102,6 +103,7 @@ export default function Sidebar({ servers, categories, onCategoryClick }: Sideba
                 {serversByCategory[category].map((server, idx) => (
                   <div 
                     key={`${category}-${idx}`}
+                    onClick={() => onServerClick(`server-${category.toLowerCase()}-${idx}`)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
