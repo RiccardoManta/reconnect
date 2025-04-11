@@ -1,103 +1,222 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';
+import ServerCard from '@/components/server/ServerCard';
+import AddServerCard from '@/components/server/AddServerCard';
+import AddServerModal, { ServerData } from '@/components/server/AddServerModal';
+
+// Initial sample data with 2 servers in each category
+const initialServers: ServerData[] = [
+  // Servers category
+  {
+    name: 'Web Server 1',
+    category: 'Servers',
+    description: 'Primary web server for production environment.',
+    isOnline: true,
+    user: 'John Doe',
+  },
+  {
+    name: 'Web Server 2',
+    category: 'Servers',
+    description: 'Backup web server for failover.',
+    isOnline: false,
+    user: 'Admin User',
+  },
+  
+  // Databases category
+  {
+    name: 'MySQL Database',
+    category: 'Databases',
+    description: 'Main relational database for user data.',
+    isOnline: true,
+    user: 'Cargoroy',
+  },
+  {
+    name: 'MongoDB Instance',
+    category: 'Databases',
+    description: 'NoSQL database for analytics.',
+    isOnline: true,
+    user: 'John Doe',
+  },
+  
+  // Applications category
+  {
+    name: 'CRM App',
+    category: 'Applications',
+    description: 'Customer relationship management system.',
+    isOnline: true,
+    user: 'Sales Team',
+  },
+  {
+    name: 'ERP System',
+    category: 'Applications',
+    description: 'Enterprise resource planning application.',
+    isOnline: false,
+    user: 'Operations',
+  },
+  
+  // Networks category
+  {
+    name: 'Main Router',
+    category: 'Networks',
+    description: 'Primary network router for office.',
+    isOnline: true,
+    user: 'IT Admin',
+  },
+  {
+    name: 'VPN Gateway',
+    category: 'Networks',
+    description: 'Secure remote access connection.',
+    isOnline: false,
+    user: 'Security Team',
+  },
+  
+  // Cloud category
+  {
+    name: 'AWS EC2 Instance',
+    category: 'Cloud',
+    description: 'Cloud server for application hosting.',
+    isOnline: true,
+    user: 'DevOps',
+  },
+  {
+    name: 'Azure Storage',
+    category: 'Cloud',
+    description: 'Cloud storage for backups and media.',
+    isOnline: true,
+    user: 'Cloud Admin',
+  },
+];
+
+// Categories in the same order as the navigation
+const categories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [servers, setServers] = useState<ServerData[]>(initialServers);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Group servers by category
+  const serversByCategory = categories.reduce((acc, category) => {
+    acc[category] = servers.filter(server => server.category === category);
+    return acc;
+  }, {} as Record<string, ServerData[]>);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleAddServer = (serverData: ServerData) => {
+    setServers(prev => [...prev, serverData]);
+  };
+
+  // Handle category click from the sidebar
+  const handleCategoryClick = (category: string) => {
+    // Find the category section and scroll to it with improved smoothness
+    const section = document.getElementById(`category-${category.toLowerCase()}`);
+    if (section) {
+      section.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest'
+      });
+    }
+  };
+
+  // Render a category section
+  const renderCategorySection = (category: string, serversList: ServerData[]) => (
+    <div 
+      key={category} 
+      id={`category-${category.toLowerCase()}`}
+      style={{ 
+        scrollMarginTop: '100px', // Space for the header when scrolling
+        marginBottom: '3rem' 
+      }}
+    >
+      {/* Category heading */}
+      <div style={{ 
+        padding: '1rem 0 1rem', 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <h2 style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: 'bold', 
+          color: '#0F3460',
+          margin: 0
+        }}>
+          {category}
+        </h2>
+        
+        <div style={{ 
+          fontSize: '0.9rem',
+          color: '#666'
+        }}>
+          {serversList.length} {serversList.length === 1 ? 'item' : 'items'}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </div>
+      
+      {/* Category separator */}
+      <div style={{ 
+        height: '2px', 
+        background: 'linear-gradient(to right, #0F3460, #39A2DB, rgba(255,255,255,0))',
+        marginBottom: '1.5rem'
+      }}></div>
+      
+      {/* Server cards grid */}
+      <div className="grid-container">
+        {serversList.map((server, index) => (
+          <ServerCard
+            key={`${category}-${index}`}
+            name={server.name}
+            category={server.category}
+            description={server.description}
+            isOnline={server.isOnline}
+            user={server.user}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        ))}
+        
+        {/* Only show add button in the first category for simplicity */}
+        {category === categories[0] && (
+          <AddServerCard onClick={() => setIsModalOpen(true)} />
+        )}
+      </div>
     </div>
+  );
+
+  return (
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Header />
+      
+      <div style={{ display: 'flex', flex: 1 }}>
+        {/* Sidebar */}
+        <Sidebar 
+          servers={servers} 
+          categories={categories} 
+          onCategoryClick={handleCategoryClick} 
+        />
+        
+        {/* Main content */}
+        <div className="content" style={{ 
+          flex: 1, 
+          paddingTop: '1.5rem',
+          height: 'calc(100vh - 73px)',
+          overflowY: 'auto'
+        }}>
+          <div style={{ 
+            maxWidth: '1200px', 
+            margin: '0 auto', 
+            padding: '0 1rem' 
+          }}>
+            {/* Render all category sections */}
+            {categories.map(category => renderCategorySection(category, serversByCategory[category]))}
+          </div>
+        </div>
+      </div>
+      
+      <AddServerModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAdd={handleAddServer}
+      />
+    </main>
   );
 }
