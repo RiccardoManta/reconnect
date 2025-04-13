@@ -3,10 +3,10 @@ import { Link, User, Info, Settings } from 'lucide-react';
 
 interface ServerCardProps {
   name: string;
-  category: string;
-  subcategory: string;
+  platform: string;
+  bench_type: string;
   description: string;
-  status: 'online' | 'offline' | 'in_use';
+  status: 'online' | 'offline' | 'in_use' | 'in use';
   user?: string;
   id: string;
 }
@@ -14,17 +14,20 @@ interface ServerCardProps {
 export default function ServerCard({
   id,
   name,
-  category,
-  subcategory,
+  platform,
+  bench_type,
   description,
   status,
   user,
 }: ServerCardProps) {
+  // Normalize the status to handle different formats
+  const normalizedStatus = status === 'in_use' || status === 'in use' ? 'in_use' : status;
+  
   // Determine status based on user presence
   const effectiveStatus = user && user.trim() !== '' ? 'in_use' : 'online';
   
   // If explicitly set to offline, keep it offline regardless of user
-  const finalStatus = status === 'offline' ? 'offline' : effectiveStatus;
+  const finalStatus = normalizedStatus === 'offline' ? 'offline' : effectiveStatus;
   
   // Get status color and text based on server status
   const getStatusDetails = () => {
@@ -72,14 +75,13 @@ export default function ServerCard({
           )}
         </div>
         
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <div className="category">{category}</div>
-          {subcategory && (
+        {bench_type && (
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <div className="category">
-              {subcategory}
+              {bench_type}
             </div>
-          )}
-        </div>
+          </div>
+        )}
         
         <p className="description">{description}</p>
       </div>

@@ -26,7 +26,7 @@ export default function Sidebar({ servers, categories, onCategoryClick, onServer
 
   // Group servers by category
   const serversByCategory = categories.reduce((acc, category) => {
-    acc[category] = servers.filter(server => server.category === category);
+    acc[category] = servers.filter(server => server.platform === category);
     return acc;
   }, {} as Record<string, ServerData[]>);
 

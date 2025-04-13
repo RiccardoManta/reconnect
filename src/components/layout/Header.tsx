@@ -2,12 +2,79 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, User, Settings, Menu, Database, BookOpen, Shield } from 'lucide-react';
 import Link from 'next/link';
 
-const categories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
+// Fallback categories in case API fails
+const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
 
 export default function Header() {
-  const [activeCategory, setActiveCategory] = useState<string>("Servers");
+  const [categories, setCategories] = useState<string[]>(fallbackCategories);
+  const [activeCategory, setActiveCategory] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch categories from the API
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const response = await fetch('/api/categories');
+        if (!response.ok) {
+          throw new Error('Failed to fetch categories');
+        }
+        const data = await response.json();
+        
+        // Try to get categories from the API response
+        let categoriesList: string[] = [];
+        
+        if (data.categories && data.categories.length > 0) {
+          categoriesList = data.categories;
+        } else {
+          // Fallback to getting all unique categories from test_benches table
+          try {
+            const benches = await fetch('/api/testbenches');
+            if (benches.ok) {
+              const benchData = await benches.json();
+              if (benchData.testBenches && benchData.testBenches.length > 0) {
+                // Get unique bench types with proper type handling
+                const uniqueTypes: string[] = [];
+                benchData.testBenches.forEach((bench: any) => {
+                  const benchType = bench.bench_type;
+                  if (benchType && typeof benchType === 'string' && !uniqueTypes.includes(benchType)) {
+                    uniqueTypes.push(benchType);
+                  }
+                });
+                
+                if (uniqueTypes.length > 0) {
+                  categoriesList = uniqueTypes;
+                }
+              }
+            }
+          } catch (benchError) {
+            console.error('Error fetching bench types:', benchError);
+          }
+        }
+        
+        // If still no categories, use fallback
+        if (categoriesList.length === 0) {
+          console.warn('No categories found, using fallback');
+          categoriesList = fallbackCategories;
+        }
+        
+        setCategories(categoriesList);
+        // Set first category as active by default if none is selected
+        if (!activeCategory && categoriesList.length > 0) {
+          setActiveCategory(categoriesList[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        // Use fallback categories if API fails
+        setCategories(fallbackCategories);
+        if (!activeCategory) {
+          setActiveCategory(fallbackCategories[0]);
+        }
+      }
+    }
+    
+    fetchCategories();
+  }, [activeCategory]);
 
   // Close menu when clicking outside
   useEffect(() => {

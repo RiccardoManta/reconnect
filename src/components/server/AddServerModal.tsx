@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, User, Tag, FileText, Activity } from 'lucide-react';
 
-const categories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
+// Fallback categories in case API fails
+const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
 
 interface AddServerModalProps {
   isOpen: boolean;
@@ -11,22 +12,58 @@ interface AddServerModalProps {
 
 export interface ServerData {
   name: string;
-  category: string;
-  subcategory: string;
+  platform: string;
+  bench_type: string;
   description: string;
   status: 'online' | 'offline' | 'in_use';
   user: string;
 }
 
 export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModalProps) {
+  const [categories, setCategories] = useState<string[]>(fallbackCategories);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const [formData, setFormData] = useState<ServerData>({
     name: '',
-    category: 'Servers',
-    subcategory: '',
+    platform: '',
+    bench_type: '',
     description: '',
     status: 'online',
     user: '',
   });
+
+  // Fetch categories from the API when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      async function fetchCategories() {
+        try {
+          const response = await fetch('/api/categories');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.categories && data.categories.length > 0) {
+              setCategories(data.categories);
+              // Set the first category as default
+              setFormData(prev => ({ ...prev, platform: data.categories[0] }));
+            } else {
+              setCategories(fallbackCategories);
+              setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+            }
+          } else {
+            console.error('Failed to fetch categories');
+            setCategories(fallbackCategories);
+            setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+          }
+        } catch (err) {
+          console.error('Error fetching categories:', err);
+          setCategories(fallbackCategories);
+          setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+        }
+      }
+      
+      fetchCategories();
+    }
+  }, [isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -39,19 +76,60 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onAdd(formData);
-    onClose();
-    // Reset form
-    setFormData({
-      name: '',
-      category: 'Servers',
-      subcategory: '',
-      description: '',
-      status: 'online',
-      user: '',
-    });
+    setError(null);
+    setIsSubmitting(true);
+    
+    try {
+      // Send data to the API
+      const response = await fetch('/api/servers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add server');
+      }
+      
+      // Pass the server data to the parent component
+      if (data.server) {
+        onAdd({
+          name: data.server.hil_name,
+          platform: data.server.category || 'Uncategorized',
+          bench_type: data.server.subcategory || '',
+          description: data.server.description || '',
+          status: data.server.status === 'offline' ? 'offline' : 
+                data.server.status === 'in use' ? 'in_use' : 'online',
+          user: data.server.active_user || '',
+        });
+      } else {
+        // Fallback to using form data if server data isn't returned
+        onAdd(formData);
+      }
+      
+      onClose();
+      
+      // Reset form
+      setFormData({
+        name: '',
+        platform: categories[0] || 'Servers',
+        bench_type: '',
+        description: '',
+        status: 'online',
+        user: '',
+      });
+    } catch (err: any) {
+      console.error('Error adding server:', err);
+      setError(err.message || 'Failed to add server');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -91,7 +169,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
               fontWeight: 'bold', 
               color: '#0F3460',
               margin: 0
-            }}>Add New Server</h3>
+            }}>Add New Testbench</h3>
             
             <button 
               onClick={onClose} 
@@ -115,6 +193,19 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
           </div>
 
           <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+            {error && (
+              <div style={{ 
+                backgroundColor: '#fee2e2', 
+                color: '#b91c1c', 
+                padding: '10px', 
+                borderRadius: '8px', 
+                marginBottom: '20px',
+                fontSize: '14px'
+              }}>
+                {error}
+              </div>
+            )}
+            
             <div style={{ marginBottom: '20px' }}>
               <label 
                 htmlFor="name" 
@@ -129,7 +220,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 }}
               >
                 <FileText size={16} color="#0F3460" />
-                Server Name
+                Testbench
               </label>
               <input
                 type="text"
@@ -149,12 +240,13 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                 required
+                disabled={isSubmitting}
               />
             </div>
 
             <div style={{ marginBottom: '20px' }}>
               <label 
-                htmlFor="category" 
+                htmlFor="platform" 
                 style={{ 
                   fontSize: '14px', 
                   fontWeight: '500', 
@@ -166,12 +258,12 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 }}
               >
                 <Tag size={16} color="#0F3460" />
-                Category
+                Platform
               </label>
               <select
-                id="category"
-                name="category"
-                value={formData.category}
+                id="platform"
+                name="platform"
+                value={formData.platform}
                 onChange={handleChange}
                 style={{
                   width: '100%',
@@ -191,6 +283,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                 required
+                disabled={isSubmitting}
               >
                 {categories.map(category => (
                   <option key={category} value={category}>{category}</option>
@@ -200,7 +293,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
 
             <div style={{ marginBottom: '20px' }}>
               <label 
-                htmlFor="subcategory" 
+                htmlFor="bench_type" 
                 style={{ 
                   fontSize: '14px', 
                   fontWeight: '500', 
@@ -212,13 +305,13 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 }}
               >
                 <FileText size={16} color="#0F3460" />
-                Subcategory
+                Testbench Type
               </label>
               <input
                 type="text"
-                id="subcategory"
-                name="subcategory"
-                value={formData.subcategory}
+                id="bench_type"
+                name="bench_type"
+                value={formData.bench_type}
                 onChange={handleChange}
                 style={{
                   width: '100%',
@@ -231,6 +324,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 }}
                 onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                disabled={isSubmitting}
               />
             </div>
 
@@ -248,7 +342,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 }}
               >
                 <FileText size={16} color="#0F3460" />
-                Description
+                Info
               </label>
               <textarea
                 id="description"
@@ -269,82 +363,8 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                 required
+                disabled={isSubmitting}
               />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label 
-                htmlFor="user" 
-                style={{ 
-                  fontSize: '14px', 
-                  fontWeight: '500', 
-                  color: '#4b5563', 
-                  marginBottom: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <User size={16} color="#0F3460" />
-                User (Optional)
-              </label>
-              <input
-                type="text"
-                id="user"
-                name="user"
-                value={formData.user || ''}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  transition: 'all 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label 
-                htmlFor="status" 
-                style={{ 
-                  fontSize: '14px', 
-                  fontWeight: '500', 
-                  color: '#4b5563', 
-                  marginBottom: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Activity size={16} color="#0F3460" />
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  transition: 'all 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#39A2DB'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-              >
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
-                <option value="in_use">In Use</option>
-              </select>
             </div>
 
             <div style={{ 
@@ -389,7 +409,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0a2647'}
                 onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0F3460'}
               >
-                Add Server
+                Add Testbench
               </button>
             </div>
           </form>
