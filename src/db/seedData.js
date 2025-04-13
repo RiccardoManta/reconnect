@@ -96,12 +96,13 @@ function seedDatabase() {
       INSERT INTO pc_overview (
         bench_id, pc_name, purchase_year, inventory_number, 
         pc_role, pc_model, special_equipment, mac_address,
-        ip_address, active_licenses, installed_tools
+        ip_address, active_licenses, installed_tools,
+        pc_info_text, status, active_user
       ) VALUES
-      (1, 'PC-BS-01', 2022, 'PC-2022-001', 'Host-PC', 'Dell Precision', 'RTI Card', '00:1A:2B:3C:4D:5E', '192.168.1.10', 'CM, MBD', 'Matlab, CarMaker'),
-      (1, 'PC-BS-02', 2022, 'PC-2022-002', 'Compiler-PC', 'HP Workstation', 'NVIDIA GPU', '00:1A:2B:3C:4D:5F', '192.168.1.11', 'MSVC, Intel', 'Visual Studio, Intel Compiler'),
-      (2, 'PC-ADAS-01', 2022, 'PC-2022-003', 'Host-PC', 'Dell Precision', 'RTI Card, FPGA', '00:1A:2B:3C:4D:6E', '192.168.1.20', 'MATLAB, Simulink', 'Matlab, Simulink, CarSim'),
-      (3, 'PC-VD-01', 2022, 'PC-2022-004', 'Host-PC', 'HP Workstation', 'RTI Card', '00:1A:2B:3C:4D:7E', '192.168.1.30', 'IPG, ASM', 'CarMaker, ASM')
+      (1, 'PC-BS-01', 2022, 'PC-2022-001', 'Host-PC', 'Dell Precision', 'RTI Card', '00:1A:2B:3C:4D:5E', '192.168.1.10', 'CM, MBD', 'Matlab, CarMaker', 'Primary host PC for brake system testing with 64GB RAM and SSD storage', 'online', 'John Doe'),
+      (1, 'PC-BS-02', 2022, 'PC-2022-002', 'Compiler-PC', 'HP Workstation', 'NVIDIA GPU', '00:1A:2B:3C:4D:5F', '192.168.1.11', 'MSVC, Intel', 'Visual Studio, Intel Compiler', 'Dedicated compilation system with high-performance GPU for simulation', 'offline', null),
+      (2, 'PC-ADAS-01', 2022, 'PC-2022-003', 'Host-PC', 'Dell Precision', 'RTI Card, FPGA', '00:1A:2B:3C:4D:6E', '192.168.1.20', 'MATLAB, Simulink', 'Matlab, Simulink, CarSim', 'Advanced workstation with FPGA accelerator for ADAS algorithms', 'in use', 'Jane Smith'),
+      (3, 'PC-VD-01', 2022, 'PC-2022-004', 'Host-PC', 'HP Workstation', 'RTI Card', '00:1A:2B:3C:4D:7E', '192.168.1.30', 'IPG, ASM', 'CarMaker, ASM', 'Vehicle dynamics simulation PC with multi-core Xeon processor', 'online', 'Bob Johnson')
     `;
     db.run(pcSql);
     console.log('PC information added');

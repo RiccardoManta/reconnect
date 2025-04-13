@@ -111,6 +111,9 @@ interface PcOverview {
   ip_address: string;
   active_licenses: string;
   installed_tools: string;
+  pc_info_text: string;
+  status: string;
+  active_user: string;
 }
 
 interface ProjectOverview {
@@ -1651,12 +1654,15 @@ function PcOverviewList() {
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Role</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Model</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>IP Address</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Status</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Active User</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Info</th>
                 </tr>
               </thead>
               <tbody>
                 {pcs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No PC overview data found</td>
+                    <td colSpan={9} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No PC overview data found</td>
                   </tr>
                 ) : (
                   pcs.map((pc) => (
@@ -1678,6 +1684,31 @@ function PcOverviewList() {
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.pc_role}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.pc_model}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.ip_address}</td>
+                      <td style={{ 
+                        padding: '0.75rem 1rem', 
+                        fontSize: '0.875rem', 
+                        color: pc.status === 'online' ? '#059669' : pc.status === 'offline' ? '#dc2626' : '#d97706'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}>
+                          <div style={{
+                            width: '0.5rem',
+                            height: '0.5rem',
+                            borderRadius: '50%',
+                            backgroundColor: pc.status === 'online' ? '#059669' : pc.status === 'offline' ? '#dc2626' : '#d97706'
+                          }}></div>
+                          {pc.status || 'Unknown'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>
+                        {pc.active_user || '-'}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>
+                        {pc.pc_info_text ? pc.pc_info_text.substring(0, 30) + (pc.pc_info_text.length > 30 ? '...' : '') : ''}
+                      </td>
                     </tr>
                   ))
                 )}

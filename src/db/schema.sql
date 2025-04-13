@@ -107,6 +107,9 @@ CREATE TABLE pc_overview (
     ip_address TEXT,
     active_licenses TEXT,       -- references or stored
     installed_tools TEXT,
+    pc_info_text TEXT,          -- Additional information about the PC
+    status TEXT,                -- Status of the PC (offline, online, in use)
+    active_user TEXT,           -- Name of the user currently logged in
     FOREIGN KEY (bench_id) REFERENCES test_benches(bench_id)
 );
 
