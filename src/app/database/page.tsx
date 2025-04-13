@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import { Database as DatabaseIcon, Table, Server, Lock, RefreshCw, User, Folder, HardDrive, Cpu, Settings, Activity, Wrench as Tool, Zap, Monitor, Layers, Gauge, Microchip, PcCase, Beaker } from 'lucide-react';
+import { Database as DatabaseIcon, Table, Server, Lock, RefreshCw, User, Folder, HardDrive, Cpu, Settings, Activity, Wrench as Tool, Zap, Monitor, Layers, Gauge, Microchip, PcCase, Beaker, Plus } from 'lucide-react';
 import DetailsModal from '@/components/DetailsModal';
+import AddEntryModal from '@/components/AddEntryModal';
+import EditableDetailsModal from '@/components/EditableDetailsModal';
 
 interface TestBench {
   bench_id: number;
@@ -137,6 +139,30 @@ function TestBenchList() {
   const [selectedTestBench, setSelectedTestBench] = useState<TestBench | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  // Function to fetch users and projects for the dropdown selects
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch users
+      const usersResponse = await fetch('/api/users');
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        setUsers(usersData.users || []);
+      }
+
+      // Fetch projects
+      const projectsResponse = await fetch('/api/projects');
+      if (projectsResponse.ok) {
+        const projectsData = await projectsResponse.json();
+        setProjects(projectsData.projects || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -167,6 +193,189 @@ function TestBenchList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch users and projects for dropdowns
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/testbenches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add test bench');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/testbenches');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setTestBenches(data.testBenches || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateTestBench = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the bench_id is included
+      if (!formData.bench_id) {
+        throw new Error('Test bench ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/testbenches', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update test bench');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setTestBenches(prev => 
+        prev.map(bench => 
+          bench.bench_id === formData.bench_id ? data.testBench : bench
+        )
+      );
+      
+      // Also update the selected test bench
+      setSelectedTestBench(data.testBench);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'hil_name',
+      label: 'HIL Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'pp_number',
+      label: 'PP Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_type',
+      label: 'System Type',
+      type: 'text' as const,
+    },
+    {
+      name: 'bench_type',
+      label: 'Bench Type',
+      type: 'text' as const,
+    },
+    {
+      name: 'acquisition_date',
+      label: 'Acquisition Date',
+      type: 'date' as const,
+    },
+    {
+      name: 'location',
+      label: 'Location',
+      type: 'text' as const,
+    },
+    {
+      name: 'user_id',
+      label: 'User',
+      type: 'select' as const,
+      options: users.map(user => ({
+        value: String(user.user_id),
+        label: user.user_name,
+      })),
+    },
+    {
+      name: 'project_id',
+      label: 'Project',
+      type: 'select' as const,
+      options: projects.map(project => ({
+        value: String(project.project_id),
+        label: project.project_name,
+      })),
+    },
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'bench_id',
+      label: 'Bench ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'hil_name',
+      label: 'HIL Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'pp_number',
+      label: 'PP Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_type',
+      label: 'System Type',
+      type: 'text' as const,
+    },
+    {
+      name: 'bench_type',
+      label: 'Bench Type',
+      type: 'text' as const,
+    },
+    {
+      name: 'acquisition_date',
+      label: 'Acquisition Date',
+      type: 'date' as const,
+    },
+    {
+      name: 'location',
+      label: 'Location',
+      type: 'text' as const,
+    },
+    {
+      name: 'user_id',
+      label: 'User',
+      type: 'select' as const,
+      options: users.map(user => ({
+        value: String(user.user_id),
+        label: user.user_name,
+      })),
+    },
+    {
+      name: 'project_id',
+      label: 'Project',
+      type: 'select' as const,
+      options: projects.map(project => ({
+        value: String(project.project_id),
+        label: project.project_name,
+      })),
+    },
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -214,6 +423,25 @@ function TestBenchList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new test bench"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -295,7 +523,10 @@ function TestBenchList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedTestBench(bench)}
+                    onClick={() => {
+                      fetchRelatedData(); // Fetch users and projects for edit modal
+                      setSelectedTestBench(bench);
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -318,11 +549,23 @@ function TestBenchList() {
       )}
 
       {selectedTestBench && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedTestBench !== null}
           onClose={() => setSelectedTestBench(null)}
           title={`Test Bench Details: ${selectedTestBench.hil_name}`}
           data={selectedTestBench}
+          fields={detailsFields}
+          onSave={handleUpdateTestBench}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New Test Bench"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
