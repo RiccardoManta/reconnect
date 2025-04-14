@@ -177,7 +177,6 @@ export default function PcOverviewList() {
       required: true,
       options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
     },
-    { name: 'hilName', label: 'HIL Name', type: 'text', editable: false },
     { name: 'pcName', label: 'PC Name', type: 'text', required: true },
     { name: 'purchaseYear', label: 'Purchase Year', type: 'number' },
     { name: 'inventoryNumber', label: 'Inventory Number', type: 'text' },
@@ -249,9 +248,7 @@ export default function PcOverviewList() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                  {/* Adjust headers */}
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>HIL Name</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>PC Name</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Role</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Status</th>
@@ -260,16 +257,14 @@ export default function PcOverviewList() {
               </thead>
               <tbody>
                 {pcOverviews.length === 0 ? (
-                  <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No PC overviews found</td></tr>
+                  <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No PC overviews found</td></tr>
                 ) : (
                   pcOverviews.map((pc) => (
                     <tr key={pc.pcId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
                         onClick={() => handleRowClick(pc)}
                         onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                         onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      {/* Adjust columns */}
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.pcId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.hilName}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.pcName}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.pcRole}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{pc.status}</td>

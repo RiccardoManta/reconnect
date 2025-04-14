@@ -15,7 +15,7 @@ export async function GET() {
     const servers = db.prepare(`
       SELECT 
         t.bench_id,
-        t.hil_name,
+        p.pc_name AS hil_name,
         o.platform AS category,
         t.bench_type AS subcategory,
         p.pc_info_text AS description,
@@ -89,12 +89,14 @@ export async function POST(request) {
       db.prepare(`
         INSERT INTO pc_overview (
           bench_id,
+          pc_name,
           pc_info_text,
           status,
           active_user
-        ) VALUES (?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?)
       `).run(
         benchId,
+        body.name || null,
         body.description || null,
         body.status || 'online', // Default to 'online' if not provided
         body.user || null        // Default to null if not provided
@@ -107,7 +109,7 @@ export async function POST(request) {
       const newServer = db.prepare(`
         SELECT 
           t.bench_id,
-          t.hil_name,
+          p.pc_name AS hil_name,
           o.platform AS category,
           t.bench_type AS subcategory,
           p.pc_info_text AS description,

@@ -92,7 +92,6 @@ export interface HardwareInstallation {
 export interface PcOverview {
   pcId: number;
   benchId: number;
-  hilName: string;
   pcName: string;
   purchaseYear: number;
   inventoryNumber: string;

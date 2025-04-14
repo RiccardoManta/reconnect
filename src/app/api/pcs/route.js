@@ -99,9 +99,8 @@ export async function POST(request) {
     
     // Get the newly inserted record
     const newPc = db.prepare(`
-      SELECT pc.*, t.hil_name
+      SELECT pc.*
       FROM pc_overview pc
-      LEFT JOIN test_benches t ON pc.bench_id = t.bench_id
       WHERE pc.pc_id = ?
     `).get(result.lastInsertRowid);
     
@@ -217,9 +216,8 @@ export async function PUT(request) {
     
     // Get the updated record
     const updatedPc = db.prepare(`
-      SELECT pc.*, t.hil_name
+      SELECT pc.*
       FROM pc_overview pc
-      LEFT JOIN test_benches t ON pc.bench_id = t.bench_id
       WHERE pc.pc_id = ?
     `).get(data.pc_id);
     

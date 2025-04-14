@@ -220,7 +220,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 }}
               >
                 <FileText size={16} color="#0F3460" />
-                Testbench
+                PC Name
               </label>
               <input
                 type="text"
