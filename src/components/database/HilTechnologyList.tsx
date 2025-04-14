@@ -51,12 +51,12 @@ export default function HilTechnologyList() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/hil-technology'); // Assuming endpoint
+      const response = await fetch('/api/hiltechnology'); // Changed endpoint
       if (!response.ok) {
         throw new Error('Failed to fetch HIL technology');
       }
       const data = await response.json();
-      setHilTechnology(keysToCamel<HilTechnology[]>(data.hilTechnology || [])); // Assuming key
+      setHilTechnology(keysToCamel<HilTechnology[]>(data.technology || [])); // Changed data.hilTechnology to data.technology
       setHasLoaded(true);
     } catch (err) {
       setError('Error loading HIL technology: ' + (err instanceof Error ? err.message : String(err)));
@@ -88,7 +88,7 @@ export default function HilTechnologyList() {
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hil-technology', { // Assuming endpoint
+      const response = await fetch('/api/hiltechnology', { // Changed endpoint
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -100,7 +100,7 @@ export default function HilTechnologyList() {
       }
 
       const savedData = await response.json();
-      const newTechnology = keysToCamel<HilTechnology>(savedData.hilTechnology); // Assuming key
+      const newTechnology = keysToCamel<HilTechnology>(savedData.technology); // Changed savedData.hilTechnology to savedData.technology
       setHilTechnology(prev => [...prev, newTechnology]);
       setIsAddModalOpen(false);
 
@@ -117,7 +117,7 @@ export default function HilTechnologyList() {
       }
 
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hil-technology', { // Assuming endpoint
+      const response = await fetch('/api/hiltechnology', { // Changed endpoint
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -129,7 +129,7 @@ export default function HilTechnologyList() {
       }
 
       const data = await response.json();
-      const updatedTechnology = keysToCamel<HilTechnology>(data.hilTechnology); // Assuming key
+      const updatedTechnology = keysToCamel<HilTechnology>(data.technology); // Changed data.hilTechnology to data.technology
 
       setHilTechnology(prev =>
         prev.map(tech =>

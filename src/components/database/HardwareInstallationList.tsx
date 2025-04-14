@@ -51,12 +51,12 @@ export default function HardwareInstallationList() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/hardware-installations'); // Assuming endpoint
+      const response = await fetch('/api/hardware'); // Changed endpoint
       if (!response.ok) {
         throw new Error('Failed to fetch hardware installations');
       }
       const data = await response.json();
-      setHardwareInstallations(keysToCamel<HardwareInstallation[]>(data.hardwareInstallations || [])); // Assuming key
+      setHardwareInstallations(keysToCamel<HardwareInstallation[]>(data.hardware || [])); // Changed data.hardwareInstallations to data.hardware
       setHasLoaded(true);
     } catch (err) {
       setError('Error loading hardware installations: ' + (err instanceof Error ? err.message : String(err)));
@@ -88,7 +88,7 @@ export default function HardwareInstallationList() {
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hardware-installations', { // Assuming endpoint
+      const response = await fetch('/api/hardware', { // Changed endpoint
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -100,7 +100,7 @@ export default function HardwareInstallationList() {
       }
 
       const savedData = await response.json();
-      const newHardware = keysToCamel<HardwareInstallation>(savedData.hardwareInstallation); // Assuming key
+      const newHardware = keysToCamel<HardwareInstallation>(savedData.hardware); // Changed savedData.hardwareInstallation to savedData.hardware
       setHardwareInstallations(prev => [...prev, newHardware]);
       setIsAddModalOpen(false);
 
@@ -112,12 +112,12 @@ export default function HardwareInstallationList() {
 
   const handleUpdateHardware = async (formData: Record<string, any>) => {
     try {
-      if (!formData.installId) { // Check camelCase ID
-        throw new Error('Installation ID is required');
+      if (!formData.installId) {
+        throw new Error('Hardware ID is required');
       }
 
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hardware-installations', { // Assuming endpoint
+      const response = await fetch('/api/hardware', { // Changed endpoint
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -129,7 +129,7 @@ export default function HardwareInstallationList() {
       }
 
       const data = await response.json();
-      const updatedHardware = keysToCamel<HardwareInstallation>(data.hardwareInstallation); // Assuming key
+      const updatedHardware = keysToCamel<HardwareInstallation>(data.hardware); // Changed data.hardwareInstallation to data.hardware
 
       setHardwareInstallations(prev =>
         prev.map(hw =>

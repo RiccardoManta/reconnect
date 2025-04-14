@@ -50,12 +50,12 @@ export default function PcOverviewList() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/pc-overviews'); // Assuming endpoint
+      const response = await fetch('/api/pcs');
       if (!response.ok) {
         throw new Error('Failed to fetch PC overviews');
       }
       const data = await response.json();
-      setPcOverviews(keysToCamel<PcOverview[]>(data.pcOverviews || [])); // Assuming key
+      setPcOverviews(keysToCamel<PcOverview[]>(data.pcs || []));
       setHasLoaded(true);
     } catch (err) {
       setError('Error loading PC overviews: ' + (err instanceof Error ? err.message : String(err)));
@@ -87,7 +87,7 @@ export default function PcOverviewList() {
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/pc-overviews', { // Assuming endpoint
+      const response = await fetch('/api/pcs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -99,7 +99,7 @@ export default function PcOverviewList() {
       }
 
       const savedData = await response.json();
-      const newPc = keysToCamel<PcOverview>(savedData.pcOverview); // Assuming key
+      const newPc = keysToCamel<PcOverview>(savedData.pcOverview);
       setPcOverviews(prev => [...prev, newPc]);
       setIsAddModalOpen(false);
 
@@ -111,12 +111,12 @@ export default function PcOverviewList() {
 
   const handleUpdatePc = async (formData: Record<string, any>) => {
     try {
-      if (!formData.pcId) { // Check camelCase ID
+      if (!formData.pcId) {
         throw new Error('PC ID is required');
       }
 
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/pc-overviews', { // Assuming endpoint
+      const response = await fetch('/api/pcs', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -128,7 +128,7 @@ export default function PcOverviewList() {
       }
 
       const data = await response.json();
-      const updatedPc = keysToCamel<PcOverview>(data.pcOverview); // Assuming key
+      const updatedPc = keysToCamel<PcOverview>(data.pcOverview);
 
       setPcOverviews(prev =>
         prev.map(pc =>
@@ -136,7 +136,6 @@ export default function PcOverviewList() {
         )
       );
       setSelectedPc(updatedPc);
-      // setSelectedPc(null); // Optionally close
 
     } catch (err) {
       console.error("Failed to update PC overview:", err);

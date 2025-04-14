@@ -34,7 +34,7 @@ export default function VmInstancesList() {
     setError(null);
     try {
       // Assuming the API endpoint is /api/vm-instances (adjust if different)
-      const response = await fetch('/api/vm-instances'); 
+      const response = await fetch('/api/vminstances');
       if (!response.ok) {
         throw new Error('Failed to fetch VM instances');
       }
@@ -67,7 +67,7 @@ export default function VmInstancesList() {
     try {
       // Convert outgoing camelCase keys to snake_case
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/vm-instances', { // Adjust endpoint if needed
+      const response = await fetch('/api/vminstances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -99,7 +99,7 @@ export default function VmInstancesList() {
 
       // Convert outgoing camelCase keys to snake_case
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/vm-instances', { // Adjust endpoint if needed
+      const response = await fetch('/api/vminstances', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),

@@ -50,12 +50,12 @@ export default function ProjectOverviewList() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/project-overviews'); // Assuming endpoint
+      const response = await fetch('/api/projectoverview');
       if (!response.ok) {
         throw new Error('Failed to fetch project overviews');
       }
       const data = await response.json();
-      setProjectOverviews(keysToCamel<ProjectOverview[]>(data.projectOverviews || [])); // Assuming key
+      setProjectOverviews(keysToCamel<ProjectOverview[]>(data.projectOverviews || []));
       setHasLoaded(true);
     } catch (err) {
       setError('Error loading project overviews: ' + (err instanceof Error ? err.message : String(err)));
@@ -87,7 +87,7 @@ export default function ProjectOverviewList() {
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/project-overviews', { // Assuming endpoint
+      const response = await fetch('/api/projectoverview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -99,7 +99,7 @@ export default function ProjectOverviewList() {
       }
 
       const savedData = await response.json();
-      const newOverview = keysToCamel<ProjectOverview>(savedData.projectOverview); // Assuming key
+      const newOverview = keysToCamel<ProjectOverview>(savedData.projectOverview);
       setProjectOverviews(prev => [...prev, newOverview]);
       setIsAddModalOpen(false);
 
@@ -111,12 +111,12 @@ export default function ProjectOverviewList() {
 
   const handleUpdateOverview = async (formData: Record<string, any>) => {
     try {
-      if (!formData.overviewId) { // Check camelCase ID
+      if (!formData.overviewId) {
         throw new Error('Overview ID is required');
       }
 
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/project-overviews', { // Assuming endpoint
+      const response = await fetch('/api/projectoverview', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -128,7 +128,7 @@ export default function ProjectOverviewList() {
       }
 
       const data = await response.json();
-      const updatedOverview = keysToCamel<ProjectOverview>(data.projectOverview); // Assuming key
+      const updatedOverview = keysToCamel<ProjectOverview>(data.projectOverview);
 
       setProjectOverviews(prev =>
         prev.map(ov =>
@@ -136,7 +136,6 @@ export default function ProjectOverviewList() {
         )
       );
       setSelectedOverview(updatedOverview);
-      // setSelectedOverview(null); // Optionally close
 
     } catch (err) {
       console.error("Failed to update project overview:", err);

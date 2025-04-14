@@ -51,12 +51,12 @@ export default function HilOperationList() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/hil-operations'); // Assuming endpoint
+      const response = await fetch('/api/hiloperation'); // Changed endpoint
       if (!response.ok) {
         throw new Error('Failed to fetch HIL operations');
       }
       const data = await response.json();
-      setHilOperations(keysToCamel<HilOperation[]>(data.hilOperations || [])); // Assuming key
+      setHilOperations(keysToCamel<HilOperation[]>(data.operations || [])); // Changed data.hilOperations to data.operations
       setHasLoaded(true);
     } catch (err) {
       setError('Error loading HIL operations: ' + (err instanceof Error ? err.message : String(err)));
@@ -88,7 +88,7 @@ export default function HilOperationList() {
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hil-operations', { // Assuming endpoint
+      const response = await fetch('/api/hiloperation', { // Changed endpoint
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -100,7 +100,7 @@ export default function HilOperationList() {
       }
 
       const savedData = await response.json();
-      const newOperation = keysToCamel<HilOperation>(savedData.hilOperation); // Assuming key
+      const newOperation = keysToCamel<HilOperation>(savedData.operation); // Changed savedData.hilOperation to savedData.operation
       setHilOperations(prev => [...prev, newOperation]);
       setIsAddModalOpen(false);
 
@@ -112,12 +112,12 @@ export default function HilOperationList() {
 
   const handleUpdateOperation = async (formData: Record<string, any>) => {
     try {
-      if (!formData.operationId) { // Check camelCase ID
-        throw new Error('Operation ID is required');
+      if (!formData.operationId) {
+        throw new Error('HIL Operation ID is required');
       }
 
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hil-operations', { // Assuming endpoint
+      const response = await fetch('/api/hiloperation', { // Changed endpoint
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -129,7 +129,7 @@ export default function HilOperationList() {
       }
 
       const data = await response.json();
-      const updatedOperation = keysToCamel<HilOperation>(data.hilOperation); // Assuming key
+      const updatedOperation = keysToCamel<HilOperation>(data.operation); // Changed data.hilOperation to data.operation
 
       setHilOperations(prev =>
         prev.map(op =>
