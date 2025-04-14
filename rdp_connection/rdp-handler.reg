@@ -1,0 +1,14 @@
+Windows Registry Editor Version 5.00
+; Register custom URL scheme "rdp" for Remote Desktop
+
+[HKEY_CLASSES_ROOT\rdp]
+@="URL:Remote Desktop Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\rdp\DefaultIcon]
+@="C:\\Windows\\System32\\mstsc.exe,1"
+
+[HKEY_CLASSES_ROOT\rdp\shell]
+[HKEY_CLASSES_ROOT\rdp\shell\open]
+[HKEY_CLASSES_ROOT\rdp\shell\open\command]
+@="\"C:\\Windows\\System32\\mstsc.exe\" /v:%1"

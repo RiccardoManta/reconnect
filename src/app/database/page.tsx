@@ -579,6 +579,7 @@ function ProjectsList() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -609,6 +610,114 @@ function ProjectsList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add project');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/projects');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setProjects(data.projects || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateProject = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the project_id is included
+      if (!formData.project_id) {
+        throw new Error('Project ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/projects', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update project');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setProjects(prev => 
+        prev.map(project => 
+          project.project_id === formData.project_id ? data.project : project
+        )
+      );
+      
+      // Also update the selected project
+      setSelectedProject(data.project);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'project_number',
+      label: 'Project Number',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'project_name',
+      label: 'Project Name',
+      type: 'text' as const,
+      required: true,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'project_id',
+      label: 'Project ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'project_number',
+      label: 'Project Number',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'project_name',
+      label: 'Project Name',
+      type: 'text' as const,
+      required: true,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -656,6 +765,25 @@ function ProjectsList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new project"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -754,11 +882,23 @@ function ProjectsList() {
       )}
 
       {selectedProject && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedProject !== null}
           onClose={() => setSelectedProject(null)}
           title={`Project Details: ${selectedProject.project_name}`}
           data={selectedProject}
+          fields={detailsFields}
+          onSave={handleUpdateProject}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New Project"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
@@ -772,6 +912,7 @@ function UsersList() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -802,6 +943,112 @@ function UsersList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add user');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/users');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setUsers(data.users || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateUser = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the user_id is included
+      if (!formData.user_id) {
+        throw new Error('User ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update user');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setUsers(prev => 
+        prev.map(user => 
+          user.user_id === formData.user_id ? data.user : user
+        )
+      );
+      
+      // Also update the selected user
+      setSelectedUser(data.user);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'user_name',
+      label: 'User Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'contact_info',
+      label: 'Contact Info',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'user_id',
+      label: 'User ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'user_name',
+      label: 'User Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'contact_info',
+      label: 'Contact Info',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -849,6 +1096,25 @@ function UsersList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new user"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -911,7 +1177,7 @@ function UsersList() {
                   backgroundColor: '#f9fafb'
                 }}>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Name</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>User Name</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Contact Info</th>
                 </tr>
               </thead>
@@ -947,11 +1213,23 @@ function UsersList() {
       )}
 
       {selectedUser && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedUser !== null}
           onClose={() => setSelectedUser(null)}
           title={`User Details: ${selectedUser.user_name}`}
           data={selectedUser}
+          fields={detailsFields}
+          onSave={handleUpdateUser}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New User"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
@@ -962,9 +1240,10 @@ function ModelStandsList() {
   const [modelStands, setModelStands] = useState<ModelStand[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelStand | null>(null);
+  const [selectedModelStand, setSelectedModelStand] = useState<ModelStand | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -995,6 +1274,122 @@ function ModelStandsList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/modelstands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add model stand');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/modelstands');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setModelStands(data.modelStands || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateModelStand = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the model_id is included
+      if (!formData.model_id) {
+        throw new Error('Model ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/modelstands', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update model stand');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setModelStands(prev => 
+        prev.map(model => 
+          model.model_id === formData.model_id ? data.modelStand : model
+        )
+      );
+      
+      // Also update the selected model stand
+      setSelectedModelStand(data.modelStand);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'model_name',
+      label: 'Model Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'svn_link',
+      label: 'SVN Link',
+      type: 'text' as const,
+    },
+    {
+      name: 'features',
+      label: 'Features',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'model_id',
+      label: 'Model ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'model_name',
+      label: 'Model Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'svn_link',
+      label: 'SVN Link',
+      type: 'text' as const,
+    },
+    {
+      name: 'features',
+      label: 'Features',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -1028,7 +1423,7 @@ function ModelStandsList() {
           gap: '0.5rem',
           margin: 0
         }}>
-          <Settings size={18} />
+          <Cpu size={18} />
           Model Stands {hasLoaded ? `(${modelStands.length})` : ''}
         </h2>
         <div style={{
@@ -1042,6 +1437,25 @@ function ModelStandsList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new model stand"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -1121,7 +1535,7 @@ function ModelStandsList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedModel(model)}
+                    onClick={() => setSelectedModelStand(model)}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -1141,12 +1555,24 @@ function ModelStandsList() {
         </div>
       )}
 
-      {selectedModel && (
-        <DetailsModal
-          isOpen={selectedModel !== null}
-          onClose={() => setSelectedModel(null)}
-          title={`Model Stand Details: ${selectedModel.model_name}`}
-          data={selectedModel}
+      {selectedModelStand && (
+        <EditableDetailsModal
+          isOpen={selectedModelStand !== null}
+          onClose={() => setSelectedModelStand(null)}
+          title={`Model Stand Details: ${selectedModelStand.model_name}`}
+          data={selectedModelStand}
+          fields={detailsFields}
+          onSave={handleUpdateModelStand}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New Model Stand"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
@@ -1160,6 +1586,21 @@ function HilTechnologyList() {
   const [selectedTechnology, setSelectedTechnology] = useState<HilTechnology | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch test benches for dropdown select
+      const testBenchesResponse = await fetch('/api/testbenches');
+      if (testBenchesResponse.ok) {
+        const testBenchesData = await testBenchesResponse.json();
+        setTestBenches(testBenchesData.testBenches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -1168,14 +1609,14 @@ function HilTechnologyList() {
     try {
       const response = await fetch('/api/hiltechnology');
       if (!response.ok) {
-        throw new Error('Failed to fetch HIL technology');
+        throw new Error('Failed to fetch HIL technology data');
       }
       const data = await response.json();
       setTechnology(data.technology || []);
       setHasLoaded(true);
     } catch (err) {
-      setError('Error loading HIL technology: ' + (err instanceof Error ? err.message : String(err)));
-      console.error('Error fetching HIL technology:', err);
+      setError('Error loading HIL technology data: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('Error fetching HIL technology data:', err);
     } finally {
       setLoading(false);
     }
@@ -1190,6 +1631,171 @@ function HilTechnologyList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch test benches for dropdown
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/hiltechnology', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add HIL technology');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/hiltechnology');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setTechnology(data.technology || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateTechnology = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the tech_id is included
+      if (!formData.tech_id) {
+        throw new Error('Technology ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/hiltechnology', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update HIL technology');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setTechnology(prev => 
+        prev.map(tech => 
+          tech.tech_id === formData.tech_id ? data.technology : tech
+        )
+      );
+      
+      // Also update the selected technology
+      setSelectedTechnology(data.technology);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'fiu_info',
+      label: 'FIU Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'io_info',
+      label: 'I/O Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'can_interface',
+      label: 'CAN Interface',
+      type: 'text' as const,
+    },
+    {
+      name: 'power_interface',
+      label: 'Power Interface',
+      type: 'text' as const,
+    },
+    {
+      name: 'possible_tests',
+      label: 'Possible Tests',
+      type: 'text' as const,
+    },
+    {
+      name: 'leakage_module',
+      label: 'Leakage Module',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'tech_id',
+      label: 'Technology ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'fiu_info',
+      label: 'FIU Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'io_info',
+      label: 'I/O Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'can_interface',
+      label: 'CAN Interface',
+      type: 'text' as const,
+    },
+    {
+      name: 'power_interface',
+      label: 'Power Interface',
+      type: 'text' as const,
+    },
+    {
+      name: 'possible_tests',
+      label: 'Possible Tests',
+      type: 'text' as const,
+    },
+    {
+      name: 'leakage_module',
+      label: 'Leakage Module',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -1237,6 +1843,25 @@ function HilTechnologyList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new HIL technology"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -1269,7 +1894,7 @@ function HilTechnologyList() {
                 animation: 'spin 1s linear infinite',
                 marginBottom: '0.5rem'
               }} />
-              <p style={{ margin: 0 }}>Loading HIL technology...</p>
+              <p style={{ margin: 0 }}>Loading HIL technology data...</p>
               <style jsx>{`
                 @keyframes spin {
                   from { transform: rotate(0deg); }
@@ -1309,7 +1934,7 @@ function HilTechnologyList() {
               <tbody>
                 {technology.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL technology found</td>
+                    <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL technology data found</td>
                   </tr>
                 ) : (
                   technology.map((tech) => (
@@ -1318,7 +1943,10 @@ function HilTechnologyList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedTechnology(tech)}
+                    onClick={() => {
+                      fetchRelatedData(); // Fetch test benches for edit modal
+                      setSelectedTechnology(tech);
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -1341,11 +1969,23 @@ function HilTechnologyList() {
       )}
 
       {selectedTechnology && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedTechnology !== null}
           onClose={() => setSelectedTechnology(null)}
           title={`HIL Technology Details: ${selectedTechnology.hil_name}`}
           data={selectedTechnology}
+          fields={detailsFields}
+          onSave={handleUpdateTechnology}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New HIL Technology"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
@@ -1359,6 +1999,21 @@ function HilOperationList() {
   const [selectedOperation, setSelectedOperation] = useState<HilOperation | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch test benches for dropdown select
+      const testBenchesResponse = await fetch('/api/testbenches');
+      if (testBenchesResponse.ok) {
+        const testBenchesData = await testBenchesResponse.json();
+        setTestBenches(testBenchesData.testBenches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -1367,14 +2022,14 @@ function HilOperationList() {
     try {
       const response = await fetch('/api/hiloperation');
       if (!response.ok) {
-        throw new Error('Failed to fetch HIL operation');
+        throw new Error('Failed to fetch HIL operation data');
       }
       const data = await response.json();
       setOperations(data.operations || []);
       setHasLoaded(true);
     } catch (err) {
-      setError('Error loading HIL operation: ' + (err instanceof Error ? err.message : String(err)));
-      console.error('Error fetching HIL operation:', err);
+      setError('Error loading HIL operation data: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('Error fetching HIL operation data:', err);
     } finally {
       setLoading(false);
     }
@@ -1389,6 +2044,151 @@ function HilOperationList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch test benches for dropdown
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/hiloperation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add HIL operation');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/hiloperation');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setOperations(data.operations || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateOperation = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the operation_id is included
+      if (!formData.operation_id) {
+        throw new Error('Operation ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/hiloperation', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update HIL operation');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setOperations(prev => 
+        prev.map(operation => 
+          operation.operation_id === formData.operation_id ? data.operation : operation
+        )
+      );
+      
+      // Also update the selected operation
+      setSelectedOperation(data.operation);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'possible_tests',
+      label: 'Possible Tests',
+      type: 'text' as const,
+    },
+    {
+      name: 'vehicle_datasets',
+      label: 'Vehicle Datasets',
+      type: 'text' as const,
+    },
+    {
+      name: 'scenarios',
+      label: 'Scenarios',
+      type: 'text' as const,
+    },
+    {
+      name: 'controldesk_projects',
+      label: 'ControlDesk Projects',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'operation_id',
+      label: 'Operation ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'possible_tests',
+      label: 'Possible Tests',
+      type: 'text' as const,
+    },
+    {
+      name: 'vehicle_datasets',
+      label: 'Vehicle Datasets',
+      type: 'text' as const,
+    },
+    {
+      name: 'scenarios',
+      label: 'Scenarios',
+      type: 'text' as const,
+    },
+    {
+      name: 'controldesk_projects',
+      label: 'ControlDesk Projects',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -1422,7 +2222,7 @@ function HilOperationList() {
           gap: '0.5rem',
           margin: 0
         }}>
-          <Activity size={18} />
+          <Gauge size={18} />
           HIL Operation {hasLoaded ? `(${operations.length})` : ''}
         </h2>
         <div style={{
@@ -1436,6 +2236,25 @@ function HilOperationList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new HIL operation"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -1468,7 +2287,7 @@ function HilOperationList() {
                 animation: 'spin 1s linear infinite',
                 marginBottom: '0.5rem'
               }} />
-              <p style={{ margin: 0 }}>Loading HIL operation...</p>
+              <p style={{ margin: 0 }}>Loading HIL operation data...</p>
               <style jsx>{`
                 @keyframes spin {
                   from { transform: rotate(0deg); }
@@ -1507,7 +2326,7 @@ function HilOperationList() {
               <tbody>
                 {operations.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL operation found</td>
+                    <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL operation data found</td>
                   </tr>
                 ) : (
                   operations.map((operation) => (
@@ -1516,7 +2335,10 @@ function HilOperationList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedOperation(operation)}
+                    onClick={() => {
+                      fetchRelatedData(); // Fetch test benches for edit modal
+                      setSelectedOperation(operation);
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -1538,11 +2360,23 @@ function HilOperationList() {
       )}
 
       {selectedOperation && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedOperation !== null}
           onClose={() => setSelectedOperation(null)}
           title={`HIL Operation Details: ${selectedOperation.hil_name}`}
           data={selectedOperation}
+          fields={detailsFields}
+          onSave={handleUpdateOperation}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New HIL Operation"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
@@ -1556,6 +2390,21 @@ function HardwareInstallationList() {
   const [selectedHardware, setSelectedHardware] = useState<HardwareInstallation | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch test benches for dropdown select
+      const testBenchesResponse = await fetch('/api/testbenches');
+      if (testBenchesResponse.ok) {
+        const testBenchesData = await testBenchesResponse.json();
+        setTestBenches(testBenchesData.testBenches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -1586,6 +2435,141 @@ function HardwareInstallationList() {
       fetchData();
     }
   };
+  
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch test benches for dropdown
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/hardware', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add hardware installation');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/hardware');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setHardware(data.hardware || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateHardware = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the install_id is included
+      if (!formData.install_id) {
+        throw new Error('Installation ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/hardware', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update hardware installation');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setHardware(prev => 
+        prev.map(hw => 
+          hw.install_id === formData.install_id ? data.hardware : hw
+        )
+      );
+      
+      // Also update the selected hardware
+      setSelectedHardware(data.hardware);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+  
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'ecu_info',
+      label: 'ECU Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'sensors',
+      label: 'Sensors',
+      type: 'text' as const,
+    },
+    {
+      name: 'additional_periphery',
+      label: 'Additional Periphery',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'install_id',
+      label: 'Installation ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'ecu_info',
+      label: 'ECU Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'sensors',
+      label: 'Sensors',
+      type: 'text' as const,
+    },
+    {
+      name: 'additional_periphery',
+      label: 'Additional Periphery',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -1633,6 +2617,25 @@ function HardwareInstallationList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new Hardware Installation"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -1713,7 +2716,10 @@ function HardwareInstallationList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedHardware(hw)}
+                    onClick={() => {
+                      setSelectedHardware(hw);
+                      fetchRelatedData(); // Fetch test benches for the dropdown
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -1735,13 +2741,23 @@ function HardwareInstallationList() {
       )}
 
       {selectedHardware && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedHardware !== null}
           onClose={() => setSelectedHardware(null)}
           title={`Hardware Installation Details: ${selectedHardware.hil_name}`}
           data={selectedHardware}
+          fields={detailsFields}
+          onSave={handleUpdateHardware}
         />
       )}
+
+      <AddEntryModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Add Hardware Installation"
+        fields={addEntryFields}
+        onSave={handleSaveEntry}
+      />
     </div>
   );
 }
@@ -1753,6 +2769,21 @@ function PcOverviewList() {
   const [selectedPc, setSelectedPc] = useState<PcOverview | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch test benches for dropdown select
+      const testBenchesResponse = await fetch('/api/testbenches');
+      if (testBenchesResponse.ok) {
+        const testBenchesData = await testBenchesResponse.json();
+        setTestBenches(testBenchesData.testBenches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -1783,6 +2814,253 @@ function PcOverviewList() {
       fetchData();
     }
   };
+  
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch test benches for dropdown
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/pcs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add PC overview');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/pcs');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setPcs(data.pcs || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdatePc = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the pc_id is included
+      if (!formData.pc_id) {
+        throw new Error('PC ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/pcs', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update PC overview');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setPcs(prev => 
+        prev.map(pc => 
+          pc.pc_id === formData.pc_id ? data.pc : pc
+        )
+      );
+      
+      // Also update the selected PC
+      setSelectedPc(data.pc);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+  
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'pc_name',
+      label: 'PC Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'purchase_year',
+      label: 'Purchase Year',
+      type: 'number' as const,
+    },
+    {
+      name: 'inventory_number',
+      label: 'Inventory Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'pc_role',
+      label: 'PC Role',
+      type: 'text' as const,
+    },
+    {
+      name: 'pc_model',
+      label: 'PC Model',
+      type: 'text' as const,
+    },
+    {
+      name: 'special_equipment',
+      label: 'Special Equipment',
+      type: 'text' as const,
+    },
+    {
+      name: 'mac_address',
+      label: 'MAC Address',
+      type: 'text' as const,
+    },
+    {
+      name: 'ip_address',
+      label: 'IP Address',
+      type: 'text' as const,
+    },
+    {
+      name: 'active_licenses',
+      label: 'Active Licenses',
+      type: 'text' as const,
+    },
+    {
+      name: 'installed_tools',
+      label: 'Installed Tools',
+      type: 'text' as const,
+    },
+    {
+      name: 'pc_info_text',
+      label: 'PC Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      options: [
+        { value: 'online', label: 'Online' },
+        { value: 'offline', label: 'Offline' },
+        { value: 'maintenance', label: 'Maintenance' },
+      ],
+    },
+    {
+      name: 'active_user',
+      label: 'Active User',
+      type: 'text' as const,
+    },
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'pc_id',
+      label: 'PC ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'pc_name',
+      label: 'PC Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'purchase_year',
+      label: 'Purchase Year',
+      type: 'number' as const,
+    },
+    {
+      name: 'inventory_number',
+      label: 'Inventory Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'pc_role',
+      label: 'PC Role',
+      type: 'text' as const,
+    },
+    {
+      name: 'pc_model',
+      label: 'PC Model',
+      type: 'text' as const,
+    },
+    {
+      name: 'special_equipment',
+      label: 'Special Equipment',
+      type: 'text' as const,
+    },
+    {
+      name: 'mac_address',
+      label: 'MAC Address',
+      type: 'text' as const,
+    },
+    {
+      name: 'ip_address',
+      label: 'IP Address',
+      type: 'text' as const,
+    },
+    {
+      name: 'active_licenses',
+      label: 'Active Licenses',
+      type: 'text' as const,
+    },
+    {
+      name: 'installed_tools',
+      label: 'Installed Tools',
+      type: 'text' as const,
+    },
+    {
+      name: 'pc_info_text',
+      label: 'PC Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      options: [
+        { value: 'online', label: 'Online' },
+        { value: 'offline', label: 'Offline' },
+        { value: 'maintenance', label: 'Maintenance' },
+      ],
+    },
+    {
+      name: 'active_user',
+      label: 'Active User',
+      type: 'text' as const,
+    },
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -1830,6 +3108,25 @@ function PcOverviewList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new PC"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -1914,7 +3211,10 @@ function PcOverviewList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedPc(pc)}
+                    onClick={() => {
+                      fetchRelatedData(); // Fetch test benches for the dropdown
+                      setSelectedPc(pc);
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -1962,13 +3262,23 @@ function PcOverviewList() {
       )}
 
       {selectedPc && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedPc !== null}
           onClose={() => setSelectedPc(null)}
           title={`PC Overview Details: ${selectedPc.pc_name}`}
           data={selectedPc}
+          fields={detailsFields}
+          onSave={handleUpdatePc}
         />
       )}
+
+      <AddEntryModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Add New PC"
+        fields={addEntryFields}
+        onSave={handleSaveEntry}
+      />
     </div>
   );
 }
@@ -1980,6 +3290,21 @@ function ProjectOverviewList() {
   const [selectedOverview, setSelectedOverview] = useState<ProjectOverview | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch test benches for dropdown select
+      const testBenchesResponse = await fetch('/api/testbenches');
+      if (testBenchesResponse.ok) {
+        const testBenchesData = await testBenchesResponse.json();
+        setTestBenches(testBenchesData.testBenches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -1991,7 +3316,7 @@ function ProjectOverviewList() {
         throw new Error('Failed to fetch project overview data');
       }
       const data = await response.json();
-      setOverviews(data.overviews || []);
+      setOverviews(data.projectOverviews || []);
       setHasLoaded(true);
     } catch (err) {
       setError('Error loading project overview data: ' + (err instanceof Error ? err.message : String(err)));
@@ -2010,6 +3335,191 @@ function ProjectOverviewList() {
       fetchData();
     }
   };
+  
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch test benches for dropdown
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/projectoverview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add project overview');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/projectoverview');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setOverviews(data.projectOverviews || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateOverview = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the overview_id is included
+      if (!formData.overview_id) {
+        throw new Error('Overview ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/projectoverview', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update project overview');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setOverviews(prev => 
+        prev.map(overview => 
+          overview.overview_id === formData.overview_id ? data.projectOverview : overview
+        )
+      );
+      
+      // Also update the selected overview
+      setSelectedOverview(data.projectOverview);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+  
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'platform',
+      label: 'Platform',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_supplier',
+      label: 'System Supplier',
+      type: 'text' as const,
+    },
+    {
+      name: 'wetbench_info',
+      label: 'Wetbench Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'actuator_info',
+      label: 'Actuator Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'hardware',
+      label: 'Hardware',
+      type: 'text' as const,
+    },
+    {
+      name: 'software',
+      label: 'Software',
+      type: 'text' as const,
+    },
+    {
+      name: 'model_version',
+      label: 'Model Version',
+      type: 'text' as const,
+    },
+    {
+      name: 'ticket_notes',
+      label: 'Ticket Notes',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'overview_id',
+      label: 'Overview ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'bench_id',
+      label: 'Test Bench',
+      type: 'select' as const,
+      required: true,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'platform',
+      label: 'Platform',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_supplier',
+      label: 'System Supplier',
+      type: 'text' as const,
+    },
+    {
+      name: 'wetbench_info',
+      label: 'Wetbench Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'actuator_info',
+      label: 'Actuator Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'hardware',
+      label: 'Hardware',
+      type: 'text' as const,
+    },
+    {
+      name: 'software',
+      label: 'Software',
+      type: 'text' as const,
+    },
+    {
+      name: 'model_version',
+      label: 'Model Version',
+      type: 'text' as const,
+    },
+    {
+      name: 'ticket_notes',
+      label: 'Ticket Notes',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -2057,6 +3567,25 @@ function ProjectOverviewList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new Project Overview"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -2138,7 +3667,10 @@ function ProjectOverviewList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedOverview(overview)}
+                    onClick={() => {
+                      fetchRelatedData(); // Fetch test benches for the dropdown
+                      setSelectedOverview(overview);
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -2161,36 +3693,47 @@ function ProjectOverviewList() {
       )}
 
       {selectedOverview && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedOverview !== null}
           onClose={() => setSelectedOverview(null)}
           title={`Project Overview Details: ${selectedOverview.hil_name}`}
           data={selectedOverview}
+          fields={detailsFields}
+          onSave={handleUpdateOverview}
         />
       )}
+
+      <AddEntryModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Add Project Overview"
+        fields={addEntryFields}
+        onSave={handleSaveEntry}
+      />
     </div>
   );
 }
 
 function VmInstancesList() {
-  const [vms, setVms] = useState<VmInstance[]>([]);
+  const [vmInstances, setVmInstances] = useState<VmInstance[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedVm, setSelectedVm] = useState<VmInstance | null>(null);
+  const [selectedVmInstance, setSelectedVmInstance] = useState<VmInstance | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
     
     setLoading(true);
     try {
-      const response = await fetch('/api/vms');
+      const response = await fetch('/api/vminstances');
       if (!response.ok) {
         throw new Error('Failed to fetch VM instances');
       }
       const data = await response.json();
-      setVms(data.vms || []);
+      setVmInstances(data.vmInstances || []);
       setHasLoaded(true);
     } catch (err) {
       setError('Error loading VM instances: ' + (err instanceof Error ? err.message : String(err)));
@@ -2209,6 +3752,122 @@ function VmInstancesList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/vminstances', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add VM instance');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/vminstances');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setVmInstances(data.vmInstances || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateVmInstance = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the vm_id is included
+      if (!formData.vm_id) {
+        throw new Error('VM ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/vminstances', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update VM instance');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setVmInstances(prev => 
+        prev.map(vm => 
+          vm.vm_id === formData.vm_id ? data.vmInstance : vm
+        )
+      );
+      
+      // Also update the selected VM instance
+      setSelectedVmInstance(data.vmInstance);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'vm_name',
+      label: 'VM Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'vm_address',
+      label: 'VM Address',
+      type: 'text' as const,
+    },
+    {
+      name: 'installed_tools',
+      label: 'Installed Tools',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'vm_id',
+      label: 'VM ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'vm_name',
+      label: 'VM Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'vm_address',
+      label: 'VM Address',
+      type: 'text' as const,
+    },
+    {
+      name: 'installed_tools',
+      label: 'Installed Tools',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -2242,8 +3901,8 @@ function VmInstancesList() {
           gap: '0.5rem',
           margin: 0
         }}>
-          <HardDrive size={18} />
-          VM Instances {hasLoaded ? `(${vms.length})` : ''}
+          <Monitor size={18} />
+          VM Instances {hasLoaded ? `(${vmInstances.length})` : ''}
         </h2>
         <div style={{
           display: 'flex',
@@ -2256,6 +3915,25 @@ function VmInstancesList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new VM instance"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -2324,18 +4002,18 @@ function VmInstancesList() {
                 </tr>
               </thead>
               <tbody>
-                {vms.length === 0 ? (
+                {vmInstances.length === 0 ? (
                   <tr>
                     <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No VM instances found</td>
                   </tr>
                 ) : (
-                  vms.map((vm) => (
+                  vmInstances.map((vm) => (
                     <tr key={vm.vm_id} style={{
                       borderBottom: '1px solid #e5e7eb',
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedVm(vm)}
+                    onClick={() => setSelectedVmInstance(vm)}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -2355,12 +4033,24 @@ function VmInstancesList() {
         </div>
       )}
 
-      {selectedVm && (
-        <DetailsModal
-          isOpen={selectedVm !== null}
-          onClose={() => setSelectedVm(null)}
-          title={`VM Instance Details: ${selectedVm.vm_name}`}
-          data={selectedVm}
+      {selectedVmInstance && (
+        <EditableDetailsModal
+          isOpen={selectedVmInstance !== null}
+          onClose={() => setSelectedVmInstance(null)}
+          title={`VM Instance Details: ${selectedVmInstance.vm_name}`}
+          data={selectedVmInstance}
+          fields={detailsFields}
+          onSave={handleUpdateVmInstance}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New VM Instance"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
@@ -2374,6 +4064,21 @@ function LicensesList() {
   const [selectedLicense, setSelectedLicense] = useState<License | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [pcs, setPcs] = useState<PcOverview[]>([]);
+
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch PCs for dropdown select
+      const pcsResponse = await fetch('/api/pcs');
+      if (pcsResponse.ok) {
+        const pcsData = await pcsResponse.json();
+        setPcs(pcsData.pcs || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -2404,6 +4109,151 @@ function LicensesList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch PCs for dropdown
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/licenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add license');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/licenses');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setLicenses(data.licenses || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateLicense = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the license_id is included
+      if (!formData.license_id) {
+        throw new Error('License ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/licenses', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update license');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setLicenses(prev => 
+        prev.map(license => 
+          license.license_id === formData.license_id ? data.license : license
+        )
+      );
+      
+      // Also update the selected license
+      setSelectedLicense(data.license);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'tool_name',
+      label: 'Tool Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'license_number',
+      label: 'License Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'maintenance_end',
+      label: 'Maintenance End',
+      type: 'date' as const,
+    },
+    {
+      name: 'owner',
+      label: 'Owner',
+      type: 'text' as const,
+    },
+    {
+      name: 'assigned_pc_id',
+      label: 'Assigned PC',
+      type: 'select' as const,
+      options: pcs.map(pc => ({
+        value: String(pc.pc_id),
+        label: pc.pc_name,
+      })),
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'license_id',
+      label: 'License ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'tool_name',
+      label: 'Tool Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'license_number',
+      label: 'License Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'maintenance_end',
+      label: 'Maintenance End',
+      type: 'date' as const,
+    },
+    {
+      name: 'owner',
+      label: 'Owner',
+      type: 'text' as const,
+    },
+    {
+      name: 'assigned_pc_id',
+      label: 'Assigned PC',
+      type: 'select' as const,
+      options: pcs.map(pc => ({
+        value: String(pc.pc_id),
+        label: pc.pc_name,
+      })),
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -2437,7 +4287,7 @@ function LicensesList() {
           gap: '0.5rem',
           margin: 0
         }}>
-          <Tool size={18} />
+          <Lock size={18} />
           Licenses {hasLoaded ? `(${licenses.length})` : ''}
         </h2>
         <div style={{
@@ -2451,6 +4301,25 @@ function LicensesList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new license"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -2531,7 +4400,10 @@ function LicensesList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedLicense(license)}
+                    onClick={() => {
+                      fetchRelatedData(); // Fetch PCs for edit modal
+                      setSelectedLicense(license);
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -2553,11 +4425,23 @@ function LicensesList() {
       )}
 
       {selectedLicense && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedLicense !== null}
           onClose={() => setSelectedLicense(null)}
           title={`License Details: ${selectedLicense.tool_name}`}
           data={selectedLicense}
+          fields={detailsFields}
+          onSave={handleUpdateLicense}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New License"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>
@@ -2571,6 +4455,21 @@ function WetbenchesList() {
   const [selectedWetbench, setSelectedWetbench] = useState<Wetbench | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+
+  const fetchRelatedData = async () => {
+    try {
+      // Fetch test benches for dropdown select
+      const testBenchesResponse = await fetch('/api/testbenches');
+      if (testBenchesResponse.ok) {
+        const testBenchesData = await testBenchesResponse.json();
+        setTestBenches(testBenchesData.testBenches || []);
+      }
+    } catch (err) {
+      console.error('Error fetching related data:', err);
+    }
+  };
 
   const fetchData = async () => {
     if (hasLoaded) return; // Don't fetch if already loaded
@@ -2601,6 +4500,201 @@ function WetbenchesList() {
       fetchData();
     }
   };
+
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the toggle expand
+    fetchRelatedData(); // Fetch test benches for dropdown
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (formData: Record<string, any>) => {
+    try {
+      const response = await fetch('/api/wetbenches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add wetbench');
+      }
+
+      // Refresh the list after adding
+      const refreshResponse = await fetch('/api/wetbenches');
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setWetbenches(data.wetbenches || []);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleUpdateWetbench = async (formData: Record<string, any>) => {
+    try {
+      // Make sure the wetbench_id is included
+      if (!formData.wetbench_id) {
+        throw new Error('Wetbench ID is required');
+      }
+
+      // Send the update request
+      const response = await fetch('/api/wetbenches', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update wetbench');
+      }
+
+      // Get the updated data
+      const data = await response.json();
+      
+      // Update the local state
+      setWetbenches(prev => 
+        prev.map(wetbench => 
+          wetbench.wetbench_id === formData.wetbench_id ? data.wetbench : wetbench
+        )
+      );
+      
+      // Also update the selected wetbench
+      setSelectedWetbench(data.wetbench);
+
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Define fields for the add entry modal
+  const addEntryFields = [
+    {
+      name: 'wetbench_name',
+      label: 'Wetbench Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'pp_number',
+      label: 'PP Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'owner',
+      label: 'Owner',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_type',
+      label: 'System Type',
+      type: 'text' as const,
+    },
+    {
+      name: 'platform',
+      label: 'Platform',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_supplier',
+      label: 'System Supplier',
+      type: 'text' as const,
+    },
+    {
+      name: 'linked_bench_id',
+      label: 'Linked Test Bench',
+      type: 'select' as const,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'actuator_info',
+      label: 'Actuator Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'hardware_components',
+      label: 'Hardware Components',
+      type: 'text' as const,
+    },
+    {
+      name: 'inventory_number',
+      label: 'Inventory Number',
+      type: 'text' as const,
+    }
+  ];
+
+  // Define fields for the editable details modal
+  const detailsFields = [
+    {
+      name: 'wetbench_id',
+      label: 'Wetbench ID',
+      type: 'number' as const,
+      editable: false, // ID shouldn't be editable
+    },
+    {
+      name: 'wetbench_name',
+      label: 'Wetbench Name',
+      type: 'text' as const,
+      required: true,
+    },
+    {
+      name: 'pp_number',
+      label: 'PP Number',
+      type: 'text' as const,
+    },
+    {
+      name: 'owner',
+      label: 'Owner',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_type',
+      label: 'System Type',
+      type: 'text' as const,
+    },
+    {
+      name: 'platform',
+      label: 'Platform',
+      type: 'text' as const,
+    },
+    {
+      name: 'system_supplier',
+      label: 'System Supplier',
+      type: 'text' as const,
+    },
+    {
+      name: 'linked_bench_id',
+      label: 'Linked Test Bench',
+      type: 'select' as const,
+      options: testBenches.map(bench => ({
+        value: String(bench.bench_id),
+        label: bench.hil_name,
+      })),
+    },
+    {
+      name: 'actuator_info',
+      label: 'Actuator Info',
+      type: 'text' as const,
+    },
+    {
+      name: 'hardware_components',
+      label: 'Hardware Components',
+      type: 'text' as const,
+    },
+    {
+      name: 'inventory_number',
+      label: 'Inventory Number',
+      type: 'text' as const,
+    }
+  ];
 
   return (
     <div style={{ marginTop: '2rem' }}>
@@ -2648,6 +4742,25 @@ function WetbenchesList() {
               color: '#6b7280'
             }} />
           )}
+          <button
+            onClick={handleAddClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Add new wetbench"
+          >
+            <Plus size={16} />
+          </button>
           <div style={{
             transform: `rotate(${isExpanded ? 180 : 0}deg)`,
             transition: 'transform 0.2s'
@@ -2729,7 +4842,10 @@ function WetbenchesList() {
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setSelectedWetbench(wetbench)}
+                    onClick={() => {
+                      fetchRelatedData(); // Fetch test benches for edit modal
+                      setSelectedWetbench(wetbench);
+                    }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
@@ -2752,11 +4868,23 @@ function WetbenchesList() {
       )}
 
       {selectedWetbench && (
-        <DetailsModal
+        <EditableDetailsModal
           isOpen={selectedWetbench !== null}
           onClose={() => setSelectedWetbench(null)}
           title={`Wetbench Details: ${selectedWetbench.wetbench_name}`}
           data={selectedWetbench}
+          fields={detailsFields}
+          onSave={handleUpdateWetbench}
+        />
+      )}
+
+      {isAddModalOpen && (
+        <AddEntryModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New Wetbench"
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>

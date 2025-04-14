@@ -2,43 +2,43 @@ import { NextResponse } from 'next/server';
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// GET method to fetch all projects
+// GET method to fetch all VM instances
 export async function GET() {
   try {
-    // Use absolute path for Next.js
+    // Use absolute path for Next.js - correctly pointing to src/db/reconnect.db
     const dbPath = path.resolve(process.cwd(), 'src/db/reconnect.db');
     const db = new Database(dbPath);
     
-    // Get all projects
-    const projects = db.prepare('SELECT * FROM projects ORDER BY project_id').all();
+    // Get all VM instances
+    const vmInstances = db.prepare('SELECT * FROM vm_instances ORDER BY vm_id').all();
     
     // Close the database connection
     db.close();
     
-    return NextResponse.json({ projects });
+    return NextResponse.json({ vmInstances });
   } catch (error) {
-    console.error('Error fetching projects:', error);
+    console.error('Error fetching VM instances:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch projects' },
+      { error: 'Failed to fetch VM instances' },
       { status: 500 }
     );
   }
 } 
 
-// POST method to add a new project
+// POST method to add a new VM instance
 export async function POST(request) {
   try {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.project_name) {
+    if (!body.vm_name) {
       return NextResponse.json(
-        { error: 'Project Name is required' },
+        { error: 'VM Name is required' },
         { status: 400 }
       );
     }
 
-    // Use absolute path for Next.js
+    // Use absolute path for Next.js - correctly pointing to src/db/reconnect.db
     const dbPath = path.resolve(process.cwd(), 'src/db/reconnect.db');
     const db = new Database(dbPath);
 
@@ -46,23 +46,25 @@ export async function POST(request) {
       // Start a transaction
       db.exec('BEGIN TRANSACTION');
       
-      // Insert into projects table
+      // Insert into vm_instances table
       const result = db.prepare(`
-        INSERT INTO projects (
-          project_number, 
-          project_name
-        ) VALUES (?, ?)
+        INSERT INTO vm_instances (
+          vm_name, 
+          vm_address, 
+          installed_tools
+        ) VALUES (?, ?, ?)
       `).run(
-        body.project_number || null,
-        body.project_name
+        body.vm_name,
+        body.vm_address || null,
+        body.installed_tools || null
       );
       
       // Commit the transaction
       db.exec('COMMIT');
       
-      // Get the newly added project
-      const newProject = db.prepare(`
-        SELECT * FROM projects WHERE project_id = ?
+      // Get the newly added VM instance
+      const newVmInstance = db.prepare(`
+        SELECT * FROM vm_instances WHERE vm_id = ?
       `).get(result.lastInsertRowid);
       
       // Close the database connection
@@ -70,8 +72,8 @@ export async function POST(request) {
       
       return NextResponse.json({ 
         success: true, 
-        message: 'Project added successfully',
-        project: newProject
+        message: 'VM instance added successfully',
+        vmInstance: newVmInstance
       });
     } catch (error) {
       // Rollback on error
@@ -79,35 +81,35 @@ export async function POST(request) {
       throw error;
     }
   } catch (error) {
-    console.error('Error adding project:', error);
+    console.error('Error adding VM instance:', error);
     return NextResponse.json(
-      { error: 'Failed to add project: ' + error.message },
+      { error: 'Failed to add VM instance: ' + error.message },
       { status: 500 }
     );
   }
 }
 
-// PUT method to update an existing project
+// PUT method to update an existing VM instance
 export async function PUT(request) {
   try {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.project_id) {
+    if (!body.vm_id) {
       return NextResponse.json(
-        { error: 'Project ID is required' },
+        { error: 'VM ID is required' },
         { status: 400 }
       );
     }
 
-    if (!body.project_name) {
+    if (!body.vm_name) {
       return NextResponse.json(
-        { error: 'Project Name is required' },
+        { error: 'VM Name is required' },
         { status: 400 }
       );
     }
 
-    // Use absolute path for Next.js
+    // Use absolute path for Next.js - correctly pointing to src/db/reconnect.db
     const dbPath = path.resolve(process.cwd(), 'src/db/reconnect.db');
     const db = new Database(dbPath);
 
@@ -115,33 +117,35 @@ export async function PUT(request) {
       // Start a transaction
       db.exec('BEGIN TRANSACTION');
       
-      // Update the project record
+      // Update the VM instance record
       db.prepare(`
-        UPDATE projects SET
-          project_number = ?, 
-          project_name = ?
-        WHERE project_id = ?
+        UPDATE vm_instances SET
+          vm_name = ?, 
+          vm_address = ?, 
+          installed_tools = ?
+        WHERE vm_id = ?
       `).run(
-        body.project_number || null,
-        body.project_name,
-        body.project_id
+        body.vm_name,
+        body.vm_address || null,
+        body.installed_tools || null,
+        body.vm_id
       );
       
       // Commit the transaction
       db.exec('COMMIT');
       
-      // Get the updated project
-      const updatedProject = db.prepare(`
-        SELECT * FROM projects WHERE project_id = ?
-      `).get(body.project_id);
+      // Get the updated VM instance
+      const updatedVmInstance = db.prepare(`
+        SELECT * FROM vm_instances WHERE vm_id = ?
+      `).get(body.vm_id);
       
       // Close the database connection
       db.close();
       
       return NextResponse.json({ 
         success: true, 
-        message: 'Project updated successfully',
-        project: updatedProject
+        message: 'VM instance updated successfully',
+        vmInstance: updatedVmInstance
       });
     } catch (error) {
       // Rollback on error
@@ -149,9 +153,9 @@ export async function PUT(request) {
       throw error;
     }
   } catch (error) {
-    console.error('Error updating project:', error);
+    console.error('Error updating VM instance:', error);
     return NextResponse.json(
-      { error: 'Failed to update project: ' + error.message },
+      { error: 'Failed to update VM instance: ' + error.message },
       { status: 500 }
     );
   }
