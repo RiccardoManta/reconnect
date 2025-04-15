@@ -7,10 +7,12 @@ const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", 
 interface AddServerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (serverData: ServerData) => void;
+  onSubmit: (serverData: ServerData, dbId?: number) => void;
+  initialData?: ServerData | null;
 }
 
 export interface ServerData {
+  dbId?: number;
   name: string;
   platform: string;
   bench_type: string;
@@ -19,21 +21,28 @@ export interface ServerData {
   user: string;
 }
 
-export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModalProps) {
+export default function AddServerModal({ isOpen, onClose, onSubmit, initialData }: AddServerModalProps) {
   const [categories, setCategories] = useState<string[]>(fallbackCategories);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [formData, setFormData] = useState<ServerData>({
-    name: '',
-    platform: '',
-    bench_type: '',
-    description: '',
-    status: 'online',
-    user: '',
-  });
+  const [formData, setFormData] = useState<Partial<ServerData>>({});
 
-  // Fetch categories from the API when modal opens
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      setFormData({
+        name: '',
+        platform: categories[0] || fallbackCategories[0],
+        bench_type: '',
+        description: '',
+        status: 'online',
+        user: ''
+      });
+    }
+  }, [initialData, categories, isOpen]);
+
   useEffect(() => {
     if (isOpen) {
       async function fetchCategories() {
@@ -43,27 +52,34 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
             const data = await response.json();
             if (data.categories && data.categories.length > 0) {
               setCategories(data.categories);
-              // Set the first category as default
-              setFormData(prev => ({ ...prev, platform: data.categories[0] }));
+              if (!initialData) {
+                setFormData(prev => ({ ...prev, platform: data.categories[0] }));
+              }
             } else {
               setCategories(fallbackCategories);
-              setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+              if (!initialData) {
+                setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+              }
             }
           } else {
             console.error('Failed to fetch categories');
             setCategories(fallbackCategories);
-            setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+            if (!initialData) {
+              setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+            }
           }
         } catch (err) {
           console.error('Error fetching categories:', err);
           setCategories(fallbackCategories);
-          setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+          if (!initialData) {
+            setFormData(prev => ({ ...prev, platform: fallbackCategories[0] }));
+          }
         }
       }
       
       fetchCategories();
     }
-  }, [isOpen]);
+  }, [isOpen, initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -81,10 +97,13 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
     setError(null);
     setIsSubmitting(true);
     
+    const isEditing = !!initialData?.dbId;
+    const url = isEditing ? `/api/servers?id=${initialData.dbId}` : '/api/servers';
+    const method = isEditing ? 'PUT' : 'POST';
+
     try {
-      // Send data to the API
-      const response = await fetch('/api/servers', {
-        method: 'POST',
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -94,39 +113,26 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to add server');
+        throw new Error(data.error || (isEditing ? 'Failed to update server' : 'Failed to add server'));
       }
       
-      // Pass the server data to the parent component
-      if (data.server) {
-        onAdd({
-          name: data.server.hil_name,
-          platform: data.server.category || 'Uncategorized',
-          bench_type: data.server.subcategory || '',
-          description: data.server.description || '',
-          status: data.server.status === 'offline' ? 'offline' : 
-                data.server.status === 'in use' ? 'in_use' : 'online',
-          user: data.server.active_user || '',
-        });
-      } else {
-        // Fallback to using form data if server data isn't returned
-        onAdd(formData);
-      }
+      onSubmit(formData as ServerData, initialData?.dbId);
       
       onClose();
       
-      // Reset form
-      setFormData({
-        name: '',
-        platform: categories[0] || 'Servers',
-        bench_type: '',
-        description: '',
-        status: 'online',
-        user: '',
-      });
+      if (!isEditing) {
+        setFormData({
+          name: '',
+          platform: categories[0] || 'Servers',
+          bench_type: '',
+          description: '',
+          status: 'online',
+          user: ''
+        });
+      }
     } catch (err: any) {
-      console.error('Error adding server:', err);
-      setError(err.message || 'Failed to add server');
+      console.error(`Error ${isEditing ? 'updating' : 'adding'} server:`, err);
+      setError(err.message || `Failed to ${isEditing ? 'update' : 'add'} server`);
     } finally {
       setIsSubmitting(false);
     }
@@ -136,14 +142,12 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
 
   return (
     <>
-      {/* Backdrop with blur effect */}
       <div className="fixed inset-0 z-40" style={{ 
         backdropFilter: 'blur(5px)',
         backgroundColor: 'rgba(0, 0, 0, 0.3)',
         pointerEvents: 'auto'
       }} onClick={onClose}></div>
       
-      {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-50" style={{ pointerEvents: 'none' }}>
         <div 
           style={{
@@ -169,7 +173,9 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
               fontWeight: 'bold', 
               color: '#0F3460',
               margin: 0
-            }}>Add New Testbench</h3>
+            }}>
+              {initialData ? 'Edit Testbench' : 'Add New Testbench'}
+            </h3>
             
             <button 
               onClick={onClose} 
@@ -226,7 +232,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 type="text"
                 id="name"
                 name="name"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={handleChange}
                 style={{
                   width: '100%',
@@ -263,7 +269,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
               <select
                 id="platform"
                 name="platform"
-                value={formData.platform}
+                value={formData.platform || ''}
                 onChange={handleChange}
                 style={{
                   width: '100%',
@@ -311,7 +317,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 type="text"
                 id="bench_type"
                 name="bench_type"
-                value={formData.bench_type}
+                value={formData.bench_type || ''}
                 onChange={handleChange}
                 style={{
                   width: '100%',
@@ -347,8 +353,9 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
               <textarea
                 id="description"
                 name="description"
-                value={formData.description}
+                value={formData.description || ''}
                 onChange={handleChange}
+                rows={3}
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -409,7 +416,7 @@ export default function AddServerModal({ isOpen, onClose, onAdd }: AddServerModa
                 onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0a2647'}
                 onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0F3460'}
               >
-                Add Testbench
+                {isSubmitting ? (initialData ? 'Saving...' : 'Adding...') : (initialData ? 'Save Changes' : 'Add Testbench')}
               </button>
             </div>
           </form>

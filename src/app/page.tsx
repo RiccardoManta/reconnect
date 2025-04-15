@@ -29,6 +29,17 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // --- State for Edit Modal ---
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [serverToEdit, setServerToEdit] = useState<ServerData | null>(null);
+  
+  // --- State for Delete Confirmation Dialog ---
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [serverToDeleteId, setServerToDeleteId] = useState<number | null>(null);
+  const [serverToDeleteName, setServerToDeleteName] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  
   // Fetch categories from the API
   useEffect(() => {
     async function fetchCategories() {
@@ -89,6 +100,7 @@ export default function Home() {
         }
         
         const mappedServers = data.servers.map((server: ApiServerData) => ({
+          dbId: server.bench_id,
           name: server.hil_name || 'Unnamed Server',
           platform: server.category || 'Uncategorized',
           bench_type: server.subcategory || '',
@@ -121,8 +133,73 @@ export default function Home() {
   }, {} as Record<string, ServerData[]>);
 
   const handleAddServer = (serverData: ServerData) => {
-    // Refresh the server list to include the newly added server
     fetchServers();
+  };
+
+  // --- Edit Modal Handlers ---
+  const openEditModal = (server: ServerData) => {
+    setServerToEdit(server);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setServerToEdit(null);
+  };
+
+  const handleEditSubmit = (serverData: ServerData, dbId?: number) => {
+    // API call was handled by the modal, just refetch to update the list
+    fetchServers();
+    closeEditModal(); // Close modal after submit
+  };
+
+  // Function to remove a server from the frontend state using dbId
+  const handleDeleteServer = (idToDelete: number) => {
+    setServers(prevServers => prevServers.filter(server => server.dbId !== idToDelete));
+  };
+
+  // --- Delete Dialog Handlers ---
+  const openDeleteDialog = (dbId: number, serverName: string) => {
+    setServerToDeleteId(dbId);
+    setServerToDeleteName(serverName);
+    setShowDeleteDialog(true);
+    setDeleteError(null); // Clear previous errors
+  };
+
+  const closeDeleteDialog = () => {
+    setShowDeleteDialog(false);
+    setServerToDeleteId(null);
+    setServerToDeleteName('');
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (serverToDeleteId === null) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/servers?id=${serverToDeleteId}`, { 
+        method: 'DELETE' 
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete server from database');
+      }
+
+      // If API delete is successful, update frontend state
+      handleDeleteServer(serverToDeleteId); // Call the existing frontend state update function
+      closeDeleteDialog(); // Close the dialog
+
+    } catch (err) {
+      console.error("Error deleting server:", err);
+      setDeleteError(err instanceof Error ? err.message : 'An unknown error occurred');
+      // Keep dialog open to show error
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Handle category click from the sidebar
@@ -238,12 +315,16 @@ export default function Home() {
           <ServerCard
             key={`${category}-${index}`}
             id={`server-${category.toLowerCase()}-${index}`}
+            dbId={server.dbId}
             name={server.name}
             platform={server.platform}
             bench_type={server.bench_type}
             description={server.description}
             status={server.status}
             user={server.user}
+            onDelete={handleDeleteServer}
+            onOpenDeleteDialog={openDeleteDialog}
+            onOpenEditModal={openEditModal}
           />
         ))}
         
@@ -286,11 +367,119 @@ export default function Home() {
         </div>
       </div>
       
+      {/* Add Server Modal */}
       <AddServerModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onAdd={handleAddServer}
+        onSubmit={handleAddServer}
       />
+
+      {/* Edit Server Modal - Reusing AddServerModal */}
+      <AddServerModal
+        isOpen={isEditModalOpen}
+        onClose={closeEditModal}
+        onSubmit={handleEditSubmit}
+        initialData={serverToEdit}
+      />
+
+      {/* Delete Confirmation Dialog - Rendered at Page Level */}
+      {showDeleteDialog && (
+        <>
+          {/* Backdrop */}
+          <div 
+            style={{ 
+              position: 'fixed', 
+              inset: 0, 
+              backdropFilter: 'blur(5px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              zIndex: 100, 
+              pointerEvents: 'auto'
+            }} 
+            onClick={closeDeleteDialog}
+          />
+          {/* Centering Wrapper */}
+          <div 
+            className="fixed inset-0 flex items-center justify-center z-101"
+            style={{ pointerEvents: 'none' }}
+          >
+            {/* Dialog Box */}
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '400px',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+              animation: 'modalFadeIn 0.3s ease-out',
+              pointerEvents: 'auto'
+            }}>
+              {/* Dialog Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #f0f0f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ 
+                  fontSize: '18px',
+                  fontWeight: 'bold', 
+                  color: '#0F3460',
+                  margin: 0
+                }}>Confirm Deletion</h3>
+              </div>
+
+              {/* Dialog Content */}
+              <div style={{ padding: '24px' }}> 
+                <p style={{ margin: '0 0 1.5rem 0', color: '#4b5563', fontSize: '15px', lineHeight: '1.6' }}>
+                  Are you sure you want to delete the server '{serverToDeleteName}'? This action cannot be undone.
+                </p>
+                
+                {deleteError && (
+                  <p style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '1.5rem', marginTop:'-0.5rem' }}>
+                    Error: {deleteError}
+                  </p>
+                )}
+                
+                {/* Dialog Actions */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                  <button 
+                    onClick={closeDeleteDialog}
+                    style={{ 
+                      padding: '8px 16px',
+                      border: '1px solid #d1d5db', 
+                      borderRadius: '8px', 
+                      backgroundColor: 'white', 
+                      color: '#374151', 
+                      cursor: 'pointer', 
+                      fontSize: '14px',
+                      opacity: isDeleting ? 0.7 : 1
+                    }}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleConfirmDelete}
+                    style={{ 
+                      padding: '8px 16px',
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      backgroundColor: '#ef4444',
+                      color: 'white', 
+                      cursor: 'pointer', 
+                      fontSize: '14px',
+                      opacity: isDeleting ? 0.7 : 1
+                    }}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete Server'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }

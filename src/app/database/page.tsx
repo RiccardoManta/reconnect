@@ -241,6 +241,7 @@ export default function DatabasePage() {
           
           {/* Display all database tables using imported components */}
           <TestBenchList />
+          <PcOverviewList />
           <ProjectsList />
           <UsersList />
           <ModelStandsList />
@@ -250,7 +251,6 @@ export default function DatabasePage() {
           <HilTechnologyList />
           <HilOperationList />
           <HardwareInstallationList />
-          <PcOverviewList />
           <ProjectOverviewList />
         </div> {/* End Inner Wrapper */}
       </div> {/* End Content Wrapper */}
