@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Server, Circle, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Server, Circle } from 'lucide-react';
 import { ServerData } from '@/components/server/AddServerModal';
 
 interface SidebarProps {
@@ -7,7 +7,6 @@ interface SidebarProps {
   categories: string[];
   onCategoryClick: (category: string) => void;
   onServerClick: (serverElementId: string) => void;
-  onAddServerClick?: () => void;
 }
 
 export default function Sidebar({
@@ -15,7 +14,6 @@ export default function Sidebar({
   categories,
   onCategoryClick,
   onServerClick,
-  onAddServerClick,
 }: SidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
     // Initialize all categories as expanded
@@ -59,78 +57,130 @@ export default function Sidebar({
   };
 
   return (
-    <div className="w-[380px] border-r border-gray-200 bg-gray-50 /*h-[calc(100vh-73px)]*/ overflow-y-auto p-4 flex flex-col flex-shrink-0">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
-          Server Explorer
-        </h3>
-        {/* Add Server Button */}        
-        {onAddServerClick && ( 
-          <button
-            onClick={onAddServerClick}
-            className="p-1.5 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
-            title="Add New Server"
-          >
-            <Plus size={18} />
-          </button>
-        )}
-      </div>
+    <div style={{
+      width: '380px',
+      borderRight: '1px solid #e2e8f0',
+      backgroundColor: '#f8fafc',
+      height: 'calc(100vh - 73px)', // Subtract header height
+      overflowY: 'auto',
+      padding: '1rem'
+    }}>
+      <h3 style={{
+        fontSize: '0.9rem',
+        fontWeight: 'bold',
+        color: '#64748b',
+        textTransform: 'uppercase',
+        marginBottom: '1rem',
+        letterSpacing: '0.05em'
+      }}>
+        Server Explorer
+      </h3>
 
-      {/* Categories and Servers List */}      
-      <div className="flex-grow">
-        {categories.map((category) => (
-          <div key={category} className="mb-2">
-            {/* Category header */}            
+      <div>
+        {categories.map(category => (
+          <div key={category} style={{ marginBottom: '0.5rem' }}>
+            {/* Category header */}
             <div
               onClick={() => onCategoryClick(category)}
-              className="flex items-center p-2 rounded-md cursor-pointer bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200 transition-colors"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0.5rem',
+                borderRadius: '0.375rem',
+                cursor: 'pointer',
+                backgroundColor: '#edf2f7',
+                color: '#0F3460',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => {
+                const target = e.currentTarget as HTMLDivElement;
+                target.style.backgroundColor = '#e2e8f0';
+              }}
+              onMouseOut={(e) => {
+                const target = e.currentTarget as HTMLDivElement;
+                target.style.backgroundColor = '#edf2f7';
+              }}
             >
               <span
                 onClick={(e) => toggleCategory(category, e)}
-                className="inline-flex mr-2 cursor-pointer p-1 hover:bg-gray-300 rounded"
+                style={{
+                  display: 'inline-flex',
+                  marginRight: '0.5rem',
+                  cursor: 'pointer',
+                }}
               >
-                {expandedCategories[category] ? (
-                  <ChevronDown size={18} />
-                ) : (
+                {expandedCategories[category] ?
+                  <ChevronDown size={18} /> :
                   <ChevronRight size={18} />
-                )}
+                }
               </span>
-              <span className="font-bold flex-grow truncate">{category}</span>
-              <span className="ml-auto text-xs text-gray-500 font-normal px-1.5 py-0.5 bg-white rounded-full">
+              <span style={{ fontWeight: 'bold', flexGrow: 1, marginRight: '0.5rem' }}>{category}</span>
+              <span style={{
+                marginLeft: 'auto',
+                fontSize: '0.8rem',
+                color: '#64748b',
+                flexShrink: 0
+              }}>
                 {serversByCategory[category]?.length || 0}
               </span>
             </div>
 
-            {/* Servers list */}            
+            {/* Servers list */}
             {expandedCategories[category] && (
-              <div className="ml-3 mt-1 pl-3 border-l border-gray-200">
+              <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
                 {(serversByCategory[category]?.length || 0) > 0 ? (
-                  serversByCategory[category].map((server, idx) => (
+                    serversByCategory[category].map((server) => (
                     // Ensure dbId exists before rendering the server item
                     server.dbId !== undefined && (
                         <div
-                          key={`${category}-${server.dbId}`}
-                          // Pass the element ID expected by the page handler
-                          onClick={() => onServerClick(`server-${server.dbId}`)}
-                          className="flex items-center py-1.5 px-2 mb-0.5 rounded cursor-pointer text-sm hover:bg-gray-100 transition-colors group"
+                        key={`${category}-${server.dbId}`}
+                        onClick={() => onServerClick(`server-card-${server.dbId}`)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '0.375rem 0.5rem',
+                            marginBottom: '0.25rem',
+                            borderRadius: '0.25rem',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            transition: 'background-color 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                            const target = e.currentTarget as HTMLDivElement;
+                            target.style.backgroundColor = '#f1f5f9';
+                        }}
+                        onMouseOut={(e) => {
+                            const target = e.currentTarget as HTMLDivElement;
+                            target.style.backgroundColor = 'transparent';
+                        }}
                         >
-                          <Server size={14} className="mr-2 text-gray-500 group-hover:text-gray-700 flex-shrink-0" />
-                          <span className="flex-grow truncate text-gray-700 group-hover:text-gray-900">{server.name}</span>
-                          <div className="ml-2 flex items-center flex-shrink-0">
+                        <Server size={14} style={{ marginRight: '0.5rem', color: '#64748b', flexShrink: 0 }} />
+                        <span style={{ flexGrow: 1, marginRight: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name}</span>
+                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                             <Circle
-                              size={8}
-                              fill={getStatusColor(server)}
-                              strokeWidth={0} // Use fill only
-                              className="mr-1"
-                              // color={getStatusColor(server)} // Removed color prop, fill is enough
+                            size={8}
+                            fill={getStatusColor(server)}
+                            color={getStatusColor(server)}
+                            style={{ marginRight: '0.25rem' }}
                             />
-                            {/* User display can be added here if needed */}
-                          </div>
+                            {server.user && server.user.trim() !== '' && (
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    color: '#9ca3af',
+                                    fontStyle: 'italic',
+                                    marginLeft: '0.5rem'
+                                }}>
+                                    {server.user}
+                                </span>
+                            )}
+                        </div>
                         </div>
                     )
-                  ))
+                    ))
                 ) : (
-                  <div className="px-2 py-1 text-xs text-gray-400 italic">No servers in this category</div>
+                   <div style={{ padding: '0.375rem 0.5rem', fontSize: '0.9rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                       No servers in this category
+                   </div>
                 )}
               </div>
             )}

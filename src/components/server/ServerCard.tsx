@@ -27,13 +27,9 @@ export default function ServerCard({
   onOpenDeleteDialog,
   onOpenEditModal,
 }: ServerCardProps) {
-  
-  // Normalize status for internal consistency (e.g., handle 'in use')
-  const normalizedStatus = status === 'in_use' ? 'in_use' : status;
 
-  // Determine status details based on the normalized status
   const getStatusDetails = () => {
-    switch (normalizedStatus) {
+    switch (status) {
       case 'online':
         return {
           dotColor: '#10b981',
@@ -53,7 +49,6 @@ export default function ServerCard({
           backgroundColor: 'rgba(239, 68, 68, 0.1)' // Transparent red
         };
       default:
-          // Provide a fallback or default status
           return {
               dotColor: '#9ca3af', 
               text: 'Unknown', 
@@ -63,13 +58,11 @@ export default function ServerCard({
   };
 
   const statusDetails = getStatusDetails();
-  
-  // --- Menu State --- 
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null); // Ref for the button itself
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -81,7 +74,6 @@ export default function ServerCard({
         setIsMenuOpen(false);
       }
     }
-    
     if (isMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
@@ -90,21 +82,17 @@ export default function ServerCard({
     };
   }, [isMenuOpen]);
 
-  // --- Menu Action Handlers --- 
   const handleMaintenance = () => { console.log(`Maintenance clicked for ${name}`); setIsMenuOpen(false); };
   const handleDeactivate = () => { console.log(`Deactivate clicked for ${name}`); setIsMenuOpen(false); };
-  const handleManageUser = () => { console.log(`Manage User clicked for ${name}`); setIsMenuOpen(false); };
-  
   const handleEdit = () => {
-    if (dbId !== undefined) { 
-      // Construct the ServerData object expected by the modal
+    if (dbId !== undefined) {
       const serverData: ServerData = {
         dbId,
         name,
         platform,
         bench_type,
         description,
-        status: normalizedStatus,
+        status: status,
         user: user || ''
       };
       onOpenEditModal(serverData);
@@ -113,21 +101,35 @@ export default function ServerCard({
     }
     setIsMenuOpen(false);
   };
-
+  const handleManageUser = () => { console.log(`Manage User clicked for ${name}`); setIsMenuOpen(false); };
   const handleDelete = () => {
     if (dbId !== undefined) {
-      onOpenDeleteDialog(dbId, name); // Call parent to open dialog
+      onOpenDeleteDialog(dbId, name);
     } else {
       console.warn('Cannot delete card without dbId');
     }
-    setIsMenuOpen(false); // Close the settings menu regardless
+    setIsMenuOpen(false);
   };
-  
-  // --- Helper to render menu items --- 
+
   const renderMenuItem = (icon: React.ReactNode, text: string, action: () => void) => (
-    <button 
-      className="flex items-center gap-3 text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 w-full transition-colors duration-150 ease-in-out"
+    <button
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        textAlign: 'left',
+        padding: '0.75rem 1rem',
+        border: 'none',
+        backgroundColor: 'transparent',
+        cursor: 'pointer',
+        fontSize: '0.875rem',
+        width: '100%',
+        color: '#374151',
+        transition: 'background-color 0.2s'
+      }}
       onClick={action}
+      onMouseOver={(e) => { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f3f4f6'}}
+      onMouseOut={(e) => { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = 'transparent'}}
     >
       {icon}
       {text}
@@ -135,127 +137,144 @@ export default function ServerCard({
   );
 
   return (
-    <div 
-      className="server-card flex flex-col h-full bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden transition-shadow hover:shadow-lg"
-      id={id} 
-    >
-      {/* Card Header */}      
-      <div className="p-4 flex-grow">
-        <h3 className="card-title text-lg font-semibold text-gray-800 mb-2 truncate">{name}</h3>
-        
-        {/* User Info */}        
-        <div className="user-info flex items-center gap-2 mb-2 text-sm text-gray-600">
-          <User className="h-4 w-4 text-gray-500 flex-shrink-0" />
+    <div className="server-card" id={id} style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%'
+    }}>
+      <div className="card-header" style={{ flex: '1 1 auto' }}>
+        <h3 className="card-title">{name}</h3>
+
+        <div className="user-info">
+          <div className="user-avatar" style={{ width: '1.5rem', height: '1.5rem', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#cbd5e1', borderRadius:'50%', marginRight:'0.5rem' }}>
+            <User className="h-4 w-4" style={{ color: 'white' }} />
+          </div>
           {user && user.trim() !== '' ? (
-            <span className="user-name truncate">{user}</span>
+            <span className="user-name">{user}</span>
           ) : (
-            <span className="user-name italic text-gray-400">No User</span>
+            <span className="user-name" style={{ fontStyle: 'italic', color: '#94a3b8' }}>No User</span>
           )}
         </div>
-        
-        {/* Bench Type / Subcategory */}        
+
         {bench_type && (
-          <div className="mb-3">
-            <span className="category inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <div className="category">
               {bench_type}
-            </span>
+            </div>
           </div>
         )}
-        
-        {/* Description */}        
-        <p className="description text-sm text-gray-600 line-clamp-3 mb-4">
-            {description}
-        </p>
+
+        <p className="description">{description}</p>
       </div>
-      
-      {/* Card Footer */}      
-      <div 
-        className="card-footer px-4 py-3 border-t border-gray-100 transition-colors duration-300 ease-in-out flex items-center justify-between"
-        style={{ backgroundColor: statusDetails.backgroundColor }}
-      >
-        {/* Status Indicator */}        
-        <div className="status flex items-center gap-2">
-          <div 
-            className="status-dot w-2.5 h-2.5 rounded-full"
-            style={{ 
-              backgroundColor: statusDetails.dotColor,
-              boxShadow: `0 0 6px ${statusDetails.dotColor}`
-            }}
-          ></div>
-          <span className="status-text text-sm font-medium" style={{ color: statusDetails.dotColor }}>
-            {statusDetails.text}
-          </span>
+
+      <div className="card-footer" style={{
+        backgroundColor: statusDetails.backgroundColor,
+        transition: 'background-color 0.3s ease',
+        marginTop: 'auto'
+      }}>
+        <div className="status">
+          <div className="status-dot" style={{
+            backgroundColor: statusDetails.dotColor,
+            boxShadow: `0 0 5px ${statusDetails.dotColor}`
+          }}></div>
+          <span className="status-text">{statusDetails.text}</span>
         </div>
-        
-        {/* Action Buttons */}        
-        <div className="flex items-center gap-2 relative">
-          {/* Connect Button - Simplified style */}          
-          <button 
-            className={`connect-button flex items-center gap-1 px-3 py-1 rounded text-sm font-medium transition-colors ${normalizedStatus === 'offline' 
-                ? 'bg-gray-200 text-gray-600 cursor-not-allowed' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-            disabled={normalizedStatus === 'offline'}
-            title={normalizedStatus === 'offline' ? "Server Offline" : "Connect"}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
+          <button
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '5px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f2f2f2'}}
+            onMouseOut={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = 'transparent'}}
+            title="View Details"
           >
-            <Link className="h-4 w-4" />
-            Connect
+            <Info className="h-4 w-4" style={{ color: '#0F3460' }} />
           </button>
-          
-          {/* Settings Button & Menu */}          
-          <div className="relative">
+
+          <button
+              className={`connect-button ${status}`}
+              style={{
+                  ...(status === 'in_use' && { backgroundColor: '#ef4444' /* Tailwind red-500 */ }),
+              }}
+              title={status === 'offline' ? "Server Offline" : "Connect"}
+            >
+            <Link className="h-4 w-4" style={{ color: status === 'online' || status === 'in_use' ? 'white' : '#4b5563' }} />
+            <span style={{ color: status === 'online' || status === 'in_use' ? 'white' : 'inherit' }}>
+              Connect
+            </span>
+          </button>
+
+          <div style={{ position: 'relative' }}>
             <button
               ref={buttonRef}
-              className="p-1.5 rounded-full hover:bg-gray-200 transition-colors text-gray-600"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '5px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background-color 0.2s'
+              }}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
+              onMouseOver={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f2f2f2'}}
+              onMouseOut={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = 'transparent'}}
               title="Settings"
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-4 w-4" style={{ color: '#0F3460' }} />
             </button>
 
-            {/* Settings Menu Dropdown */}            
             {isMenuOpen && (
-              <div 
+              <div
                 ref={menuRef}
-                className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none py-1 z-50 origin-bottom-right animate-scale-in"
-              >
-                {/* Triangle Pointer */}                
-                <div className="absolute bottom-[-5px] right-3 w-3 h-3 bg-white transform rotate-45 ring-1 ring-black ring-opacity-5" style={{ clipPath: 'polygon(0 0, 100% 100%, 0 100%)' }}/>
-                
-                {/* Menu Items */}                
+                style={{
+                  position: 'absolute',
+                  bottom: 'calc(100% + 8px)',
+                  right: 0,
+                  backgroundColor: 'white',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                  padding: '0.5rem 0',
+                  zIndex: 50,
+                  minWidth: '180px',
+                  border: '1px solid rgba(0, 0, 0, 0.05)'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-6px',
+                  right: '12px',
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: 'white',
+                  transform: 'rotate(45deg)',
+                  border: '1px solid rgba(0, 0, 0, 0.05)',
+                  borderTop: 'none',
+                  borderLeft: 'none',
+                  zIndex: 49
+                }} />
+
                 {renderMenuItem(<Wrench size={16} />, 'Maintenance', handleMaintenance)}
                 {renderMenuItem(<PowerOff size={16} />, 'Deactivate', handleDeactivate)}
                 {renderMenuItem(<Edit3 size={16} />, 'Edit', handleEdit)}
                 {renderMenuItem(<Users size={16} />, 'Manage User', handleManageUser)}
-                <div className="h-px bg-gray-200 mx-1 my-1" /> {/* Separator */}
-                {renderMenuItem(<Trash2 size={16} className="text-red-600"/>, 'Delete', handleDelete)}
+                <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '0.5rem 0' }} />
+                {renderMenuItem(<Trash2 size={16} color="#ef4444"/>, 'Delete', handleDelete)}
               </div>
             )}
           </div>
         </div>
       </div>
-      
-      {/* Optional: Add animation classes for entry if needed */}
-      <style jsx>{`
-        .animate-scale-in {
-          animation: scaleIn 0.1s ease-out forwards;
-        }
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(5px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        .line-clamp-3 {
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;  
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   );
-} 
+}

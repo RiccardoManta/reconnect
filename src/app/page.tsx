@@ -2,51 +2,47 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import Sidebar from '@/components/layout/Sidebar';
-import ServerCard from '@/components/server/ServerCard';
-import AddServerCard from '@/components/server/AddServerCard';
-import AddServerModal, { ServerData } from '@/components/server/AddServerModal';
+import Sidebar from '@/components/layout/Sidebar'; // Current Sidebar (now uses inline styles)
+import ServerCard from '@/components/server/ServerCard'; // Current ServerCard
+import AddServerCard from '@/components/server/AddServerCard'; // Current AddServerCard
+import AddServerModal, { ServerData } from '@/components/server/AddServerModal'; // Current AddServerModal
 
 // Fallback categories in case API fails
 const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
 
-// Update the ServerData interface to match our API data structure
+// API data interface remains the same
 interface ApiServerData {
   bench_id: number;
   hil_name: string;
-  category: string;      // bench_type
-  subcategory: string;   // system_type
-  description: string;   // pc_info_text
+  category: string;
+  subcategory: string;
+  description: string;
   status: string;
-  active_user: string | null; // Allow null for active_user
+  active_user: string | null;
   location: string;
 }
 
 export default function Home() {
+  // State variables remain largely the same
   const [servers, setServers] = useState<ServerData[]>([]);
-  const [categories, setCategories] = useState<string[]>([]); // Initialize empty, set later
+  const [categories, setCategories] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // --- State for Edit Modal ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [serverToEdit, setServerToEdit] = useState<ServerData | null>(null);
-  
-  // --- State for Delete Confirmation Dialog ---
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [serverToDeleteId, setServerToDeleteId] = useState<number | null>(null);
   const [serverToDeleteName, setServerToDeleteName] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  
-  // Fetch categories (and servers combined for simplicity now)
+
+  // Fetching logic remains the same as current page.tsx
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       setError(null);
       try {
-        // Fetch categories first or use fallback
         let fetchedCategories = fallbackCategories;
         try {
             const catResponse = await fetch('/api/categories');
@@ -61,7 +57,6 @@ export default function Home() {
         }
         setCategories(fetchedCategories);
 
-        // Fetch servers
         const serverResponse = await fetch('/api/servers');
         if (!serverResponse.ok) {
           throw new Error('Failed to fetch server data');
@@ -75,13 +70,12 @@ export default function Home() {
             platform: server.category || 'Uncategorized',
             bench_type: server.subcategory || '',
             description: server.description || 'No description available',
-            status: server.status === 'offline' ? 'offline' : 
+            status: server.status === 'offline' ? 'offline' :
                   server.status === 'in use' ? 'in_use' : 'online',
             user: server.active_user || '',
           }));
           setServers(mappedServers);
-          
-          // Re-derive categories from actual server data if necessary
+
           const serverCategories = mappedServers
             .map((s: ServerData) => s.platform)
             .reduce((unique: string[], category: string) => {
@@ -93,37 +87,37 @@ export default function Home() {
           if (serverCategories.length > 0) {
               setCategories(serverCategories);
           } // else keep the initially fetched/fallback categories
-          
+
         } else {
-          // No servers found, keep categories, set servers empty
           setServers([]);
           console.log('No server data found');
         }
       } catch (fetchError) {
         console.error('Error fetching data:', fetchError);
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load data');
-        setServers([]); // Clear servers on error
-        setCategories(fallbackCategories); // Reset categories on error
+        setServers([]);
+        setCategories(fallbackCategories);
       } finally {
         setLoading(false);
       }
     }
 
     fetchData();
-  }, []); // Empty dependency array means run once on mount
+  }, []);
 
-  // Group servers by category
+  // Group servers by category (same as before)
   const serversByCategory = categories.reduce((acc, category) => {
     acc[category] = servers.filter(server => server.platform === category);
     return acc;
   }, {} as Record<string, ServerData[]>);
 
-  const handleAddServer = () => {
-    // Refetch data after adding a server (API call is in the modal)
-    async function refetchData() { 
-      setLoading(true);
-      setError(null);
-      try {
+  // Refetch function (same as before)
+  const refetchServers = async () => {
+    // Duplicating the fetch logic here for simplicity after add/edit/delete
+    // In a real app, this would likely be a reusable hook or function
+    setLoading(true);
+    setError(null);
+    try {
         const serverResponse = await fetch('/api/servers');
         if (!serverResponse.ok) throw new Error('Failed to refetch servers');
         const serverData = await serverResponse.json();
@@ -134,7 +128,7 @@ export default function Home() {
                 platform: server.category || 'Uncategorized',
                 bench_type: server.subcategory || '',
                 description: server.description || 'No description available',
-                status: server.status === 'offline' ? 'offline' : 
+                status: server.status === 'offline' ? 'offline' :
                       server.status === 'in use' ? 'in_use' : 'online',
                 user: server.active_user || '',
             }));
@@ -142,15 +136,18 @@ export default function Home() {
         }
       } catch (err) {
           console.error("Refetch error:", err);
-          setError(err instanceof Error ? err.message : "Failed to reload servers after add");
+          setError(err instanceof Error ? err.message : "Failed to reload servers");
       } finally {
           setLoading(false);
       }
-    }
-    refetchData();
   };
 
-  // --- Edit Modal Handlers ---
+  // Modal Handlers (remain the same, using refetchServers)
+  const handleAddSubmit = () => {
+    refetchServers();
+    // Modal closes itself on success
+  };
+
   const openEditModal = (server: ServerData) => {
     setServerToEdit(server);
     setIsEditModalOpen(true);
@@ -162,53 +159,19 @@ export default function Home() {
   };
 
   const handleEditSubmit = () => {
-    // Refetch data after editing (API call is in the modal)
-     async function refetchData() { 
-      setLoading(true);
-      setError(null);
-      try {
-        const serverResponse = await fetch('/api/servers');
-        if (!serverResponse.ok) throw new Error('Failed to refetch servers');
-        const serverData = await serverResponse.json();
-        if (serverData.servers) {
-             const mappedServers = serverData.servers.map((server: ApiServerData): ServerData => ({
-                dbId: server.bench_id,
-                name: server.hil_name || 'Unnamed Server',
-                platform: server.category || 'Uncategorized',
-                bench_type: server.subcategory || '',
-                description: server.description || 'No description available',
-                status: server.status === 'offline' ? 'offline' : 
-                      server.status === 'in use' ? 'in_use' : 'online',
-                user: server.active_user || '',
-            }));
-             setServers(mappedServers);
-        }
-      } catch (err) {
-          console.error("Refetch error:", err);
-          setError(err instanceof Error ? err.message : "Failed to reload servers after edit");
-      } finally {
-          setLoading(false);
-      }
-    }
-    refetchData();
-    closeEditModal(); // Close modal after triggering refetch
+    refetchServers();
+    closeEditModal();
   };
 
-  // Function to remove a server from the frontend state using dbId
-  const handleDeleteServer = (idToDelete: number) => {
-    setServers(prevServers => prevServers.filter(server => server.dbId !== idToDelete));
-  };
-
-  // --- Delete Dialog Handlers ---
   const openDeleteDialog = (dbId: number, serverName: string) => {
     if (typeof dbId !== 'number') {
-        console.error("Invalid dbId passed to openDeleteDialog:", dbId);
-        return;
+      console.error("Invalid dbId passed to openDeleteDialog:", dbId);
+      return;
     }
     setServerToDeleteId(dbId);
     setServerToDeleteName(serverName);
     setShowDeleteDialog(true);
-    setDeleteError(null); // Clear previous errors
+    setDeleteError(null);
   };
 
   const closeDeleteDialog = () => {
@@ -220,173 +183,306 @@ export default function Home() {
 
   const handleConfirmDelete = async () => {
     if (serverToDeleteId === null) return;
-
     setIsDeleting(true);
     setDeleteError(null);
-
     try {
-      const response = await fetch(`/api/servers?id=${serverToDeleteId}`, { 
-        method: 'DELETE' 
-      });
-      
+      const response = await fetch(`/api/servers?id=${serverToDeleteId}`, { method: 'DELETE' });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete server from database');
       }
-
-      // If API delete is successful, update frontend state
-      handleDeleteServer(serverToDeleteId); // Call the existing frontend state update function
-      closeDeleteDialog(); // Close the dialog
-
+      // Instead of manipulating state directly, refetch for consistency
+      refetchServers();
+      closeDeleteDialog();
     } catch (err) {
       console.error("Error deleting server:", err);
       setDeleteError(err instanceof Error ? err.message : 'An unknown error occurred');
-      // Keep dialog open to show error
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Handle category click from the sidebar
+  // Click Handlers (remain the same, using current logic)
   const handleCategoryClick = (category: string) => {
-    const section = document.getElementById(`category-${category.toLowerCase()}`);
+    const section = document.getElementById(`category-${category.replace(/\s+/g, '').toLowerCase()}`);
     if (section) {
-      section.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start',
-        inline: 'nearest'
-      });
+      section.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
     }
   };
 
-  // Scroll to a specific server when clicked in sidebar
-  const handleServerClick = (serverElementId: string) => { 
+  // This handler now correctly receives server-card-${dbId}
+  const handleServerClick = (serverElementId: string) => {
     const serverElement = document.getElementById(serverElementId);
     if (serverElement) {
-      serverElement.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'center',
-      });
-      
-      // Add a brief highlight effect
-      serverElement.style.transition = 'box-shadow 0.3s ease-in-out'; // Add transition
-      serverElement.style.boxShadow = '0 0 8px 3px rgba(57, 162, 219, 0.7)'; // Adjust shadow
-      setTimeout(() => {
-        serverElement.style.boxShadow = '';
-      }, 1500);
+      serverElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight effect from old code
+      serverElement.style.boxShadow = '0 0 0 2px #39A2DB';
+      setTimeout(() => { serverElement.style.boxShadow = ''; }, 1500);
     }
   };
 
-  // Render loading state
+  // --- Old Loading State with Inline Styles ---
   if (loading) {
     return (
-      <main className="flex min-h-screen flex-col">
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Header />
-        <div className="flex flex-1 items-center justify-center text-gray-600">
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: '#0F3460'
+        }}>
           <div>Loading server data...</div>
         </div>
       </main>
     );
   }
-  
-  // Render error state
+
+  // --- Old Error State with Inline Styles ---
   if (error) {
-      return (
-        <main className="flex min-h-screen flex-col">
-            <Header />
-            <div className="flex flex-1 items-center justify-center text-red-600">
-                <div>Error: {error}</div>
-            </div>
-        </main>
-      );
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: '#EF4444'
+        }}>
+          <div>Error: {error}</div> {/* Display the error message */}
+        </div>
+      </main>
+    );
   }
-  
-  // Helper function to render a category section
+
+  // --- Reintroduce renderCategorySection from old code ---
   const renderCategorySection = (category: string, serversList: ServerData[]) => (
-    <div key={category} id={`category-${category.toLowerCase()}`} className="mb-12">
-      <h2 className="mb-6 text-3xl font-bold text-gray-800">{category}</h2>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div
+      key={category}
+      // Use the cleaned category ID consistent with handleCategoryClick
+      id={`category-${category.replace(/\s+/g, '').toLowerCase()}`}
+      style={{
+        scrollMarginTop: '100px', // Space for the header when scrolling
+        marginBottom: '3rem'
+      }}
+    >
+      {/* Category heading with inline styles */}
+      <div style={{
+        padding: '1rem 0 1rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <h2 style={{
+          fontSize: '1.5rem',
+          fontWeight: 'bold',
+          color: '#0F3460',
+          margin: 0
+        }}>
+          {category}
+        </h2>
+        <div style={{
+          fontSize: '0.9rem',
+          color: '#666'
+        }}>
+          {serversList.length} {serversList.length === 1 ? 'item' : 'items'}
+        </div>
+      </div>
+
+      {/* Category separator with inline styles */}
+      <div style={{
+        height: '2px',
+        background: 'linear-gradient(to right, #0F3460, #39A2DB, rgba(255,255,255,0))',
+        marginBottom: '1.5rem'
+      }}></div>
+
+      {/* Server cards grid using className="grid-container" */}
+      <div className="grid-container">
         {serversList.map((server) => (
-          server.dbId !== undefined && (
-            <div key={server.dbId} id={`server-${server.dbId}`}>
-              <ServerCard 
-                {...server}
-                id={`server-card-${server.dbId}`}
-                onOpenEditModal={() => openEditModal(server)}
-                onOpenDeleteDialog={() => openDeleteDialog(server.dbId!, server.name)}
-              />
-            </div>
-          )
+          <ServerCard
+            key={server.dbId} // Use dbId as key
+            id={`server-card-${server.dbId}`} // Use correct ID format
+            dbId={server.dbId}
+            name={server.name}
+            platform={server.platform}
+            bench_type={server.bench_type}
+            description={server.description}
+            status={server.status}
+            user={server.user}
+            // Pass props expected by current ServerCard component
+            onOpenEditModal={() => openEditModal(server)}
+            onOpenDeleteDialog={() => openDeleteDialog(server.dbId!, server.name)}
+          />
         ))}
+
+        {/* AddServerCard only in the first category */}
+        {category === categories[0] && (
+          <AddServerCard onClick={() => setIsModalOpen(true)} />
+        )}
       </div>
     </div>
   );
 
+  // --- Main Render using Old Structure with Inline Styles ---
   return (
-    <main className="flex min-h-screen flex-col bg-gray-50">
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          categories={categories} 
-          servers={servers} 
-          onCategoryClick={handleCategoryClick} 
+
+      <div style={{ display: 'flex', flex: 1 }}>
+        {/* Sidebar component (already updated to use inline styles) */}
+        <Sidebar
+          servers={servers}
+          categories={categories}
+          onCategoryClick={handleCategoryClick}
           onServerClick={handleServerClick}
-          onAddServerClick={() => setIsModalOpen(true)}
         />
-        <div className="flex-1 p-8 overflow-y-auto">
-          {/* Render server sections */}          
-          {categories.length > 0 ? (
-            categories.map(category => renderCategorySection(category, serversByCategory[category] || []))
-          ) : (
-            !loading && <p>No servers found.</p>
-          )}
+
+        {/* Main content area with inline styles */}
+        <div className="content" style={{
+          flex: 1,
+          paddingTop: '1.5rem',
+          height: 'calc(100vh - 73px)',
+          overflowY: 'auto'
+        }}>
+          <div style={{
+            maxWidth: '1200px',
+            margin: '0 auto',
+            padding: '0 1rem'
+          }}>
+            {/* Render all category sections using the helper function */}
+            {categories.map(category => renderCategorySection(category, serversByCategory[category] || []))}
+
+             {/* Fallback if no categories/servers (optional, can be adapted from old code if needed) */}
+             {categories.length === 0 && !loading && (
+                <div style={{ textAlign: 'center', color: '#666', marginTop: '40px' }}>
+                   <p>No servers found.</p>
+                   {/* Render AddServerCard directly or adjust styling as needed */}
+                   <div style={{marginTop: '1rem'}}>
+                      <AddServerCard onClick={() => setIsModalOpen(true)} />
+                   </div>
+                </div>
+             )}
+          </div>
         </div>
       </div>
 
-      {/* Add Server Modal */}      
+      {/* Add/Edit Modals (using current AddServerModal component and props) */}
       <AddServerModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSubmit={handleAddServer}
+        onSubmit={handleAddSubmit} // Use updated handler
         mode="add"
       />
 
-      {/* Edit Server Modal */}      
       {serverToEdit && (
           <AddServerModal
             isOpen={isEditModalOpen}
             onClose={closeEditModal}
-            onSubmit={handleEditSubmit}
-            initialData={serverToEdit} 
+            onSubmit={handleEditSubmit} // Use updated handler
+            initialData={serverToEdit}
             mode="edit"
           />
       )}
 
-      {/* Delete Confirmation Dialog */}      
+      {/* Delete Confirmation Dialog (using old inline styles) */}
       {showDeleteDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">Confirm Deletion</h3>
-            <p className="mb-4">Are you sure you want to delete server &apos;{serverToDeleteName}&apos;? This action cannot be undone.</p>
-            {deleteError && <p className="mb-4 text-sm text-red-600">Error: {deleteError}</p>}
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={closeDeleteDialog}
-                disabled={isDeleting}
-                className="rounded bg-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-400 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-                className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
+        <>
+          {/* Backdrop */}
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backdropFilter: 'blur(5px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              zIndex: 100,
+              pointerEvents: 'auto'
+            }}
+            onClick={closeDeleteDialog}
+          />
+          {/* Centering Wrapper */}
+          <div
+            className="fixed inset-0 flex items-center justify-center z-[101]" // Use z-[101] to ensure it's above z-100
+            style={{ pointerEvents: 'none' }}
+          >
+            {/* Dialog Box */}
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '400px',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+              // animation: 'modalFadeIn 0.3s ease-out', // Assuming modalFadeIn is defined in CSS
+              pointerEvents: 'auto'
+            }}>
+              {/* Dialog Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #f0f0f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#0F3460',
+                  margin: 0
+                }}>Confirm Deletion</h3>
+              </div>
+
+              {/* Dialog Content */}
+              <div style={{ padding: '24px' }}>
+                <p style={{ margin: '0 0 1.5rem 0', color: '#4b5563', fontSize: '15px', lineHeight: '1.6' }}>
+                  Are you sure you want to delete the server "{serverToDeleteName}"? This action cannot be undone.
+                </p>
+
+                {deleteError && (
+                  <p style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '1.5rem', marginTop:'-0.5rem' }}>
+                    Error: {deleteError}
+                  </p>
+                )}
+
+                {/* Dialog Actions */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                  <button
+                    onClick={closeDeleteDialog}
+                    style={{
+                      padding: '8px 16px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      backgroundColor: 'white',
+                      color: '#374151',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      opacity: isDeleting ? 0.7 : 1
+                    }}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDelete}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      borderRadius: '8px',
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      opacity: isDeleting ? 0.7 : 1
+                    }}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete Server'} // Changed text slightly
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </main>
   );
