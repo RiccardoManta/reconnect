@@ -1,8 +1,9 @@
-const db = require('./dbUtils');
+const dbUtils = require('./dbUtils'); // Reverted to require
 
-function addMoreData() {
+// Make the function async
+async function addMoreData() {
   try {
-    console.log('Adding more sample data to the database...');
+    console.log('Adding more sample data to the MySQL database...');
     
     // Add more users
     const usersSql = `
@@ -13,7 +14,7 @@ function addMoreData() {
       ('David Martinez', 'david.martinez@example.com'),
       ('Lisa Rodriguez', 'lisa.rodriguez@example.com')
     `;
-    db.run(usersSql);
+    await dbUtils.run(usersSql); // Use await
     console.log('Additional users added');
     
     // Add more projects
@@ -25,7 +26,7 @@ function addMoreData() {
       ('P2023-007', 'Electric Power Steering'),
       ('P2023-008', 'Advanced HMI Testing')
     `;
-    db.run(projectsSql);
+    await dbUtils.run(projectsSql); // Use await
     console.log('Additional projects added');
     
     // Add more test benches
@@ -41,7 +42,7 @@ function addMoreData() {
       ('HIL-EPS-07', 'PP7890', 'PHS', 'Fullsize', '2022-09-15', '24 months', 1, 7, 'Lab G', 'INV-2022-007', 'EP-EPS-07'),
       ('HIL-HMI-08', 'PP8901', 'SCLX', 'Midsize', '2022-10-20', '36 months', 2, 8, 'Lab H', 'INV-2022-008', 'EP-HMI-08')
     `;
-    db.run(benchesSql);
+    await dbUtils.run(benchesSql); // Use await
     console.log('Additional test benches added');
     
     // Add more test bench project overviews
@@ -56,7 +57,7 @@ function addMoreData() {
       (7, 'Platform G', 'Supplier T', 'Wetbench 7', 'Actuator System 7', 'Hardware v3.0', 'Software v4.0', 'Model v2.6', 'Updated simulation models'),
       (8, 'Platform H', 'Supplier S', 'Wetbench 8', 'Actuator System 8', 'Hardware v3.2', 'Software v4.1', 'Model v2.7', 'GUI testing framework added')
     `;
-    db.run(overviewSql);
+    await dbUtils.run(overviewSql); // Use await
     console.log('Additional project overviews added');
     
     // Add more technology info
@@ -71,7 +72,7 @@ function addMoreData() {
       (7, 'FIU v4.0', 'DS2225 I/O', 'CAN FD, LIN', 'AC/DC Power Module', 'Steering feel, power assistance', 'LM-4000'),
       (8, 'FIU v4.2', 'DS2230 I/O', 'CAN FD, Ethernet', 'DC Power Supply', 'Display rendering, haptic feedback', 'LM-4200')
     `;
-    db.run(techSql);
+    await dbUtils.run(techSql); // Use await
     console.log('Additional technology information added');
     
     // Add more operation info
@@ -86,7 +87,7 @@ function addMoreData() {
       (7, 'Steering response, torque overlay', 'Vehicle M, Vehicle N', 'Parking, high-speed maneuvering', 'CD-Steering-v1, CD-Steering-v2'),
       (8, 'Display performance, user interaction', 'Vehicle O, Vehicle P', 'Menu navigation, alert response', 'CD-HMI-v1, CD-HMI-v2')
     `;
-    db.run(operationSql);
+    await dbUtils.run(operationSql); // Use await
     console.log('Additional operation information added');
     
     // Add more hardware installations
@@ -100,7 +101,7 @@ function addMoreData() {
       (7, 'EPS ECU v2.2', 'Torque sensors, position encoders', 'Steering force feedback system'),
       (8, 'HMI Control ECU v3.1', 'Touch sensors, optical sensors', 'Display units, haptic feedback generators')
     `;
-    db.run(hardwareSql);
+    await dbUtils.run(hardwareSql); // Use await
     console.log('Additional hardware installation information added');
     
     // Add more PC information
@@ -117,7 +118,7 @@ function addMoreData() {
       (7, 'PC-EPS-01', 2022, 'PC-2022-009', 'Host-PC', 'Dell Precision 5820', 'RTI Card', '00:1A:2B:3C:4D:BE', '192.168.1.70', 'MATLAB, Simulink', 'Matlab, Simulink'),
       (8, 'PC-HMI-01', 2022, 'PC-2022-010', 'Host-PC', 'HP Z4 Workstation', 'RTI Card, GPU', '00:1A:2B:3C:4D:CE', '192.168.1.80', 'Qt, LabVIEW', 'Qt Creator, LabVIEW')
     `;
-    db.run(pcSql);
+    await dbUtils.run(pcSql); // Use await
     console.log('Additional PC information added');
     
     // Add more wetbenches
@@ -133,7 +134,7 @@ function addMoreData() {
       ('WB-Steering-07', 'WB7890', 'BMW', 'PHS', 'Platform G', 'Supplier T', 7, 'Electric motors', 'Steering columns, racks', 'WB-2022-007'),
       ('WB-HMI-08', 'WB8901', 'Audi', 'SCLX', 'Platform H', 'Supplier S', 8, 'Touch simulators', 'Displays, buttons, dials', 'WB-2022-008')
     `;
-    db.run(wetbenchSql);
+    await dbUtils.run(wetbenchSql); // Use await
     console.log('Additional wetbench information added');
     
     // Add more model stands
@@ -147,7 +148,7 @@ function addMoreData() {
       ('EPS-4000', 'svn://models/eps4000', 'Power assist curves, return-to-center, dampening'),
       ('HMI-5000', 'svn://models/hmi5000', 'Display rendering, touch response, haptic feedback')
     `;
-    db.run(modelStandsSql);
+    await dbUtils.run(modelStandsSql); // Use await
     console.log('Model stands information added');
     
     // Add more licenses
@@ -166,7 +167,7 @@ function addMoreData() {
       ('Qt Enterprise', 'QT-90123-45678', '2023-04-30', 'IAV', 9),
       ('Visual Studio 2022', 'VS-01234-56789', '2023-03-31', 'IAV', 10)
     `;
-    db.run(licensesSql);
+    await dbUtils.run(licensesSql); // Use await
     console.log('License information added');
     
     // Add VM instances
@@ -180,7 +181,7 @@ function addMoreData() {
       ('CANoe-Server', '192.168.10.40', 'Vector CANoe, CANalyzer'),
       ('Simulation-Server', '192.168.10.50', 'CARLA, Gazebo, SUMO')
     `;
-    db.run(vmInstancesSql);
+    await dbUtils.run(vmInstancesSql); // Use await
     console.log('VM instances information added');
 
     console.log('Additional data added successfully!');
@@ -188,12 +189,23 @@ function addMoreData() {
     console.error('Error adding more data:', err);
     throw err;
   }
+  // Removed finally block here, closing is handled in the main block
 }
 
-// Run directly if this script is executed
+// Run directly if this script is executed - make wrapper async
 if (require.main === module) {
-  addMoreData();
-  console.log('Database enhancement completed.');
+  (async () => {
+    try {
+        await addMoreData();
+        console.log('Database enhancement completed.');
+    } catch (err) {
+        console.error("Adding more data failed:", err);
+    } finally {
+        // Close the pool after adding data is attempted
+        await dbUtils.closePool();
+        console.log("AddMoreData script finished, pool closed.");
+    }
+  })();
 }
 
 module.exports = { addMoreData }; 

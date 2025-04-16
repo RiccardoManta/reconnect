@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0 # You can choose a specific version if needed
+    container_name: mysql_db
+    restart: always
+    environment:
+      # Use environment variables from .env file
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # Read from .env
+      MYSQL_DATABASE: ${MYSQL_DATABASE} # Read from .env
+      MYSQL_USER: ${MYSQL_USER} # Read from .env
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Read from .env
+    # ports:
+      # We don't need to expose the MySQL port to the host anymore,
+      # as the webapp will connect via the Docker network.
+      # Remove or comment out:
+      # - "3306:3306"
+    volumes:
+      # Persist database data outside the container
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network # Define a network for services
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "$${MYSQL_USER}", "-p$${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  webapp:
+    container_name: reconnect_webapp
+    build:
+      context: . # Build from the current directory where Dockerfile is
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000" # Map host port 3000 to container port 3000
+    environment:
+      # Pass database credentials to the webapp container
+      # IMPORTANT: Use the service name 'mysql' as the host!
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306 # Default MySQL port
+      MYSQL_DATABASE: ${MYSQL_DATABASE} # Read from .env
+      MYSQL_USER: ${MYSQL_USER} # Read from .env
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Read from .env
+      # NEXT_PUBLIC_ variables can be added here if needed
+      # NODE_ENV is set to production in the Dockerfile
+    depends_on:
+      mysql: # Ensure mysql is healthy before starting webapp
+        condition: service_healthy
+    networks:
+      - app-network # Connect to the same network as mysql
+
+volumes:
+  mysql_data:
+    driver: local # Use local driver for persistence on the host machine
+
+networks:
+  app-network: # Define the network
+    driver: bridge
+
+# Add other services like your web app, guacamole, nginx later 

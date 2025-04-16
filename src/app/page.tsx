@@ -18,13 +18,13 @@ interface ApiServerData {
   subcategory: string;   // system_type
   description: string;   // pc_info_text
   status: string;
-  active_user: string;
+  active_user: string | null; // Allow null for active_user
   location: string;
 }
 
 export default function Home() {
   const [servers, setServers] = useState<ServerData[]>([]);
-  const [categories, setCategories] = useState<string[]>(fallbackCategories);
+  const [categories, setCategories] = useState<string[]>([]); // Initialize empty, set later
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,100 +40,114 @@ export default function Home() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   
-  // Fetch categories from the API
+  // Fetch categories (and servers combined for simplicity now)
   useEffect(() => {
-    async function fetchCategories() {
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
       try {
-        const response = await fetch('/api/categories');
-        if (!response.ok) {
-          throw new Error('Failed to fetch categories');
-        }
-        const data = await response.json();
-        
-        // Use fetched categories if available, otherwise use fallback
-        if (data.categories && data.categories.length > 0) {
-          setCategories(data.categories);
-        } else {
-          console.warn('No categories found, using fallback');
-          setCategories(fallbackCategories);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        // Use fallback categories if API fails
-        setCategories(fallbackCategories);
-      }
-    }
-    
-    fetchCategories();
-  }, []);
-
-  // Fetch servers from the API
-  const fetchServers = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/servers');
-      if (!response.ok) {
-        throw new Error('Failed to fetch server data');
-      }
-      const data = await response.json();
-      
-      // Map API data to the format expected by ServerCard
-      if (data.servers && data.servers.length > 0) {
-        // First, collect all unique categories from the server data
-        const categoryList = data.servers
-          .map((server: ApiServerData) => server.category || 'Uncategorized')
-          // Remove empty/null values and duplicates
-          .reduce((unique: string[], category: string) => {
-            if (category && !unique.includes(category)) {
-              unique.push(category);
+        // Fetch categories first or use fallback
+        let fetchedCategories = fallbackCategories;
+        try {
+            const catResponse = await fetch('/api/categories');
+            if (catResponse.ok) {
+                const catData = await catResponse.json();
+                if (catData.categories && catData.categories.length > 0) {
+                    fetchedCategories = catData.categories;
+                }
             }
-            return unique;
-          }, []);
-        
-        // Always ensure we have some categories to display
-        if (categoryList.length > 0) {
-          setCategories(categoryList);
-        } else {
-          // If no categories found from server data, use the defaults
-          console.warn('No categories found from server data, using fallback');
-          setCategories(fallbackCategories);
+        } catch (catError) {
+            console.error("Failed to fetch categories, using fallback:", catError);
         }
-        
-        const mappedServers = data.servers.map((server: ApiServerData) => ({
-          dbId: server.bench_id,
-          name: server.hil_name || 'Unnamed Server',
-          platform: server.category || 'Uncategorized',
-          bench_type: server.subcategory || '',
-          description: server.description || 'No description available',
-          status: server.status === 'offline' ? 'offline' : 
-                server.status === 'in use' ? 'in_use' : 'online',
-          user: server.active_user || '',
-        }));
-        setServers(mappedServers);
-      } else {
-        setError('No server data found');
-      }
-    } catch (error) {
-      console.error('Error fetching server data:', error);
-      setError('Failed to load server data');
-    } finally {
-      setLoading(false);
-    }
-  };
+        setCategories(fetchedCategories);
 
-  // Initial fetch when component mounts
-  useEffect(() => {
-    fetchServers();
-  }, []);
-  
+        // Fetch servers
+        const serverResponse = await fetch('/api/servers');
+        if (!serverResponse.ok) {
+          throw new Error('Failed to fetch server data');
+        }
+        const serverData = await serverResponse.json();
+
+        if (serverData.servers && serverData.servers.length > 0) {
+          const mappedServers = serverData.servers.map((server: ApiServerData): ServerData => ({
+            dbId: server.bench_id,
+            name: server.hil_name || 'Unnamed Server',
+            platform: server.category || 'Uncategorized',
+            bench_type: server.subcategory || '',
+            description: server.description || 'No description available',
+            status: server.status === 'offline' ? 'offline' : 
+                  server.status === 'in use' ? 'in_use' : 'online',
+            user: server.active_user || '',
+          }));
+          setServers(mappedServers);
+          
+          // Re-derive categories from actual server data if necessary
+          const serverCategories = mappedServers
+            .map((s: ServerData) => s.platform)
+            .reduce((unique: string[], category: string) => {
+              if (category && !unique.includes(category)) {
+                unique.push(category);
+              }
+              return unique;
+            }, []);
+          if (serverCategories.length > 0) {
+              setCategories(serverCategories);
+          } // else keep the initially fetched/fallback categories
+          
+        } else {
+          // No servers found, keep categories, set servers empty
+          setServers([]);
+          console.log('No server data found');
+        }
+      } catch (fetchError) {
+        console.error('Error fetching data:', fetchError);
+        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load data');
+        setServers([]); // Clear servers on error
+        setCategories(fallbackCategories); // Reset categories on error
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []); // Empty dependency array means run once on mount
+
   // Group servers by category
   const serversByCategory = categories.reduce((acc, category) => {
     acc[category] = servers.filter(server => server.platform === category);
     return acc;
   }, {} as Record<string, ServerData[]>);
 
-  const handleAddServer = (serverData: ServerData) => {
-    fetchServers();
+  const handleAddServer = () => {
+    // Refetch data after adding a server (API call is in the modal)
+    async function refetchData() { 
+      setLoading(true);
+      setError(null);
+      try {
+        const serverResponse = await fetch('/api/servers');
+        if (!serverResponse.ok) throw new Error('Failed to refetch servers');
+        const serverData = await serverResponse.json();
+        if (serverData.servers) {
+             const mappedServers = serverData.servers.map((server: ApiServerData): ServerData => ({
+                dbId: server.bench_id,
+                name: server.hil_name || 'Unnamed Server',
+                platform: server.category || 'Uncategorized',
+                bench_type: server.subcategory || '',
+                description: server.description || 'No description available',
+                status: server.status === 'offline' ? 'offline' : 
+                      server.status === 'in use' ? 'in_use' : 'online',
+                user: server.active_user || '',
+            }));
+             setServers(mappedServers);
+        }
+      } catch (err) {
+          console.error("Refetch error:", err);
+          setError(err instanceof Error ? err.message : "Failed to reload servers after add");
+      } finally {
+          setLoading(false);
+      }
+    }
+    refetchData();
   };
 
   // --- Edit Modal Handlers ---
@@ -147,10 +161,37 @@ export default function Home() {
     setServerToEdit(null);
   };
 
-  const handleEditSubmit = (serverData: ServerData, dbId?: number) => {
-    // API call was handled by the modal, just refetch to update the list
-    fetchServers();
-    closeEditModal(); // Close modal after submit
+  const handleEditSubmit = () => {
+    // Refetch data after editing (API call is in the modal)
+     async function refetchData() { 
+      setLoading(true);
+      setError(null);
+      try {
+        const serverResponse = await fetch('/api/servers');
+        if (!serverResponse.ok) throw new Error('Failed to refetch servers');
+        const serverData = await serverResponse.json();
+        if (serverData.servers) {
+             const mappedServers = serverData.servers.map((server: ApiServerData): ServerData => ({
+                dbId: server.bench_id,
+                name: server.hil_name || 'Unnamed Server',
+                platform: server.category || 'Uncategorized',
+                bench_type: server.subcategory || '',
+                description: server.description || 'No description available',
+                status: server.status === 'offline' ? 'offline' : 
+                      server.status === 'in use' ? 'in_use' : 'online',
+                user: server.active_user || '',
+            }));
+             setServers(mappedServers);
+        }
+      } catch (err) {
+          console.error("Refetch error:", err);
+          setError(err instanceof Error ? err.message : "Failed to reload servers after edit");
+      } finally {
+          setLoading(false);
+      }
+    }
+    refetchData();
+    closeEditModal(); // Close modal after triggering refetch
   };
 
   // Function to remove a server from the frontend state using dbId
@@ -160,6 +201,10 @@ export default function Home() {
 
   // --- Delete Dialog Handlers ---
   const openDeleteDialog = (dbId: number, serverName: string) => {
+    if (typeof dbId !== 'number') {
+        console.error("Invalid dbId passed to openDeleteDialog:", dbId);
+        return;
+    }
     setServerToDeleteId(dbId);
     setServerToDeleteName(serverName);
     setShowDeleteDialog(true);
@@ -204,7 +249,6 @@ export default function Home() {
 
   // Handle category click from the sidebar
   const handleCategoryClick = (category: string) => {
-    // Find the category section and scroll to it with improved smoothness
     const section = document.getElementById(`category-${category.toLowerCase()}`);
     if (section) {
       section.scrollIntoView({ 
@@ -216,8 +260,8 @@ export default function Home() {
   };
 
   // Scroll to a specific server when clicked in sidebar
-  const handleServerClick = (serverId: string) => {
-    const serverElement = document.getElementById(serverId);
+  const handleServerClick = (serverElementId: string) => { 
+    const serverElement = document.getElementById(serverElementId);
     if (serverElement) {
       serverElement.scrollIntoView({ 
         behavior: 'smooth',
@@ -225,7 +269,8 @@ export default function Home() {
       });
       
       // Add a brief highlight effect
-      serverElement.style.boxShadow = '0 0 0 2px #39A2DB';
+      serverElement.style.transition = 'box-shadow 0.3s ease-in-out'; // Add transition
+      serverElement.style.boxShadow = '0 0 8px 3px rgba(57, 162, 219, 0.7)'; // Adjust shadow
       setTimeout(() => {
         serverElement.style.boxShadow = '';
       }, 1500);
@@ -235,250 +280,113 @@ export default function Home() {
   // Render loading state
   if (loading) {
     return (
-      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <main className="flex min-h-screen flex-col">
         <Header />
-        <div style={{ 
-          flex: 1, 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          color: '#0F3460'
-        }}>
+        <div className="flex flex-1 items-center justify-center text-gray-600">
           <div>Loading server data...</div>
         </div>
       </main>
     );
   }
-
+  
   // Render error state
   if (error) {
-    return (
-      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Header />
-        <div style={{ 
-          flex: 1, 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          color: '#EF4444'
-        }}>
-          <div>{error}</div>
-        </div>
-      </main>
-    );
+      return (
+        <main className="flex min-h-screen flex-col">
+            <Header />
+            <div className="flex flex-1 items-center justify-center text-red-600">
+                <div>Error: {error}</div>
+            </div>
+        </main>
+      );
   }
-
-  // Render a category section
+  
+  // Helper function to render a category section
   const renderCategorySection = (category: string, serversList: ServerData[]) => (
-    <div 
-      key={category} 
-      id={`category-${category.toLowerCase()}`}
-      style={{ 
-        scrollMarginTop: '100px', // Space for the header when scrolling
-        marginBottom: '3rem' 
-      }}
-    >
-      {/* Category heading */}
-      <div style={{ 
-        padding: '1rem 0 1rem', 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <h2 style={{ 
-          fontSize: '1.5rem', 
-          fontWeight: 'bold', 
-          color: '#0F3460',
-          margin: 0
-        }}>
-          {category}
-        </h2>
-        
-        <div style={{ 
-          fontSize: '0.9rem',
-          color: '#666'
-        }}>
-          {serversList.length} {serversList.length === 1 ? 'item' : 'items'}
-        </div>
-      </div>
-      
-      {/* Category separator */}
-      <div style={{ 
-        height: '2px', 
-        background: 'linear-gradient(to right, #0F3460, #39A2DB, rgba(255,255,255,0))',
-        marginBottom: '1.5rem'
-      }}></div>
-      
-      {/* Server cards grid */}
-      <div className="grid-container">
-        {serversList.map((server, index) => (
-          <ServerCard
-            key={`${category}-${index}`}
-            id={`server-${category.toLowerCase()}-${index}`}
-            dbId={server.dbId}
-            name={server.name}
-            platform={server.platform}
-            bench_type={server.bench_type}
-            description={server.description}
-            status={server.status}
-            user={server.user}
-            onDelete={handleDeleteServer}
-            onOpenDeleteDialog={openDeleteDialog}
-            onOpenEditModal={openEditModal}
-          />
+    <div key={category} id={`category-${category.toLowerCase()}`} className="mb-12">
+      <h2 className="mb-6 text-3xl font-bold text-gray-800">{category}</h2>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {serversList.map((server) => (
+          server.dbId !== undefined && (
+            <div key={server.dbId} id={`server-${server.dbId}`}>
+              <ServerCard 
+                {...server}
+                id={`server-card-${server.dbId}`}
+                onOpenEditModal={() => openEditModal(server)}
+                onOpenDeleteDialog={() => openDeleteDialog(server.dbId!, server.name)}
+              />
+            </div>
+          )
         ))}
-        
-        {/* Only show add button in the first category for simplicity */}
-        {category === categories[0] && (
-          <AddServerCard onClick={() => setIsModalOpen(true)} />
-        )}
       </div>
     </div>
   );
 
   return (
-    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <main className="flex min-h-screen flex-col bg-gray-50">
       <Header />
-      
-      <div style={{ display: 'flex', flex: 1 }}>
-        {/* Sidebar with server click handler */}
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar 
-          servers={servers} 
           categories={categories} 
-          onCategoryClick={handleCategoryClick}
+          servers={servers} 
+          onCategoryClick={handleCategoryClick} 
           onServerClick={handleServerClick}
+          onAddServerClick={() => setIsModalOpen(true)}
         />
-        
-        {/* Main content */}
-        <div className="content" style={{ 
-          flex: 1, 
-          paddingTop: '1.5rem',
-          height: 'calc(100vh - 73px)',
-          overflowY: 'auto'
-        }}>
-          <div style={{ 
-            maxWidth: '1200px', 
-            margin: '0 auto', 
-            padding: '0 1rem' 
-          }}>
-            {/* Render all category sections */}
-            {categories.map(category => renderCategorySection(category, serversByCategory[category] || []))}
-          </div>
+        <div className="flex-1 p-8 overflow-y-auto">
+          {/* Render server sections */}          
+          {categories.length > 0 ? (
+            categories.map(category => renderCategorySection(category, serversByCategory[category] || []))
+          ) : (
+            !loading && <p>No servers found.</p>
+          )}
         </div>
       </div>
-      
-      {/* Add Server Modal */}
+
+      {/* Add Server Modal */}      
       <AddServerModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddServer}
+        mode="add"
       />
 
-      {/* Edit Server Modal - Reusing AddServerModal */}
-      <AddServerModal
-        isOpen={isEditModalOpen}
-        onClose={closeEditModal}
-        onSubmit={handleEditSubmit}
-        initialData={serverToEdit}
-      />
-
-      {/* Delete Confirmation Dialog - Rendered at Page Level */}
-      {showDeleteDialog && (
-        <>
-          {/* Backdrop */}
-          <div 
-            style={{ 
-              position: 'fixed', 
-              inset: 0, 
-              backdropFilter: 'blur(5px)',
-              backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              zIndex: 100, 
-              pointerEvents: 'auto'
-            }} 
-            onClick={closeDeleteDialog}
+      {/* Edit Server Modal */}      
+      {serverToEdit && (
+          <AddServerModal
+            isOpen={isEditModalOpen}
+            onClose={closeEditModal}
+            onSubmit={handleEditSubmit}
+            initialData={serverToEdit} 
+            mode="edit"
           />
-          {/* Centering Wrapper */}
-          <div 
-            className="fixed inset-0 flex items-center justify-center z-101"
-            style={{ pointerEvents: 'none' }}
-          >
-            {/* Dialog Box */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '400px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
-              animation: 'modalFadeIn 0.3s ease-out',
-              pointerEvents: 'auto'
-            }}>
-              {/* Dialog Header */}
-              <div style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid #f0f0f0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <h3 style={{ 
-                  fontSize: '18px',
-                  fontWeight: 'bold', 
-                  color: '#0F3460',
-                  margin: 0
-                }}>Confirm Deletion</h3>
-              </div>
+      )}
 
-              {/* Dialog Content */}
-              <div style={{ padding: '24px' }}> 
-                <p style={{ margin: '0 0 1.5rem 0', color: '#4b5563', fontSize: '15px', lineHeight: '1.6' }}>
-                  Are you sure you want to delete the server '{serverToDeleteName}'? This action cannot be undone.
-                </p>
-                
-                {deleteError && (
-                  <p style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '1.5rem', marginTop:'-0.5rem' }}>
-                    Error: {deleteError}
-                  </p>
-                )}
-                
-                {/* Dialog Actions */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                  <button 
-                    onClick={closeDeleteDialog}
-                    style={{ 
-                      padding: '8px 16px',
-                      border: '1px solid #d1d5db', 
-                      borderRadius: '8px', 
-                      backgroundColor: 'white', 
-                      color: '#374151', 
-                      cursor: 'pointer', 
-                      fontSize: '14px',
-                      opacity: isDeleting ? 0.7 : 1
-                    }}
-                    disabled={isDeleting}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={handleConfirmDelete}
-                    style={{ 
-                      padding: '8px 16px',
-                      border: 'none', 
-                      borderRadius: '8px', 
-                      backgroundColor: '#ef4444',
-                      color: 'white', 
-                      cursor: 'pointer', 
-                      fontSize: '14px',
-                      opacity: isDeleting ? 0.7 : 1
-                    }}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? 'Deleting...' : 'Delete Server'}
-                  </button>
-                </div>
-              </div>
+      {/* Delete Confirmation Dialog */}      
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Confirm Deletion</h3>
+            <p className="mb-4">Are you sure you want to delete server &apos;{serverToDeleteName}&apos;? This action cannot be undone.</p>
+            {deleteError && <p className="mb-4 text-sm text-red-600">Error: {deleteError}</p>}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={closeDeleteDialog}
+                disabled={isDeleting}
+                className="rounded bg-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-400 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </main>
   );
