@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit, Save, Check } from 'lucide-react';
+import { X, Edit, Save, Check, RefreshCw } from 'lucide-react';
 
 interface Field {
   name: string;
@@ -17,7 +17,9 @@ interface EditableDetailsModalProps {
   data: Record<string, any>;
   fields: Field[];
   onSave: (formData: Record<string, any>) => Promise<void>;
+  onDelete?: () => Promise<void>;
   excludeFields?: string[];
+  children?: React.ReactNode;
 }
 
 const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
@@ -27,7 +29,9 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
   data,
   fields,
   onSave,
-  excludeFields = []
+  onDelete,
+  excludeFields = [],
+  children
 }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -36,6 +40,11 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
 
   // Initialize form data when the modal opens or data changes
   useEffect(() => {
+    // Check if data is null or undefined before accessing its properties
+    if (!data) {
+        setFormData({}); // Set empty form data if data is null/undefined
+        return;
+    }
     const initialData: Record<string, any> = {};
     // Only include fields that are defined in the fields prop
     fields.forEach(field => {
@@ -62,6 +71,16 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
   };
 
   const handleSubmit = async () => {
+    // Frontend Validation
+    for (const field of fields) {
+        // Check if field is required and has no value (or is empty string)
+        const value = formData[field.name];
+        if (field.required && (value === null || value === undefined || String(value).trim() === '')) {
+            setError(`Failed to save: ${field.label || field.name} is required.`);
+            return; // Stop submission
+        }
+    }
+
     setSaving(true);
     setError(null);
 
@@ -235,58 +254,115 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
             );
           })}
         </div>
+
+        {/* Render children here, after the main fields grid */}
+        {children}
         
-        {isEditMode && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '0.5rem',
-            marginTop: '1.5rem',
-          }}>
-            <button
-              type="button"
-              onClick={() => setIsEditMode(false)}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '0.25rem',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                border: 'none',
-                cursor: 'pointer',
-              }}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '1.5rem',
+        }}>
+          {isEditMode && onDelete && (
+            <button 
+              onClick={onDelete} 
               disabled={saving}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
               style={{
-                padding: '0.5rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                padding: '0.5rem 0.75rem',
                 borderRadius: '0.25rem',
-                backgroundColor: '#2563eb',
+                backgroundColor: '#dc2626',
                 color: 'white',
                 fontSize: '0.875rem',
                 fontWeight: '500',
                 border: 'none',
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
+                opacity: saving ? 0.5 : 1,
               }}
-              disabled={saving}
             >
-              {saving ? 'Saving...' : (
-                <>
-                  <Save size={16} />
-                  Save
-                </>
-              )}
+              Delete
             </button>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
+            {isEditMode ? (
+              <>
+                <button
+                  onClick={() => {
+                    setIsEditMode(false);
+                    const initialData: Record<string, any> = {};
+                    fields.forEach(field => {
+                      if (data[field.name] !== undefined) {
+                        initialData[field.name] = data[field.name];
+                      }
+                    });
+                    setFormData(initialData);
+                    setError(null);
+                  }}
+                  disabled={saving}
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '0.25rem',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: 'white',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    opacity: saving ? 0.5 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={saving}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '0.25rem',
+                    backgroundColor: saving ? '#9ca3af' : '#16a34a',
+                    color: 'white',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    border: 'none',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {saving ? (
+                    <>
+                      <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} /> Save Changes
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '0.25rem',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: 'white',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

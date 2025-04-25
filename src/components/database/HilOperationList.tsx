@@ -168,13 +168,13 @@ export default function HilOperationList() {
       label: 'Test Bench',
       type: 'select',
       required: true,
+      editable: true,
       options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
     },
-    { name: 'hilName', label: 'HIL Name', type: 'text', editable: false },
-    { name: 'possibleTests', label: 'Possible Tests', type: 'text' },
-    { name: 'vehicleDatasets', label: 'Vehicle Datasets', type: 'text' },
-    { name: 'scenarios', label: 'Scenarios', type: 'text' },
-    { name: 'controldeskProjects', label: 'Controldesk Projects', type: 'text' },
+    { name: 'possibleTests', label: 'Possible Tests', type: 'text', editable: true },
+    { name: 'vehicleDatasets', label: 'Vehicle Datasets', type: 'text', editable: true },
+    { name: 'scenarios', label: 'Scenarios', type: 'text', editable: true },
+    { name: 'controldeskProjects', label: 'Controldesk Projects', type: 'text', editable: true },
   ];
 
   return (
@@ -245,19 +245,24 @@ export default function HilOperationList() {
                 {hilOperations.length === 0 ? (
                   <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL operations found</td></tr>
                 ) : (
-                  hilOperations.map((op) => (
-                    <tr key={op.operationId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => handleRowClick(op)}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      {/* Adjust columns */}
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.operationId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.hilName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.possibleTests}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.vehicleDatasets}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.scenarios}</td>
-                    </tr>
-                  ))
+                  hilOperations.map((op) => {
+                    // Find the associated test bench name
+                    const hilName = testBenches.find(tb => tb.benchId === op.benchId)?.hilName || 'N/A';
+                    
+                    return (
+                      <tr key={op.operationId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
+                          onClick={() => handleRowClick(op)}
+                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                        {/* Adjust columns */}
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.operationId}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hilName}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.possibleTests || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.vehicleDatasets || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{op.scenarios || '-'}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -269,7 +274,7 @@ export default function HilOperationList() {
         <EditableDetailsModal
           isOpen={selectedOperation !== null}
           onClose={() => setSelectedOperation(null)}
-          title={`HIL Operation Details: ${selectedOperation.hilName}`}
+          title={`HIL Operation Details for Bench: ${testBenches.find(tb => tb.benchId === selectedOperation.benchId)?.hilName || selectedOperation.benchId}`}
           data={selectedOperation}
           fields={detailsFields} // Ensure options populated
           onSave={handleUpdateOperation}

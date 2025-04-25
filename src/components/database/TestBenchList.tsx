@@ -52,6 +52,8 @@ export default function TestBenchList() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [systemTypes, setSystemTypes] = useState<string[]>([]);
+  const [benchTypes, setBenchTypes] = useState<string[]>([]);
 
   const fetchRelatedData = async () => {
     try {
@@ -69,6 +71,20 @@ export default function TestBenchList() {
         const projectsData = await projectsResponse.json();
         // Convert incoming snake_case keys to camelCase
         setProjects(keysToCamel<Project[]>(projectsData.projects || []));
+      }
+
+      // Fetch system types
+      const systemTypesResponse = await fetch('/api/system-types');
+      if (systemTypesResponse.ok) {
+        const systemTypesData = await systemTypesResponse.json();
+        setSystemTypes(systemTypesData.systemTypes || []);
+      }
+
+      // Fetch bench types
+      const benchTypesResponse = await fetch('/api/bench-types');
+      if (benchTypesResponse.ok) {
+        const benchTypesData = await benchTypesResponse.json();
+        setBenchTypes(benchTypesData.benchTypes || []);
       }
     } catch (err) {
       console.error('Error fetching related data:', err);
@@ -168,17 +184,20 @@ export default function TestBenchList() {
       const data = await response.json();
       const updatedBench = keysToCamel<TestBench>(data.testBench);
 
-      // Update local state with camelCase data
-      setTestBenches(prev =>
-        prev.map(bench =>
-          bench.benchId === updatedBench.benchId ? updatedBench : bench
-        )
-      );
-
-      // Update selected test bench with camelCase data
-      setSelectedTestBench(updatedBench);
-      // Optionally close the modal on successful update
-      // setSelectedTestBench(null);
+      // Check if updatedBench exists and update state
+      if (updatedBench) {
+          // Update local list state with camelCase data
+          setTestBenches(prev =>
+            prev.map(bench =>
+              bench.benchId === updatedBench.benchId ? updatedBench : bench
+            )
+          );
+          // Update the selected state as well
+          setSelectedTestBench(updatedBench);
+      } else {
+          console.error("Failed to get updated Test Bench data from API response:", data);
+          throw new Error("Failed to process update response from server.");
+      }
 
     } catch (err) {
       console.error("Failed to update test bench:", err);
@@ -194,54 +213,73 @@ export default function TestBenchList() {
     { name: 'systemType', label: 'System Type', type: 'text' },
     { name: 'benchType', label: 'Bench Type', type: 'text' },
     { name: 'acquisitionDate', label: 'Acquisition Date', type: 'date' },
+    { name: 'usagePeriod', label: 'Usage Period', type: 'text' },
     { name: 'location', label: 'Location', type: 'text' },
+    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text' },
+    { name: 'eplan', label: 'E-Plan', type: 'text' },
     {
-      name: 'userId', // Use camelCase for the form field name
+      name: 'userId',
       label: 'User',
       type: 'select',
       options: users.map(user => ({
-        value: String(user.userId), // Reference camelCase property
-        label: user.userName,      // Reference camelCase property
+        value: String(user.userId),
+        label: user.userName,
       })),
     },
     {
-      name: 'projectId', // Use camelCase for the form field name
+      name: 'projectId',
       label: 'Project',
       type: 'select',
       options: projects.map(project => ({
-        value: String(project.projectId), // Reference camelCase property
-        label: project.projectName,     // Reference camelCase property
+        value: String(project.projectId),
+        label: project.projectName,
       })),
     },
   ];
 
   // Define fields for the editable details modal using camelCase names
-  // Note: Ensure the data passed to the modal includes userName and projectName if they need to be displayed initially
   const detailsFields: ModalField[] = [
     { name: 'benchId', label: 'Bench ID', type: 'number', editable: false },
-    { name: 'hilName', label: 'HIL Name', type: 'text', required: true },
-    { name: 'ppNumber', label: 'PP Number', type: 'text' },
-    { name: 'systemType', label: 'System Type', type: 'text' },
-    { name: 'benchType', label: 'Bench Type', type: 'text' },
-    { name: 'acquisitionDate', label: 'Acquisition Date', type: 'date' },
-    { name: 'location', label: 'Location', type: 'text' },
+    { name: 'hilName', label: 'HIL Name', type: 'text', required: true, editable: true },
+    { name: 'ppNumber', label: 'PP Number', type: 'text', editable: true },
     {
-      name: 'userId', // Use camelCase for the form field name
+      name: 'systemType',
+      label: 'System Type',
+      type: 'select',
+      options: systemTypes.map(type => ({ value: type, label: type })),
+      editable: true,
+    },
+    {
+      name: 'benchType',
+      label: 'Bench Type',
+      type: 'select',
+      options: benchTypes.map(type => ({ value: type, label: type })),
+      editable: true,
+    },
+    { name: 'acquisitionDate', label: 'Acquisition Date', type: 'date', editable: true },
+    { name: 'usagePeriod', label: 'Usage Period', type: 'text', editable: true },
+    { name: 'location', label: 'Location', type: 'text', editable: true },
+    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text', editable: true },
+    { name: 'eplan', label: 'E-Plan', type: 'text', editable: true },
+    {
+      name: 'userId',
       label: 'User',
       type: 'select',
       options: users.map(user => ({
-        value: String(user.userId), // Reference camelCase property
-        label: user.userName,      // Reference camelCase property
+        value: String(user.userId),
+        label: user.userName,
       })),
+      editable: true,
     },
     {
-      name: 'projectId', // Use camelCase for the form field name
+      name: 'projectId',
       label: 'Project',
       type: 'select',
       options: projects.map(project => ({
-        value: String(project.projectId), // Reference camelCase property
-        label: project.projectName,     // Reference camelCase property
+        value: String(project.projectId),
+        label: project.projectName,
       })),
+      editable: true,
     },
   ];
 
@@ -378,6 +416,10 @@ export default function TestBenchList() {
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>HIL Name</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>PP Number</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>System Type</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Usage Period</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Location</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Inv. Number</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>E-Plan</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>User</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Project</th>
                 </tr>
@@ -385,18 +427,23 @@ export default function TestBenchList() {
               <tbody>
                 {testBenches.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No test benches found</td>
+                    <td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No test benches found</td>
                   </tr>
                 ) : (
-                  testBenches.map((bench) => ( // Use camelCase bench object
-                    <tr key={bench.benchId} style={{ // Use camelCase key
+                  testBenches.map((bench) => {
+                    // Find user and project names based on IDs
+                    const userName = users.find(u => u.userId === bench.userId)?.userName || 'N/A';
+                    const projectName = projects.find(p => p.projectId === bench.projectId)?.projectName || 'N/A';
+                    
+                    return (
+                      <tr key={bench.benchId} style={{
                       borderBottom: '1px solid #e5e7eb',
                       transition: 'background-color 0.2s',
                       cursor: 'pointer'
                     }}
                     onClick={() => {
-                      fetchRelatedData(); // Ensure related data is fetched (already uses camelCase)
-                      setSelectedTestBench(bench); // Set camelCase bench
+                        fetchRelatedData();
+                        setSelectedTestBench(bench);
                     }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#f9fafb';
@@ -406,12 +453,17 @@ export default function TestBenchList() {
                     }}>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.benchId}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.hilName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.ppNumber}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.systemType}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.userName}</td> 
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.projectName}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.ppNumber || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.systemType || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.usagePeriod || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.location || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.inventoryNumber || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.eplan || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{userName}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{projectName}</td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -424,10 +476,10 @@ export default function TestBenchList() {
         <EditableDetailsModal
           isOpen={selectedTestBench !== null}
           onClose={() => setSelectedTestBench(null)}
-          title={`Test Bench Details: ${selectedTestBench.hilName}`} // Use camelCase
-          data={selectedTestBench} // Pass camelCase data
-          fields={detailsFields} // Pass camelCase fields
-          onSave={handleUpdateTestBench} // Handler expects camelCase, converts to snake_case for API
+          title={`Test Bench Details: ${selectedTestBench.hilName}`}
+          data={selectedTestBench}
+          fields={detailsFields}
+          onSave={handleUpdateTestBench}
         />
       )}
 
@@ -436,8 +488,8 @@ export default function TestBenchList() {
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           title="Add New Test Bench"
-          fields={addEntryFields} // Pass camelCase fields
-          onSave={handleSaveEntry} // Handler expects camelCase, converts to snake_case for API
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>

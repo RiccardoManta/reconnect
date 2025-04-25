@@ -172,15 +172,15 @@ export default function HilTechnologyList() {
       label: 'Test Bench',
       type: 'select',
       required: true,
+      editable: true,
       options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
     },
-    { name: 'hilName', label: 'HIL Name', type: 'text', editable: false }, // Typically non-editable if linked to benchId
-    { name: 'fiuInfo', label: 'FIU Info', type: 'text' },
-    { name: 'ioInfo', label: 'I/O Info', type: 'text' },
-    { name: 'canInterface', label: 'CAN Interface', type: 'text' },
-    { name: 'powerInterface', label: 'Power Interface', type: 'text' },
-    { name: 'possibleTests', label: 'Possible Tests', type: 'text' },
-    { name: 'leakageModule', label: 'Leakage Module', type: 'text' },
+    { name: 'fiuInfo', label: 'FIU Info', type: 'text', editable: true },
+    { name: 'ioInfo', label: 'I/O Info', type: 'text', editable: true },
+    { name: 'canInterface', label: 'CAN Interface', type: 'text', editable: true },
+    { name: 'powerInterface', label: 'Power Interface', type: 'text', editable: true },
+    { name: 'possibleTests', label: 'Possible Tests', type: 'text', editable: true },
+    { name: 'leakageModule', label: 'Leakage Module', type: 'text', editable: true },
   ];
 
   return (
@@ -251,19 +251,24 @@ export default function HilTechnologyList() {
                 {hilTechnology.length === 0 ? (
                   <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL technology found</td></tr>
                 ) : (
-                  hilTechnology.map((tech) => (
-                    <tr key={tech.techId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => handleRowClick(tech)}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      {/* Display relevant columns */}
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.techId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.hilName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.fiuInfo}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.ioInfo}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.canInterface}</td>
-                    </tr>
-                  ))
+                  hilTechnology.map((tech) => {
+                    // Find the associated test bench name
+                    const hilName = testBenches.find(tb => tb.benchId === tech.benchId)?.hilName || 'N/A';
+                    
+                    return (
+                      <tr key={tech.techId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
+                          onClick={() => handleRowClick(tech)}
+                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                        {/* Display relevant columns */}
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.techId}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hilName}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.fiuInfo || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.ioInfo || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.canInterface || '-'}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -275,7 +280,7 @@ export default function HilTechnologyList() {
         <EditableDetailsModal
           isOpen={selectedTechnology !== null}
           onClose={() => setSelectedTechnology(null)}
-          title={`HIL Technology Details: ${selectedTechnology.hilName}`}
+          title={`HIL Technology for Bench: ${testBenches.find(tb => tb.benchId === selectedTechnology.benchId)?.hilName || selectedTechnology.benchId}`}
           data={selectedTechnology}
           fields={detailsFields} // Ensure options are populated
           onSave={handleUpdateTechnology}

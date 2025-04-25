@@ -33,23 +33,37 @@ pool
 // Execute a query with parameters and return results (array of rows)
 // Define a generic type for query results, defaulting to RowDataPacket[]
 export async function query<T extends mysql.RowDataPacket[]>(sql: string, params: any[] = []): Promise<T> {
+  let connection: PoolConnection | null = null;
   try {
-    const [rows] = await pool.query<T>(sql, params);
+    connection = await pool.getConnection();
+    const [rows] = await connection.query<T>(sql, params);
     return rows;
   } catch (err) {
     console.error('Database query error:', err);
     throw err; // Re-throw the error to be handled by the caller
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 }
 
 // Execute a query with parameters and return a single row
 export async function queryOne<T extends mysql.RowDataPacket>(sql: string, params: any[] = []): Promise<T | null> {
+  let connection: PoolConnection | null = null;
   try {
-    const [rows] = await pool.query<T[]>(sql, params); // Query returns array
-    return rows[0] || null;
+    // Apply the same explicit connection handling to queryOne for consistency
+    connection = await pool.getConnection();
+    const [rows] = await connection.query<T[]>(sql, params); // Query returns array
+    const result = rows[0] || null;
+    return result;
   } catch (err) {
     console.error('Database queryOne error:', err);
     throw err;
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 }
 

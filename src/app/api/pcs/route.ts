@@ -5,8 +5,9 @@ import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 // Interface for PC Overview data returned by API
 interface PcOverview extends RowDataPacket {
     pc_id: number;
-    bench_id: number;
-    pc_name: string;
+    bench_id: number | null;
+    pc_name: string | null;
+    casual_name?: string | null;
     purchase_year: number | null;
     inventory_number: string | null;
     pc_role: string | null;
@@ -14,8 +15,6 @@ interface PcOverview extends RowDataPacket {
     special_equipment: string | null;
     mac_address: string | null;
     ip_address: string | null;
-    active_licenses: string | null; // Consider if this should be structured differently (e.g., JSON string)
-    installed_tools: string | null; // Consider if this should be structured differently
     pc_info_text: string | null;
     status: string | null;
     active_user: string | null;
@@ -24,20 +23,19 @@ interface PcOverview extends RowDataPacket {
 // Interface for POST/PUT request body
 interface PcOverviewRequestBody {
     pc_id?: number; // Only for PUT
-    bench_id: number;
+    bench_id: number | null;
     pc_name: string;
-    purchase_year?: number;
-    inventory_number?: string;
-    pc_role?: string;
-    pc_model?: string;
-    special_equipment?: string;
-    mac_address?: string;
-    ip_address?: string;
-    active_licenses?: string;
-    installed_tools?: string;
-    pc_info_text?: string;
-    status?: string;
-    active_user?: string;
+    casual_name?: string | null;
+    purchase_year?: number | null;
+    inventory_number?: string | null;
+    pc_role?: string | null;
+    pc_model?: string | null;
+    special_equipment?: string | null;
+    mac_address?: string | null;
+    ip_address?: string | null;
+    pc_info_text?: string | null;
+    status?: string | null;
+    active_user?: string | null;
 }
 
 // GET method to fetch all PC overviews
@@ -92,11 +90,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Insert the new PC overview record using dbUtils.insert
     const pcId = await dbUtils.insert(
-      `INSERT INTO pc_overview (bench_id, pc_name, purchase_year, inventory_number, pc_role, pc_model, special_equipment, mac_address, ip_address, active_licenses, installed_tools, pc_info_text, status, active_user) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+      `INSERT INTO pc_overview (bench_id, pc_name, casual_name, purchase_year, inventory_number, pc_role, pc_model, special_equipment, mac_address, ip_address, pc_info_text, status, active_user) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
       [
         body.bench_id,
         body.pc_name,
+        body.casual_name || null,
         body.purchase_year || null,
         body.inventory_number || null,
         body.pc_role || null,
@@ -104,10 +103,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         body.special_equipment || null,
         body.mac_address || null,
         body.ip_address || null,
-        body.active_licenses || null,
-        body.installed_tools || null,
         body.pc_info_text || null,
-        body.status || 'offline',
+        body.status || null,
         body.active_user || null
       ]
     );
@@ -152,73 +149,61 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     
     // Validate required fields for PUT
     if (body.pc_id === undefined || body.pc_id === null) {
-      return NextResponse.json(
-        { error: 'PC ID (pc_id) is required for update' },
-        { status: 400 }
-      );
+      console.error('[API PUT /api/pcs] Validation failed: Missing pc_id');
+      return NextResponse.json({ error: 'PC ID (pc_id) is required for update' }, { status: 400 });
     }
     if (body.bench_id === undefined || body.bench_id === null) {
-      return NextResponse.json(
-        { error: 'Test bench ID (bench_id) is required' },
-        { status: 400 }
-      );
+      console.error('[API PUT /api/pcs] Validation failed: Missing bench_id');
+      return NextResponse.json({ error: 'Test bench ID (bench_id) is required' }, { status: 400 });
     }
     if (!body.pc_name) {
-      return NextResponse.json(
-        { error: 'PC name (pc_name) is required' },
-        { status: 400 }
-      );
+      console.error('[API PUT /api/pcs] Validation failed: Missing pc_name');
+      return NextResponse.json({ error: 'PC name (pc_name) is required' }, { status: 400 });
     }
 
-    // Check if the referenced test bench exists
-    const testBench = await dbUtils.queryOne(
-        `SELECT bench_id FROM test_benches WHERE bench_id = ?`, 
-        [body.bench_id]
-    );
-    if (!testBench) {
-      return NextResponse.json(
-        { error: 'Referenced Test Bench with the specified bench_id not found' },
-        { status: 404 }
-      );
-    }
+    // Wrap update in transaction
+    const affectedRows = await dbUtils.transaction<number>(async (connection) => {
+        // Re-check bench_id existence within transaction for stronger consistency
+        const testBench = await connection.query<RowDataPacket[]>(
+            `SELECT bench_id FROM test_benches WHERE bench_id = ?`, 
+            [body.bench_id]
+        );
+        if (!testBench[0] || testBench[0].length === 0) {
+            console.error(`[API PUT /api/pcs] (TX) Referenced bench_id=${body.bench_id} not found.`);
+            // Throw error to cause rollback
+            throw new Error('Referenced Test Bench with the specified bench_id not found'); 
+        }
 
-    // Update the PC overview record using dbUtils.update
-    const affectedRows = await dbUtils.update(
-      `UPDATE pc_overview SET
-         bench_id = ?, 
-         pc_name = ?, 
-         purchase_year = ?, 
-         inventory_number = ?, 
-         pc_role = ?,
-         pc_model = ?,
-         special_equipment = ?,
-         mac_address = ?,
-         ip_address = ?,
-         active_licenses = ?,
-         installed_tools = ?,
-         pc_info_text = ?,
-         status = ?,
-         active_user = ?
-       WHERE pc_id = ?`, 
-      [
-        body.bench_id,
-        body.pc_name,
-        body.purchase_year || null,
-        body.inventory_number || null,
-        body.pc_role || null,
-        body.pc_model || null,
-        body.special_equipment || null,
-        body.mac_address || null,
-        body.ip_address || null,
-        body.active_licenses || null,
-        body.installed_tools || null,
-        body.pc_info_text || null,
-        body.status || 'offline',
-        body.active_user || null,
-        body.pc_id
-      ]
-    );
+        const updateQuery = `
+          UPDATE pc_overview SET
+             bench_id = ?, pc_name = ?, casual_name = ?, purchase_year = ?, inventory_number = ?, 
+             pc_role = ?, pc_model = ?, special_equipment = ?, mac_address = ?, 
+             ip_address = ?, pc_info_text = ?, status = ?, active_user = ?
+           WHERE pc_id = ?
+        `; 
+        const updateValues = [
+            body.bench_id,
+            body.pc_name,
+            body.casual_name || null,
+            body.purchase_year || null,
+            body.inventory_number || null,
+            body.pc_role || null,
+            body.pc_model || null,
+            body.special_equipment || null,
+            body.mac_address || null,
+            body.ip_address || null,
+            body.pc_info_text || null,
+            body.status || null,
+            body.active_user || null,
+            body.pc_id
+          ];
+          
+        // Use connection.query within transaction
+        const [result] = await connection.query<ResultSetHeader>(updateQuery, updateValues);
+        return result.affectedRows;
+    }); // End transaction
     
+    // If transaction succeeded, affectedRows contains the result
     if (affectedRows === 0) {
       // Check if the record exists at all to differentiate between not found and no changes made
       const existingPc = await dbUtils.queryOne(

@@ -166,21 +166,26 @@ export default function WetbenchesList() {
 
   const detailsFields: ModalField[] = [
     { name: 'wetbenchId', label: 'Wetbench ID', type: 'number', editable: false },
-    { name: 'wetbenchName', label: 'Wetbench Name', type: 'text', required: true },
-    { name: 'ppNumber', label: 'PP Number', type: 'text' },
-    { name: 'owner', label: 'Owner', type: 'text' },
-    { name: 'systemType', label: 'System Type', type: 'text' },
-    { name: 'platform', label: 'Platform', type: 'text' },
-    { name: 'systemSupplier', label: 'System Supplier', type: 'text' },
+    { name: 'wetbenchName', label: 'Wetbench Name', type: 'text', required: true, editable: true },
+    { name: 'ppNumber', label: 'PP Number', type: 'text', editable: true },
+    { name: 'owner', label: 'Owner', type: 'text', editable: true },
+    { name: 'systemType', label: 'System Type', type: 'text', editable: true },
+    { name: 'platform', label: 'Platform', type: 'text', editable: true },
+    { name: 'systemSupplier', label: 'System Supplier', type: 'text', editable: true },
     {
       name: 'linkedBenchId',
       label: 'Linked Test Bench',
       type: 'select',
-      options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      required: false,
+      editable: true,
+      options: [
+        { value: '', label: 'None' },
+        ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      ]
     },
-    { name: 'actuatorInfo', label: 'Actuator Info', type: 'text' },
-    { name: 'hardwareComponents', label: 'Hardware Components', type: 'text' },
-    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text' },
+    { name: 'actuatorInfo', label: 'Actuator Info', type: 'text', editable: true },
+    { name: 'hardwareComponents', label: 'Hardware Components', type: 'text', editable: true },
+    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text', editable: true },
   ];
 
   return (
@@ -246,26 +251,33 @@ export default function WetbenchesList() {
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Owner</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>System Type</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Platform</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Linked Bench</th>
                 </tr>
               </thead>
               <tbody>
                 {wetbenches.length === 0 ? (
-                  <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No wetbenches found</td></tr>
+                  <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No wetbenches found</td></tr>
                 ) : (
-                  wetbenches.map((wb) => (
-                    <tr key={wb.wetbenchId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => handleRowClick(wb)} // Use specific handler to fetch related data before opening modal
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      {/* Display relevant columns */}
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.wetbenchId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.wetbenchName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.ppNumber}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.owner}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.systemType}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.platform}</td>
-                    </tr>
-                  ))
+                  wetbenches.map((wb) => {
+                    // Find the associated test bench name
+                    const linkedBenchName = testBenches.find(tb => tb.benchId === wb.linkedBenchId)?.hilName || 'N/A';
+                    
+                    return (
+                      <tr key={wb.wetbenchId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
+                          onClick={() => handleRowClick(wb)} // Use specific handler to fetch related data before opening modal
+                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                        {/* Display relevant columns */}
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.wetbenchId}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.wetbenchName}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.ppNumber || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.owner || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.systemType || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{wb.platform || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{linkedBenchName}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

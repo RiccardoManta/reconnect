@@ -15,19 +15,25 @@ interface TestBench extends RowDataPacket {
     user_name: string | null; // Joined from users
     project_id: number | null;
     project_name: string | null; // Joined from projects
+    usage_period?: string | null;
+    inventory_number?: string | null;
+    eplan?: string | null;
 }
 
 // Interface for POST/PUT request body (without joined names)
 interface TestBenchRequestBody {
     bench_id?: number; // Only for PUT
     hil_name: string;
-    pp_number?: string;
-    system_type?: string;
-    bench_type?: string;
-    acquisition_date?: string;
-    location?: string;
-    user_id?: number;
-    project_id?: number;
+    pp_number?: string | null; // Allow null explicitly
+    system_type?: string | null;
+    bench_type?: string | null;
+    acquisition_date?: string | null;
+    location?: string | null;
+    user_id?: number | null;
+    project_id?: number | null;
+    usage_period?: string | null;
+    inventory_number?: string | null;
+    eplan?: string | null;
 }
 
 // GET method to fetch all test benches
@@ -45,7 +51,10 @@ export async function GET(): Promise<NextResponse> {
         t.user_id,
         u.user_name,
         t.project_id,
-        p.project_name
+        p.project_name,
+        t.usage_period,
+        t.inventory_number,
+        t.eplan
       FROM test_benches t
       LEFT JOIN users u ON t.user_id = u.user_id
       LEFT JOIN projects p ON t.project_id = p.project_id
@@ -79,8 +88,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Insert the new test bench record using dbUtils.insert
     const benchId = await dbUtils.insert(
-      `INSERT INTO test_benches (hil_name, pp_number, system_type, bench_type, acquisition_date, location, user_id, project_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
+      `INSERT INTO test_benches (hil_name, pp_number, system_type, bench_type, acquisition_date, location, user_id, project_id, usage_period, inventory_number, eplan) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
       [
         body.hil_name,
         body.pp_number || null,
@@ -89,7 +98,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         body.acquisition_date || null,
         body.location || null,
         body.user_id || null,
-        body.project_id || null
+        body.project_id || null,
+        body.usage_period || null,
+        body.inventory_number || null,
+        body.eplan || null
       ]
     );
 
@@ -110,7 +122,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
          t.user_id,
          u.user_name,
          t.project_id,
-         p.project_name
+         p.project_name,
+         t.usage_period,
+         t.inventory_number,
+         t.eplan
        FROM test_benches t
        LEFT JOIN users u ON t.user_id = u.user_id
        LEFT JOIN projects p ON t.project_id = p.project_id
@@ -163,61 +178,69 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Update the test bench record using dbUtils.update
-    const affectedRows = await dbUtils.update(
-      `UPDATE test_benches SET
-         hil_name = ?, 
-         pp_number = ?, 
-         system_type = ?, 
-         bench_type = ?, 
-         acquisition_date = ?, 
-         location = ?, 
-         user_id = ?, 
-         project_id = ?
-       WHERE bench_id = ?`, 
-      [
+    // Wrap the update in a transaction
+    const affectedRows = await dbUtils.transaction<number>(async (connection) => {
+      // Format acquisition_date to YYYY-MM-DD if present
+      let formattedDate: string | null = null;
+      if (body.acquisition_date) {
+        try {
+          formattedDate = new Date(body.acquisition_date).toISOString().split('T')[0];
+        } catch (dateError) {
+          console.error("Invalid date format received:", body.acquisition_date);
+          throw new Error('Invalid Acquisition Date format provided.'); // Throw inside transaction
+        }
+      }
+
+      // Ensure user_id and project_id are numbers or null
+      const userIdNum = body.user_id !== null && body.user_id !== undefined ? parseInt(String(body.user_id), 10) : null;
+      const projectIdNum = body.project_id !== null && body.project_id !== undefined ? parseInt(String(body.project_id), 10) : null;
+
+      if (body.user_id !== null && body.user_id !== undefined && isNaN(userIdNum as number)) {
+        throw new Error('Invalid User ID provided.');
+      }
+      if (body.project_id !== null && body.project_id !== undefined && isNaN(projectIdNum as number)) {
+        throw new Error('Invalid Project ID provided.');
+      }
+
+      // Update the SQL query to include the missing fields
+      const updateQuery = `
+        UPDATE test_benches SET
+           hil_name = ?, 
+           pp_number = ?, 
+           system_type = ?, 
+           bench_type = ?, 
+           acquisition_date = ?, 
+           location = ?, 
+           user_id = ?, 
+           project_id = ?, 
+           usage_period = ?,       -- Added
+           inventory_number = ?,   -- Added
+           eplan = ?              -- Added
+         WHERE bench_id = ?
+      `;
+
+      // Add the new values to the parameters array
+      const updateValues = [
         body.hil_name,
         body.pp_number || null,
         body.system_type || null,
         body.bench_type || null,
-        body.acquisition_date || null,
+        formattedDate, 
         body.location || null,
-        body.user_id || null,
-        body.project_id || null,
+        userIdNum,      
+        projectIdNum,   
+        body.usage_period || null,      // Added
+        body.inventory_number || null,  // Added
+        body.eplan || null,            // Added
         body.bench_id
-      ]
-    );
-    
-    if (affectedRows === 0) {
-        // Check if the record exists at all
-      const existingBench = await dbUtils.queryOne(
-          `SELECT bench_id FROM test_benches WHERE bench_id = ?`, 
-          [body.bench_id]
-      );
-      if (!existingBench) {
-         return NextResponse.json(
-          { error: 'Test bench record not found' },
-          { status: 404 }
-         );
-       } else {
-           // Record exists, but no changes made
-           const updatedTestBench = await dbUtils.queryOne<TestBench>(
-             `SELECT t.bench_id, t.hil_name, t.pp_number, t.system_type, t.bench_type, t.acquisition_date, t.location, t.user_id, u.user_name, t.project_id, p.project_name
-              FROM test_benches t
-              LEFT JOIN users u ON t.user_id = u.user_id
-              LEFT JOIN projects p ON t.project_id = p.project_id
-              WHERE t.bench_id = ?`,
-             [body.bench_id]
-           );
-           return NextResponse.json({ 
-             success: true, 
-             message: 'Test bench update successful (no changes detected)',
-             testBench: updatedTestBench
-           });
-       }
-    }
+      ];
 
-    // Get the updated record (including joined names)
+      // Execute using connection.query within the transaction
+      const [result] = await connection.query<ResultSetHeader>(updateQuery, updateValues);
+      return result.affectedRows;
+    });
+    
+    // Get the updated record (including joined names) - outside transaction
     const updatedTestBench = await dbUtils.queryOne<TestBench>(
         `SELECT 
            t.bench_id,
@@ -230,35 +253,58 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
            t.user_id,
            u.user_name,
            t.project_id,
-           p.project_name
+           p.project_name,
+           t.usage_period,
+           t.inventory_number,
+           t.eplan
          FROM test_benches t
          LEFT JOIN users u ON t.user_id = u.user_id
          LEFT JOIN projects p ON t.project_id = p.project_id
          WHERE t.bench_id = ?`,
         [body.bench_id]
-    );
-        
+      );
+
+     if (!updatedTestBench) {
+        // This case should ideally not happen if update succeeded or found 0 rows
+        return NextResponse.json({ error: 'Test bench not found after update attempt.' }, { status: 404 });
+     }
+
     return NextResponse.json({ 
       success: true, 
-      message: 'Test bench updated successfully',
+      message: affectedRows > 0 ? 'Test bench updated successfully' : 'Test bench update successful (no changes detected)', 
       testBench: updatedTestBench
     });
-    
+
   } catch (error: unknown) {
     console.error('Error updating test bench:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    // Specific check for foreign key constraints
-     if (message.includes('foreign key constraint fails')) {
-        let fkError = 'Invalid foreign key';
-        if (message.includes('`user_id`')) fkError = 'Invalid user_id. The user does not exist.';
-        if (message.includes('`project_id`')) fkError = 'Invalid project_id. The project does not exist.';
+    
+    // Improved check for foreign key constraints
+    if (message.toLowerCase().includes('foreign key constraint fails')) {
+      let fkField = 'related record';
+      if (message.includes('`user_id`')) fkField = 'User';
+      if (message.includes('`project_id`')) fkField = 'Project';
+      
+      const detailedError = `Invalid foreign key: The selected ${fkField} does not exist.`;
       return NextResponse.json(
-        { error: `Failed to update test bench: ${fkError}`, details: message },
-        { status: 400 } // Bad request due to invalid foreign key
+        { error: detailedError, details: message },
+        { status: 400 } // Bad request due to invalid FK
       );
     }
+
+    // More specific error for other potential DB issues
+    if (error instanceof Error && 'code' in error) {
+        // Check for common MySQL error codes if needed
+        // Example: if (error.code === 'ER_DUP_ENTRY') { ... }
+        return NextResponse.json(
+          { error: `Database error during update: ${error.code}`, details: message },
+          { status: 500 }
+        );
+    }
+
+    // Fallback generic error
     return NextResponse.json(
-      { error: 'Failed to update test bench', details: message },
+      { error: 'Failed to update test bench due to a server error.', details: message },
       { status: 500 }
     );
   }

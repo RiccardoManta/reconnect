@@ -170,17 +170,17 @@ export default function ProjectOverviewList() {
       label: 'Test Bench',
       type: 'select',
       required: true,
+      editable: true,
       options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
     },
-    { name: 'hilName', label: 'HIL Name', type: 'text', editable: false },
-    { name: 'platform', label: 'Platform', type: 'text' },
-    { name: 'systemSupplier', label: 'System Supplier', type: 'text' },
-    { name: 'wetbenchInfo', label: 'Wetbench Info', type: 'text' },
-    { name: 'actuatorInfo', label: 'Actuator Info', type: 'text' },
-    { name: 'hardware', label: 'Hardware', type: 'text' },
-    { name: 'software', label: 'Software', type: 'text' },
-    { name: 'modelVersion', label: 'Model Version', type: 'text' },
-    { name: 'ticketNotes', label: 'Ticket Notes', type: 'text' },
+    { name: 'platform', label: 'Platform', type: 'text', editable: true },
+    { name: 'systemSupplier', label: 'System Supplier', type: 'text', editable: true },
+    { name: 'wetbenchInfo', label: 'Wetbench Info', type: 'text', editable: true },
+    { name: 'actuatorInfo', label: 'Actuator Info', type: 'text', editable: true },
+    { name: 'hardware', label: 'Hardware', type: 'text', editable: true },
+    { name: 'software', label: 'Software', type: 'text', editable: true },
+    { name: 'modelVersion', label: 'Model Version', type: 'text', editable: true },
+    { name: 'ticketNotes', label: 'Ticket Notes', type: 'text', editable: true },
   ];
 
   return (
@@ -252,20 +252,25 @@ export default function ProjectOverviewList() {
                 {projectOverviews.length === 0 ? (
                   <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No project overviews found</td></tr>
                 ) : (
-                  projectOverviews.map((ov) => (
-                    <tr key={ov.overviewId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => handleRowClick(ov)}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      {/* Adjust columns */}
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.overviewId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.hilName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.platform}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.hardware}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.software}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.modelVersion}</td>
-                    </tr>
-                  ))
+                  projectOverviews.map((ov) => {
+                    // Find the associated test bench name
+                    const hilName = testBenches.find(tb => tb.benchId === ov.benchId)?.hilName || 'N/A';
+
+                    return (
+                      <tr key={ov.overviewId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
+                          onClick={() => handleRowClick(ov)}
+                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                        {/* Adjust columns */}
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.overviewId}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hilName}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.platform || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.hardware || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.software || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{ov.modelVersion || '-'}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -277,7 +282,7 @@ export default function ProjectOverviewList() {
         <EditableDetailsModal
           isOpen={selectedOverview !== null}
           onClose={() => setSelectedOverview(null)}
-          title={`Project Overview Details: ${selectedOverview.hilName}`}
+          title={`Project Overview for Bench: ${testBenches.find(tb => tb.benchId === selectedOverview.benchId)?.hilName || selectedOverview.benchId}`}
           data={selectedOverview}
           fields={detailsFields} // Ensure options populated
           onSave={handleUpdateOverview}

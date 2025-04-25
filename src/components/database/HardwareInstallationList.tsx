@@ -167,12 +167,12 @@ export default function HardwareInstallationList() {
       label: 'Test Bench',
       type: 'select',
       required: true,
+      editable: true,
       options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
     },
-    { name: 'hilName', label: 'HIL Name', type: 'text', editable: false },
-    { name: 'ecuInfo', label: 'ECU Info', type: 'text' },
-    { name: 'sensors', label: 'Sensors', type: 'text' },
-    { name: 'additionalPeriphery', label: 'Additional Periphery', type: 'text' },
+    { name: 'ecuInfo', label: 'ECU Info', type: 'text', editable: true },
+    { name: 'sensors', label: 'Sensors', type: 'text', editable: true },
+    { name: 'additionalPeriphery', label: 'Additional Periphery', type: 'text', editable: true },
   ];
 
   return (
@@ -243,19 +243,24 @@ export default function HardwareInstallationList() {
                 {hardwareInstallations.length === 0 ? (
                   <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No hardware installations found</td></tr>
                 ) : (
-                  hardwareInstallations.map((hw) => (
-                    <tr key={hw.installId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => handleRowClick(hw)}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      {/* Adjust columns */}
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.installId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.hilName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.ecuInfo}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.sensors}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.additionalPeriphery}</td>
-                    </tr>
-                  ))
+                  hardwareInstallations.map((hw) => {
+                    // Find the associated test bench name
+                    const hilName = testBenches.find(tb => tb.benchId === hw.benchId)?.hilName || 'N/A';
+                    
+                    return (
+                      <tr key={hw.installId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
+                          onClick={() => handleRowClick(hw)}
+                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                        {/* Adjust columns */}
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.installId}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hilName}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.ecuInfo || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.sensors || '-'}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hw.additionalPeriphery || '-'}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -267,7 +272,7 @@ export default function HardwareInstallationList() {
         <EditableDetailsModal
           isOpen={selectedHardware !== null}
           onClose={() => setSelectedHardware(null)}
-          title={`Hardware Installation Details: ${selectedHardware.hilName}`}
+          title={`Hardware Details for Bench: ${testBenches.find(tb => tb.benchId === selectedHardware.benchId)?.hilName || selectedHardware.benchId}`}
           data={selectedHardware}
           fields={detailsFields} // Ensure options populated
           onSave={handleUpdateHardware}

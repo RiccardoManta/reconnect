@@ -20,25 +20,27 @@ export default tseslint.config(
   },
   // TypeScript specific configurations
   ...tseslint.configs.recommended, // Base TS rules
-  // React specific configurations
+  // React specific configurations (Restored)
   {
-    ...pluginReactConfig, // React recommended rules
-    files: ["**/*.{ts,tsx}"], // Apply only to TS/TSX
+    ...pluginReactConfig, // Restored
+    files: ["**/*.{ts,tsx}"], 
     settings: {
       react: {
-        version: "detect", // Automatically detect React version
+        version: "detect", 
       },
     },
+    // Add empty rules object if needed to maintain structure
+    // rules: {}
   },
-  // Next.js specific configurations
+  // Next.js specific configurations (Restored)
   {
-    files: ["**/*.{ts,tsx}"], // Apply to TS/TSX
+    files: ["**/*.{ts,tsx}"],
     plugins: {
-      '@next/next': nextPlugin,
+      '@next/next': nextPlugin, // Restored
     },
     rules: {
-      ...nextPlugin.configs.recommended.rules, // Apply Next.js recommended rules
-      ...nextPlugin.configs['core-web-vitals'].rules, // Apply Core Web Vitals rules
+      ...nextPlugin.configs.recommended.rules, // Restored
+      ...nextPlugin.configs['core-web-vitals'].rules, // Restored
     },
   },
   // General language options for all relevant files

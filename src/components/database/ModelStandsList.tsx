@@ -130,9 +130,9 @@ export default function ModelStandsList() {
 
   const detailsFields: ModalField[] = [
     { name: 'modelId', label: 'Model ID', type: 'number', editable: false },
-    { name: 'modelName', label: 'Model Name', type: 'text', required: true },
-    { name: 'svnLink', label: 'SVN Link', type: 'text' },
-    { name: 'features', label: 'Features', type: 'text' },
+    { name: 'modelName', label: 'Model Name', type: 'text', required: true, editable: true },
+    { name: 'svnLink', label: 'SVN Link', type: 'text', editable: true },
+    { name: 'features', label: 'Features', type: 'text', editable: true },
   ];
 
   return (
@@ -208,8 +208,8 @@ export default function ModelStandsList() {
                         onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{model.modelId}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{model.modelName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{model.svnLink}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{model.features}</td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{model.svnLink || '-'}</td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{model.features || '-'}</td>
                     </tr>
                   ))
                 )}

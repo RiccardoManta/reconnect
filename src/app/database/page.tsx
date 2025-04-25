@@ -17,6 +17,7 @@ import HilOperationList from '@/components/database/HilOperationList';
 import HardwareInstallationList from '@/components/database/HardwareInstallationList';
 import PcOverviewList from '@/components/database/PcOverviewList';
 import ProjectOverviewList from '@/components/database/ProjectOverviewList';
+import SoftwareList from '@/components/database/SoftwareList';
 
 // Removed all original List function definitions (UsersList, LicensesList, etc.)
 // Removed imports for specific database types (TestBench, Project, etc.)
@@ -244,6 +245,7 @@ export default function DatabasePage() {
           <PcOverviewList />
           <ProjectsList />
           <UsersList />
+          <SoftwareList />
           <ModelStandsList />
           <VmInstancesList />
           <LicensesList />
