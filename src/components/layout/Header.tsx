@@ -1,6 +1,9 @@
+'use client'; // Make this a client component
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, User, Settings, Menu, Database, BookOpen, Shield } from 'lucide-react';
+import { Search, User, Settings, Menu, Database, BookOpen, Shield, LogOut, UserCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
 
 // Fallback categories in case API fails
 const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
@@ -9,7 +12,11 @@ export default function Header() {
   const [categories, setCategories] = useState<string[]>(fallbackCategories);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const { data: session, status } = useSession();
 
   // Fetch categories from the API
   useEffect(() => {
@@ -76,11 +83,14 @@ export default function Header() {
     fetchCategories();
   }, [activeCategory]);
 
-  // Close menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
       }
     }
     
@@ -206,7 +216,7 @@ export default function Header() {
               e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            <Menu className="h-5 w-5" style={{ color: 'rgba(255, 255, 255, 0.95)' }} />
+            <Menu size={20} color="white" />
           </button>
           
           {menuOpen && (
@@ -368,28 +378,123 @@ export default function Header() {
           />
         </div>
         
-        <div className="user-avatar" style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '36px',
-          height: '36px',
-          background: 'linear-gradient(135deg, #39A2DB, #3db6eb)',
-          borderRadius: '50%',
-          cursor: 'pointer',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)'
-        }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.transform = 'translateY(-1px)';
-          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.1)';
-        }}>
-          <User className="h-5 w-5" style={{ color: 'white' }} />
-        </div>
+        {status === 'authenticated' && (
+          <div style={{ position: 'relative' }} ref={userMenuRef}>
+            <button 
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer', 
+                padding: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                backgroundColor: userMenuOpen ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                transition: 'all 0.2s ease'
+              }}
+              aria-label="User menu"
+            >
+              <User size={20} color="white" />
+            </button>
+            {userMenuOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '0.625rem',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                padding: '0.5rem 0',
+                zIndex: 110,
+                minWidth: '200px',
+                animation: 'modalFadeIn 0.2s ease-out',
+                border: '1px solid rgba(0, 0, 0, 0.05)'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '12px',
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: 'white',
+                  transform: 'rotate(45deg)',
+                  border: '1px solid rgba(0, 0, 0, 0.05)',
+                  borderBottom: 'none',
+                  borderRight: 'none',
+                  zIndex: 109
+                }} />
+                
+                <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #f3f4f6' }}>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>Signed in as</p>
+                  <p style={{ margin: '0.1rem 0 0', fontWeight: 500, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {session.user?.email ?? 'User'}
+                  </p>
+                </div>
+
+                <nav>
+                  <button
+                     style={{
+                       display: 'flex',
+                       alignItems: 'center',
+                       gap: '0.75rem',
+                       textAlign: 'left',
+                       padding: '0.875rem 1.25rem',
+                       border: 'none',
+                       backgroundColor: 'transparent',
+                       cursor: 'pointer',
+                       fontSize: '0.9rem',
+                       color: '#333',
+                       transition: 'background-color 0.2s',
+                       borderRadius: '4px',
+                       margin: '0.25rem 0.25rem',
+                       width: 'calc(100% - 0.5rem)'
+                     }}
+                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f7f7f7'; }}
+                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <UserCircle size={17} style={{ color: '#0F3460' }} />
+                    My Account
+                  </button>
+                  <button
+                     style={{ 
+                       display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'left',
+                       padding: '0.875rem 1.25rem', border: 'none', backgroundColor: 'transparent',
+                       cursor: 'pointer', fontSize: '0.9rem', color: '#333',
+                       transition: 'background-color 0.2s', borderRadius: '4px',
+                       margin: '0.25rem 0.25rem', width: 'calc(100% - 0.5rem)'
+                     }}
+                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f7f7f7'; }}
+                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <Settings size={17} style={{ color: '#0F3460' }} />
+                    Settings
+                  </button>
+                  <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '0.5rem 0.25rem' }}></div>
+                  <button
+                     onClick={() => signOut()}
+                     style={{
+                       display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'left',
+                       padding: '0.875rem 1.25rem', border: 'none', backgroundColor: 'transparent',
+                       cursor: 'pointer', fontSize: '0.9rem',
+                       color: '#ef4444',
+                       transition: 'background-color 0.2s',
+                       borderRadius: '4px', margin: '0.25rem 0.25rem',
+                       width: 'calc(100% - 0.5rem)'
+                     }}
+                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
+                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <LogOut size={17} />
+                    Logout
+                  </button>
+                </nav>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

@@ -43,6 +43,9 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE} # Read from .env
       MYSQL_USER: ${MYSQL_USER} # Read from .env
       MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Read from .env
+      # Add next-auth variables
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       # NEXT_PUBLIC_ variables can be added here if needed
       # NODE_ENV is set to production in the Dockerfile
     depends_on:

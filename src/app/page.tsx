@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar'; // Current Sidebar (now uses inline styles)
 import ServerCard from '@/components/server/ServerCard'; // Current ServerCard
@@ -23,6 +24,9 @@ interface ApiServerData {
 }
 
 export default function Home() {
+  // Call useSession to get authentication status and data
+  const { data: session, status } = useSession();
+
   // State variables remain largely the same
   const [servers, setServers] = useState<ServerData[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
