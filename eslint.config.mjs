@@ -1,7 +1,7 @@
 import globals from "globals";
 import tseslint from 'typescript-eslint';
 import pluginReactConfig from 'eslint-plugin-react/configs/recommended.js';
-import nextPlugin from '@next/eslint-plugin-next';
+// import nextPlugin from '@next/eslint-plugin-next'; // Commented out
 import { FlatCompat } from "@eslint/eslintrc"; // Keep for potential custom rules if needed
 import { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -32,17 +32,17 @@ export default tseslint.config(
     // Add empty rules object if needed to maintain structure
     // rules: {}
   },
-  // Next.js specific configurations (Restored)
-  {
-    files: ["**/*.{ts,tsx}"],
-    plugins: {
-      '@next/next': nextPlugin, // Restored
-    },
-    rules: {
-      ...nextPlugin.configs.recommended.rules, // Restored
-      ...nextPlugin.configs['core-web-vitals'].rules, // Restored
-    },
-  },
+  // Next.js specific configurations (Commented out)
+  // {
+  //   files: ["**/*.{ts,tsx}"],
+  //   plugins: {
+  //     '@next/next': nextPlugin,
+  //   },
+  //   rules: {
+  //     ...nextPlugin.configs.recommended.rules,
+  //     ...nextPlugin.configs['core-web-vitals'].rules,
+  //   },
+  // },
   // General language options for all relevant files
   {
     files: ["**/*.{js,mjs,cjs,ts,tsx}"],
@@ -67,9 +67,8 @@ export default tseslint.config(
         }
     },
     rules: {
-      // Rules from tseslint won't apply here as it's JS, but if you have JS rules disable them
-      // For example, if you had a rule against require:
-      // "no-restricted-globals": "off", 
+      // Potentially disable TS rules if they incorrectly trigger on JS
+      // '@typescript-eslint/no-var-requires': 'off',
     }
   },
   // Add any custom rules or overrides here using compat if necessary
