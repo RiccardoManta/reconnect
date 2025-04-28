@@ -133,14 +133,14 @@ export default function UsersList() {
   // Define fields for the add entry modal using camelCase names
   const addEntryFields: ModalField[] = [
     { name: 'userName', label: 'User Name', type: 'text', required: true },
-    { name: 'contactInfo', label: 'Contact Info', type: 'text' },
+    { name: 'companyUsername', label: 'Company Username', type: 'text' },
   ];
 
   // Define fields for the editable details modal using camelCase names
   const detailsFields: ModalField[] = [
     { name: 'userId', label: 'User ID', type: 'number', editable: false },
     { name: 'userName', label: 'User Name', type: 'text', required: true },
-    { name: 'contactInfo', label: 'Contact Info', type: 'text' },
+    { name: 'companyUsername', label: 'Company Username', type: 'text' },
   ];
 
   return (
@@ -207,7 +207,7 @@ export default function UsersList() {
                 <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>User Name</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Contact Info</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Company Username</th>
                 </tr>
               </thead>
               <tbody>
@@ -216,12 +216,12 @@ export default function UsersList() {
                 ) : (
                   users.map((user) => (
                     <tr key={user.userId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => setSelectedUser(user)} // Pass camelCase data
+                        onClick={() => setSelectedUser(user)}
                         onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                         onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.userId}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.userName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.contactInfo}</td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.companyUsername}</td>
                     </tr>
                   ))
                 )}
@@ -235,10 +235,10 @@ export default function UsersList() {
         <EditableDetailsModal
           isOpen={selectedUser !== null}
           onClose={() => setSelectedUser(null)}
-          title={`User Details: ${selectedUser.userName}`} // Use camelCase
-          data={selectedUser} // Pass camelCase data
-          fields={detailsFields} // Pass camelCase fields
-          onSave={handleUpdateUser} // Handler expects camelCase, converts to snake_case
+          title={`User Details: ${selectedUser.userName}`}
+          data={selectedUser}
+          fields={detailsFields}
+          onSave={handleUpdateUser}
         />
       )}
 
@@ -247,8 +247,8 @@ export default function UsersList() {
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           title="Add New User"
-          fields={addEntryFields} // Pass camelCase fields
-          onSave={handleSaveEntry} // Handler expects camelCase, converts to snake_case
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>

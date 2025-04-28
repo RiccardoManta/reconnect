@@ -1,8 +1,11 @@
 /* ---------- core entities ---------- */
 CREATE TABLE users (
-    user_id        INT PRIMARY KEY AUTO_INCREMENT,
-    user_name      VARCHAR(255) NOT NULL,
-    contact_info   VARCHAR(255)
+    user_id           INT PRIMARY KEY AUTO_INCREMENT,
+    user_name         VARCHAR(255) NOT NULL,
+    company_username  VARCHAR(255) NULL,  -- Renamed from contact_info, assuming it can be NULL
+    email             VARCHAR(255) NOT NULL UNIQUE, -- Added email, must be unique and required
+    password_hash     VARCHAR(255) NOT NULL, -- Ensure defined and required
+    salt              VARCHAR(64) NOT NULL   -- Ensure defined and required
 );
 
 CREATE TABLE projects (

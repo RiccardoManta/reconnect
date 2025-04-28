@@ -35,3 +35,26 @@ This document summarizes key findings, workarounds, and potential pitfalls disco
     *   Viewable from the License perspective (in `LicensesList` modal).
     *   Viewable from the PC perspective via `GET /api/pcs/[pc_id]/licenses` (in `PcOverviewList` modal).
     *   The POST route uses the explicit `dbUtils.transaction` wrapper for reliability. 
+
+## Additional MYSQL Changes:
+
+*   **Status**
+    UPDATE pc_overview
+    SET status = 'in_use'
+    WHERE active_user IS NOT NULL 
+      AND active_user <> '' 
+      AND LOWER(status) <> 'offline' 
+      AND LOWER(status) <> 'in_use';
+
+    UPDATE pc_overview
+    SET status = 'online'
+    WHERE (active_user IS NULL OR active_user = '') 
+      AND LOWER(status) <> 'offline'
+      AND LOWER(status) <> 'online';
+
+*   **Userpasswords**
+    ALTER TABLE users CHANGE COLUMN contact_info company_username VARCHAR(255) NULL;
+    ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL UNIQUE;
+    ALTER TABLE users 
+    ADD COLUMN password_hash VARCHAR(255) NOT NULL,
+    ADD COLUMN salt VARCHAR(64) NOT NULL;

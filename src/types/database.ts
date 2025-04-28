@@ -22,7 +22,10 @@ export interface Project {
 export interface User {
   userId: number;
   userName: string;
-  contactInfo: string;
+  companyUsername?: string | null;
+  email: string;
+  password_hash: string;
+  salt: string;
 }
 
 export interface License {
