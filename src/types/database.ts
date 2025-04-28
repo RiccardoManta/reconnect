@@ -119,7 +119,9 @@ export interface PcOverview {
 export interface ProjectOverview {
   overviewId: number;
   benchId: number;
-  platform: string | null;
+  hilName?: string;
+  platformId: number | null;
+  platformName?: string | null;
   systemSupplier: string | null;
   wetbenchInfo: string | null;
   actuatorInfo: string | null;
@@ -134,4 +136,9 @@ export interface Software {
   softwareName: string;
   majorVersion: string | null;
   vendor: string | null;
+}
+
+export interface Platform {
+  platformId: number;
+  platformName: string;
 } 

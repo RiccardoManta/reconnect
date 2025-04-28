@@ -182,25 +182,38 @@ export default function Header() {
             )}
           </span>
         </Link>
-        {/* Admin Panel Button */}
-        <button style={{
+        {/* Admin Panel Link */}
+        <Link href="/admin" style={{ textDecoration: 'none' }}>
+          <span style={{
             background: 'none',
             border: 'none',
-             // Add active state check later when this route exists
-            color: 'rgba(255,255,255,0.75)',
+            color: pathname?.startsWith('/admin') ? 'white' : 'rgba(255,255,255,0.75)',
             fontSize: '0.875rem',
-            fontWeight: 'normal',
+            fontWeight: pathname?.startsWith('/admin') ? '600' : 'normal',
             padding: '0.5rem 0.75rem',
             cursor: 'pointer',
             position: 'relative',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            display: 'inline-block' 
           }}
-          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
-          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
-        >
-          Admin Panel
-           {/* Add underscore logic later */}
-        </button>
+          onMouseOver={(e) => { if (!pathname?.startsWith('/admin')) e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+          onMouseOut={(e) => { if (!pathname?.startsWith('/admin')) e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+          >
+            Admin Panel
+            {pathname?.startsWith('/admin') && (
+              <div style={{
+                position: 'absolute',
+                bottom: '-2px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                height: '3px',
+                width: '40%',
+                backgroundColor: '#39A2DB',
+                borderRadius: '3px'
+              }} />
+            )}
+          </span>
+        </Link>
       </div>
       
       {/* Controls on right */}

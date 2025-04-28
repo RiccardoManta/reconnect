@@ -1,21 +1,34 @@
 /* ---------- core entities ---------- */
+CREATE TABLE user_groups (
+    user_group_id   INT PRIMARY KEY AUTO_INCREMENT, -- Renamed from group_id
+    user_group_name VARCHAR(100) NOT NULL UNIQUE -- Renamed from group_name
+);
+
+-- Dedicated platforms table
+CREATE TABLE platforms (
+    platform_id   INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
+    platform_name VARCHAR(100) NOT NULL UNIQUE
+);
+
 CREATE TABLE users (
-    user_id           INT PRIMARY KEY AUTO_INCREMENT,
+    user_id           INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     user_name         VARCHAR(255) NOT NULL,
     company_username  VARCHAR(255) NULL,  -- Renamed from contact_info, assuming it can be NULL
     email             VARCHAR(255) NOT NULL UNIQUE, -- Added email, must be unique and required
     password_hash     VARCHAR(255) NOT NULL, -- Ensure defined and required
-    salt              VARCHAR(64) NOT NULL   -- Ensure defined and required
+    salt              VARCHAR(64) NOT NULL,   -- Ensure defined and required
+    user_group_id     INT NULL, -- Renamed from group_id
+    FOREIGN KEY (user_group_id) REFERENCES user_groups(user_group_id) ON DELETE SET NULL -- Updated FK
 );
 
 CREATE TABLE projects (
-    project_id     INT PRIMARY KEY AUTO_INCREMENT,
+    project_id     INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     project_number VARCHAR(50),
     project_name   VARCHAR(255)
 );
 
 CREATE TABLE test_benches (
-    bench_id          INT PRIMARY KEY AUTO_INCREMENT,
+    bench_id          INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     hil_name          VARCHAR(255) NOT NULL,
     pp_number         VARCHAR(50),
     system_type       VARCHAR(50),          -- SCLX / PHS
@@ -32,9 +45,9 @@ CREATE TABLE test_benches (
 );
 
 CREATE TABLE test_bench_project_overview (
-    overview_id     INT PRIMARY KEY AUTO_INCREMENT,
+    overview_id     INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     bench_id        INT NOT NULL,
-    platform        VARCHAR(100),
+    platform_id     INT,          -- Changed from platform VARCHAR(100)
     system_supplier VARCHAR(100),
     wetbench_info   TEXT,
     actuator_info   TEXT,
@@ -42,18 +55,19 @@ CREATE TABLE test_bench_project_overview (
     software        VARCHAR(255),
     model_version   VARCHAR(50),
     ticket_notes    TEXT,
-    FOREIGN KEY (bench_id) REFERENCES test_benches(bench_id) ON DELETE CASCADE
+    FOREIGN KEY (bench_id) REFERENCES test_benches(bench_id) ON DELETE CASCADE,
+    FOREIGN KEY (platform_id) REFERENCES platforms(platform_id) ON DELETE SET NULL -- Added FK
 );
 
 CREATE TABLE model_stands (
-    model_id   INT PRIMARY KEY AUTO_INCREMENT,
+    model_id   INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     model_name VARCHAR(255) NOT NULL,
     svn_link   VARCHAR(500),
     features   TEXT
 );
 
 CREATE TABLE wetbenches (
-    wetbench_id         INT PRIMARY KEY AUTO_INCREMENT,
+    wetbench_id         INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     wetbench_name       VARCHAR(255) NOT NULL,
     pp_number           VARCHAR(50),
     owner               VARCHAR(100),      -- IAV, VW …
@@ -68,7 +82,7 @@ CREATE TABLE wetbenches (
 );
 
 CREATE TABLE hil_technology (
-    tech_id          INT PRIMARY KEY AUTO_INCREMENT,
+    tech_id          INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     bench_id         INT NOT NULL,
     fiu_info         VARCHAR(255),
     io_info          VARCHAR(255),
@@ -80,7 +94,7 @@ CREATE TABLE hil_technology (
 );
 
 CREATE TABLE hil_operation (
-    operation_id     INT PRIMARY KEY AUTO_INCREMENT,
+    operation_id     INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     bench_id         INT NOT NULL,
     possible_tests   TEXT,
     vehicle_datasets TEXT,
@@ -90,7 +104,7 @@ CREATE TABLE hil_operation (
 );
 
 CREATE TABLE hardware_installation (
-    install_id            INT PRIMARY KEY AUTO_INCREMENT,
+    install_id            INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     bench_id              INT NOT NULL,
     ecu_info              TEXT,
     sensors               TEXT,
@@ -100,7 +114,7 @@ CREATE TABLE hardware_installation (
 
 /* ---------- physical & virtual machines ---------- */
 CREATE TABLE pc_overview (
-    pc_id            INT PRIMARY KEY AUTO_INCREMENT,
+    pc_id            INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     bench_id         INT,
     pc_name          VARCHAR(100),
     casual_name      VARCHAR(100),          -- friendly/local name
@@ -118,14 +132,14 @@ CREATE TABLE pc_overview (
 );
 
 CREATE TABLE vm_instances (
-    vm_id      INT PRIMARY KEY AUTO_INCREMENT,
+    vm_id      INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     vm_name    VARCHAR(255) NOT NULL,
     vm_address VARCHAR(255)
 );
 
 /* ---------- software catalogue & installs ---------- */
 CREATE TABLE software (
-    software_id   INT PRIMARY KEY AUTO_INCREMENT,
+    software_id   INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     software_name VARCHAR(255) NOT NULL,
     major_version VARCHAR(50),
     vendor        VARCHAR(255),
@@ -152,7 +166,7 @@ CREATE TABLE vm_software (
 
 /* ---------- licensing ---------- */
 CREATE TABLE licenses (
-    license_id        INT PRIMARY KEY AUTO_INCREMENT,
+    license_id        INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     software_id       INT NOT NULL,
     license_name      VARCHAR(255),        -- e.g. "dSPACE ControlDesk"
     license_description TEXT,
@@ -169,7 +183,7 @@ CREATE TABLE licenses (
 );
 
 CREATE TABLE license_assignments (
-    assignment_id INT PRIMARY KEY AUTO_INCREMENT,
+    assignment_id INT PRIMARY KEY AUTO_INCREMENT, -- MySQL syntax
     license_id  INT NOT NULL,
     pc_id       INT NULL,
     vm_id       INT NULL,
@@ -179,4 +193,13 @@ CREATE TABLE license_assignments (
     FOREIGN KEY (vm_id)      REFERENCES vm_instances(vm_id) ON DELETE CASCADE,
     CHECK ((pc_id IS NOT NULL) OR (vm_id IS NOT NULL)),
     UNIQUE KEY uk_license_assignment (license_id, pc_id, vm_id)
+);
+
+/* ---------- group-specific platform access ---------- */
+CREATE TABLE group_platform_access (
+    user_group_id     INT NOT NULL, -- Renamed from group_id
+    platform_id  INT NOT NULL,
+    PRIMARY KEY (user_group_id, platform_id), -- Updated PK
+    FOREIGN KEY (user_group_id) REFERENCES user_groups(user_group_id) ON DELETE CASCADE, -- Updated FK
+    FOREIGN KEY (platform_id) REFERENCES platforms(platform_id) ON DELETE CASCADE
 );

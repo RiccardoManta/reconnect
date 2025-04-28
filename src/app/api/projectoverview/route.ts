@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
-import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
 
-// Interface for Project Overview data returned by API (including joined hil_name)
+// Interface for Project Overview data returned by API
 interface ProjectOverview extends RowDataPacket {
     overview_id: number;
     bench_id: number;
-    hil_name: string; // Joined from test_benches
-    platform: string | null;
+    hil_name: string;
+    platform_id: number | null;
+    platform_name: string | null;
     system_supplier: string | null;
     wetbench_info: string | null;
     actuator_info: string | null;
@@ -17,11 +18,11 @@ interface ProjectOverview extends RowDataPacket {
     ticket_notes: string | null;
 }
 
-// Interface for POST/PUT request body (without hil_name)
+// Interface for POST/PUT request body (accepts platform_name)
 interface ProjectOverviewRequestBody {
     overview_id?: number; // Only for PUT
     bench_id: number;
-    platform?: string;
+    platform_name?: string;
     system_supplier?: string;
     wetbench_info?: string;
     actuator_info?: string;
@@ -31,13 +32,42 @@ interface ProjectOverviewRequestBody {
     ticket_notes?: string;
 }
 
+// Helper function to get or create platform_id (copied from /api/servers)
+async function getOrCreatePlatformId(connection: PoolConnection, platformName: string | undefined): Promise<number | bigint | null> {
+  // Use the database pool directly if not in a transaction
+  const pool = dbUtils.pool;
+  if (!platformName || platformName.trim() === '') {
+    return null;
+  }
+  const [existingPlatform] = await pool.query<RowDataPacket[]>(
+      'SELECT platform_id FROM platforms WHERE platform_name = ?',
+      [platformName]
+  );
+  if (existingPlatform.length > 0) {
+    return existingPlatform[0].platform_id;
+  }
+  const [newPlatformResult] = await pool.query<ResultSetHeader>(
+      'INSERT INTO platforms (platform_name) VALUES (?)',
+      [platformName]
+  );
+  if (!newPlatformResult.insertId) {
+      throw new Error('Failed to insert new platform');
+  }
+  return newPlatformResult.insertId;
+}
+
 // GET method to fetch all test bench project overviews
 export async function GET(): Promise<NextResponse> {
   try {
+    // UPDATE Query to join with platforms
     const projectOverviews = await dbUtils.query<ProjectOverview[]>(`
-      SELECT o.*, t.hil_name
+      SELECT 
+        o.*, 
+        t.hil_name,
+        p.platform_name -- Select platform_name
       FROM test_bench_project_overview o
       LEFT JOIN test_benches t ON o.bench_id = t.bench_id
+      LEFT JOIN platforms p ON o.platform_id = p.platform_id -- Join platforms
       ORDER BY o.overview_id
     `);
     
@@ -58,13 +88,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body: ProjectOverviewRequestBody = await request.json();
     
-    // Validate required fields
     if (body.bench_id === undefined || body.bench_id === null) {
-      return NextResponse.json(
-        { error: 'Test bench ID (bench_id) is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Test bench ID (bench_id) is required' }, { status: 400 });
     }
+
+    // Get or create platform_id using helper
+    // Pass the pool connection - assuming this might run within a transaction later if needed
+    // For now, the helper uses the pool directly.
+    const platformId = await getOrCreatePlatformId(dbUtils.pool as any, body.platform_name);
 
     // Check if the referenced test bench exists
     const testBench = await dbUtils.queryOne(
@@ -72,19 +103,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         [body.bench_id]
     );
     if (!testBench) {
-      return NextResponse.json(
-        { error: 'Test Bench with the specified bench_id not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Test Bench with the specified bench_id not found' }, { status: 404 });
     }
 
-    // Insert the new project overview record using dbUtils.insert
+    // Insert using platform_id
     const overviewId = await dbUtils.insert(
-      `INSERT INTO test_bench_project_overview (bench_id, platform, system_supplier, wetbench_info, actuator_info, hardware, software, model_version, ticket_notes) 
+      `INSERT INTO test_bench_project_overview (bench_id, platform_id, system_supplier, wetbench_info, actuator_info, hardware, software, model_version, ticket_notes) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
       [
         body.bench_id,
-        body.platform || null,
+        platformId, // Use platformId
         body.system_supplier || null,
         body.wetbench_info || null,
         body.actuator_info || null,
@@ -99,11 +127,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         throw new Error("Failed to get overview_id after insert.");
     }
 
-    // Get the newly inserted record (including hil_name)
+    // Get the newly inserted record (joining platforms)
     const newOverview = await dbUtils.queryOne<ProjectOverview>(
-      `SELECT o.*, t.hil_name
+      `SELECT 
+         o.*, 
+         t.hil_name,
+         p.platform_name
        FROM test_bench_project_overview o
        LEFT JOIN test_benches t ON o.bench_id = t.bench_id
+       LEFT JOIN platforms p ON o.platform_id = p.platform_id
        WHERE o.overview_id = ?`,
       [overviewId]
     );
@@ -117,17 +149,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error: unknown) {
     console.error('Error adding project overview:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    // Specific check for foreign key constraints if needed
     if (message.includes('foreign key constraint fails')) {
-      return NextResponse.json(
-        { error: 'Failed to add project overview: Invalid bench_id. The Test Bench does not exist.', details: message },
-        { status: 400 } // Bad request due to invalid foreign key
-      );
+      return NextResponse.json({ error: 'Failed to add project overview: Invalid bench_id or platform.', details: message }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: 'Failed to add project overview', details: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to add project overview', details: message }, { status: 500 });
   }
 }
 
@@ -136,19 +161,15 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body: ProjectOverviewRequestBody = await request.json();
     
-    // Validate required fields for PUT
     if (body.overview_id === undefined || body.overview_id === null) {
-      return NextResponse.json(
-        { error: 'Overview ID (overview_id) is required for update' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Overview ID (overview_id) is required for update' }, { status: 400 });
     }
     if (body.bench_id === undefined || body.bench_id === null) {
-      return NextResponse.json(
-        { error: 'Test bench ID (bench_id) is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Test bench ID (bench_id) is required' }, { status: 400 });
     }
+
+    // Get or create platform_id using helper
+    const platformId = await getOrCreatePlatformId(dbUtils.pool as any, body.platform_name);
 
     // Check if the referenced test bench exists
     const testBench = await dbUtils.queryOne(
@@ -156,17 +177,14 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
         [body.bench_id]
     );
     if (!testBench) {
-      return NextResponse.json(
-        { error: 'Referenced Test Bench with the specified bench_id not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Referenced Test Bench with the specified bench_id not found' }, { status: 404 });
     }
 
-    // Update the project overview record using dbUtils.update
+    // Update using platform_id
     const affectedRows = await dbUtils.update(
       `UPDATE test_bench_project_overview SET
          bench_id = ?, 
-         platform = ?, 
+         platform_id = ?, -- Use platform_id
          system_supplier = ?, 
          wetbench_info = ?,
          actuator_info = ?,
@@ -177,7 +195,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
        WHERE overview_id = ?`, 
       [
         body.bench_id,
-        body.platform || null,
+        platformId, // Use platformId
         body.system_supplier || null,
         body.wetbench_info || null,
         body.actuator_info || null,
@@ -189,24 +207,30 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       ]
     );
     
-    if (affectedRows === 0) {
-       // Check if the record exists at all to differentiate between not found and no changes made
+    // Fetch logic remains largely the same, but ensure the query joins platforms
+    let updatedOverview: ProjectOverview | null = null;
+    if (affectedRows > 0) {
+        updatedOverview = await dbUtils.queryOne<ProjectOverview>(
+           `SELECT o.*, t.hil_name, p.platform_name
+            FROM test_bench_project_overview o
+            LEFT JOIN test_benches t ON o.bench_id = t.bench_id
+            LEFT JOIN platforms p ON o.platform_id = p.platform_id
+            WHERE o.overview_id = ?`,
+           [body.overview_id]
+        );
+    } else {
       const existingOverview = await dbUtils.queryOne(
           `SELECT overview_id FROM test_bench_project_overview WHERE overview_id = ?`, 
           [body.overview_id]
       );
       if (!existingOverview) {
-         return NextResponse.json(
-          { error: 'Project overview record not found' },
-          { status: 404 }
-         );
+         return NextResponse.json({ error: 'Project overview record not found' }, { status: 404 });
       } else {
-        // Record exists, but no changes were made (data sent was the same as existing data)
-        // Return the existing record as if updated
-        const updatedOverview = await dbUtils.queryOne<ProjectOverview>(
-           `SELECT o.*, t.hil_name
+        updatedOverview = await dbUtils.queryOne<ProjectOverview>(
+           `SELECT o.*, t.hil_name, p.platform_name
             FROM test_bench_project_overview o
             LEFT JOIN test_benches t ON o.bench_id = t.bench_id
+            LEFT JOIN platforms p ON o.platform_id = p.platform_id
             WHERE o.overview_id = ?`,
            [body.overview_id]
         );
@@ -218,15 +242,6 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Get the updated record (including hil_name)
-    const updatedOverview = await dbUtils.queryOne<ProjectOverview>(
-        `SELECT o.*, t.hil_name
-         FROM test_bench_project_overview o
-         LEFT JOIN test_benches t ON o.bench_id = t.bench_id
-         WHERE o.overview_id = ?`,
-        [body.overview_id]
-    );
-        
     return NextResponse.json({ 
       success: true, 
       message: 'Project overview updated successfully',
@@ -236,16 +251,12 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   } catch (error: unknown) {
     console.error('Error updating project overview:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-     // Specific check for foreign key constraints if needed
     if (message.includes('foreign key constraint fails')) {
-      return NextResponse.json(
-        { error: 'Failed to update project overview: Invalid bench_id. The Test Bench does not exist.', details: message },
-        { status: 400 } // Bad request due to invalid foreign key
-      );
+      return NextResponse.json({ error: 'Failed to update project overview: Invalid bench_id or platform.', details: message }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: 'Failed to update project overview', details: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update project overview', details: message }, { status: 500 });
   }
-} 
+}
+
+// DELETE method - No changes needed unless it specifically used the platform field
+// export async function DELETE(request: NextRequest): Promise<NextResponse> { ... } 
