@@ -11,16 +11,16 @@ import AddServerModal, { ServerData } from '@/components/server/AddServerModal';
 // Fallback categories in case API fails
 const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
 
-// API data interface remains the same
+// UPDATE ApiServerData interface to reflect expected API response
 interface ApiServerData {
-  bench_id: number;
-  hil_name: string;
-  category: string;
-  subcategory: string;
-  description: string;
+  dbId: number; // Expect dbId (from pc_id AS dbId)
+  casual_name: string; 
+  platform?: string; 
+  bench_type?: string; 
+  pc_info_text?: string; 
   status: string;
-  active_user: string | null;
-  location: string;
+  user_name?: string | null; 
+  location?: string; // Keep if potentially useful later
 }
 
 export default function Home() {
@@ -41,7 +41,7 @@ export default function Home() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Fetching logic remains the same as current page.tsx
+  // Fetching logic
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
@@ -68,18 +68,22 @@ export default function Home() {
         const serverData = await serverResponse.json();
 
         if (serverData.servers && serverData.servers.length > 0) {
+          // Correct the mapping to use server.dbId
           const mappedServers = serverData.servers.map((server: ApiServerData): ServerData => ({
-            dbId: server.bench_id,
-            name: server.hil_name || 'Unnamed Server',
-            platform: server.category || 'Uncategorized',
-            bench_type: server.subcategory || '',
-            description: server.description || 'No description available',
+            dbId: server.dbId, // Use dbId from API response
+            casual_name: server.casual_name || 'Unnamed PC',
+            platform: server.platform || 'Uncategorized',
+            bench_type: server.bench_type || '',
+            pc_info_text: server.pc_info_text || 'No info available',
             status: server.status === 'offline' ? 'offline' :
-                  server.status === 'in use' ? 'in_use' : 'online',
-            user: server.active_user || '',
+                    server.status === 'in use' ? 'in_use' :
+                    server.status === 'online' ? 'online' : 
+                    server.status,
+            user_name: server.user_name || '',
           }));
           setServers(mappedServers);
 
+          // Update category extraction if platform logic changed (it didn't, still uses server.platform)
           const serverCategories = mappedServers
             .map((s: ServerData) => s.platform)
             .reduce((unique: string[], category: string) => {
@@ -126,15 +130,18 @@ export default function Home() {
         if (!serverResponse.ok) throw new Error('Failed to refetch servers');
         const serverData = await serverResponse.json();
         if (serverData.servers) {
+             // Correct the mapping to use server.dbId
              const mappedServers = serverData.servers.map((server: ApiServerData): ServerData => ({
-                dbId: server.bench_id,
-                name: server.hil_name || 'Unnamed Server',
-                platform: server.category || 'Uncategorized',
-                bench_type: server.subcategory || '',
-                description: server.description || 'No description available',
+                dbId: server.dbId, // Use dbId from API response
+                casual_name: server.casual_name || 'Unnamed PC',
+                platform: server.platform || 'Uncategorized',
+                bench_type: server.bench_type || '',
+                pc_info_text: server.pc_info_text || 'No info available',
                 status: server.status === 'offline' ? 'offline' :
-                      server.status === 'in use' ? 'in_use' : 'online',
-                user: server.active_user || '',
+                        server.status === 'in use' ? 'in_use' :
+                        server.status === 'online' ? 'online' : 
+                        server.status,
+                user_name: server.user_name || '',
             }));
              setServers(mappedServers);
         }
@@ -162,17 +169,24 @@ export default function Home() {
     setServerToEdit(null);
   };
 
-  const handleEditSubmit = () => {
-    refetchServers();
+  // UPDATE handleEditSubmit to update state locally
+  const handleEditSubmit = (updatedServer: ServerData) => {
+    setServers(prevServers => 
+      prevServers.map(server => 
+        server.dbId === updatedServer.dbId ? updatedServer : server
+      )
+    );
+    // refetchServers(); // REMOVE refetch call
     closeEditModal();
   };
 
-  const openDeleteDialog = (dbId: number, serverName: string) => {
+  const openDeleteDialog = (dbId: number, serverName: string /* Keep param name generic */) => {
     if (typeof dbId !== 'number') {
       console.error("Invalid dbId passed to openDeleteDialog:", dbId);
       return;
     }
     setServerToDeleteId(dbId);
+    // serverName here now corresponds to casual_name from the calling context (renderCategorySection)
     setServerToDeleteName(serverName);
     setShowDeleteDialog(true);
     setDeleteError(null);
@@ -306,18 +320,17 @@ export default function Home() {
       <div className="grid-container">
         {serversList.map((server) => (
           <ServerCard
-            key={server.dbId} // Use dbId as key
-            id={`server-card-${server.dbId}`} // Use correct ID format
+            key={server.dbId} 
+            id={`server-card-${server.dbId}`}
             dbId={server.dbId}
-            name={server.name}
+            casual_name={server.casual_name}
             platform={server.platform}
             bench_type={server.bench_type}
-            description={server.description}
+            pc_info_text={server.pc_info_text}
             status={server.status}
-            user={server.user}
-            // Pass props expected by current ServerCard component
+            user_name={server.user_name}
             onOpenEditModal={() => openEditModal(server)}
-            onOpenDeleteDialog={() => openDeleteDialog(server.dbId!, server.name)}
+            onOpenDeleteDialog={() => openDeleteDialog(server.dbId!, server.casual_name)}
           />
         ))}
 
@@ -335,7 +348,8 @@ export default function Home() {
       <Header />
 
       <div style={{ display: 'flex', flex: 1 }}>
-        {/* Sidebar component (already updated to use inline styles) */}
+        {/* Remove the problematic console.log call from JSX */}
+        {/* {console.log('[page.tsx] Rendering Sidebar with categories:', categories)} */}
         <Sidebar
           servers={servers}
           categories={categories}
@@ -384,7 +398,7 @@ export default function Home() {
           <AddServerModal
             isOpen={isEditModalOpen}
             onClose={closeEditModal}
-            onSubmit={handleEditSubmit} // Use updated handler
+            onSubmit={handleEditSubmit} // Pass the updated handler
             initialData={serverToEdit}
             mode="edit"
           />

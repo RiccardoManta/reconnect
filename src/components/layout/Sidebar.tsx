@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Server, Circle } from 'lucide-react';
 import { ServerData } from '@/components/server/AddServerModal';
 
@@ -15,10 +15,18 @@ export default function Sidebar({
   onCategoryClick,
   onServerClick,
 }: SidebarProps) {
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
-    // Initialize all categories as expanded
-    categories.reduce((acc, category) => ({ ...acc, [category]: true }), {})
-  );
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
+  // EFFECT to update expanded state when categories prop changes
+  useEffect(() => {
+    const allExpandedState = categories.reduce((acc, category) => {
+      acc[category] = true; // Always default to expanded
+      return acc;
+    }, {} as Record<string, boolean>);
+    
+    setExpandedCategories(allExpandedState);
+    
+  }, [categories]);
 
   // Toggle category expansion
   const toggleCategory = (category: string, e: React.MouseEvent) => {
@@ -38,7 +46,7 @@ export default function Sidebar({
   // Get effective status based on user presence and explicitly set status
   const getEffectiveStatus = (server: ServerData) => {
     if (server.status === 'offline') return 'offline';
-    return server.user && server.user.trim() !== '' ? 'in_use' : 'online';
+    return server.user_name && server.user_name.trim() !== '' ? 'in_use' : 'online';
   };
 
   // Update the status indicator in the sidebar
@@ -126,64 +134,77 @@ export default function Sidebar({
             </div>
 
             {/* Servers list */}
-            {expandedCategories[category] && (
-              <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
-                {(serversByCategory[category]?.length || 0) > 0 ? (
-                    serversByCategory[category].map((server) => (
-                    // Ensure dbId exists before rendering the server item
-                    server.dbId !== undefined && (
-                        <div
-                        key={`${category}-${server.dbId}`}
-                        onClick={() => onServerClick(`server-card-${server.dbId}`)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '0.375rem 0.5rem',
-                            marginBottom: '0.25rem',
-                            borderRadius: '0.25rem',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            transition: 'background-color 0.2s'
-                        }}
-                        onMouseOver={(e) => {
-                            const target = e.currentTarget as HTMLDivElement;
-                            target.style.backgroundColor = '#f1f5f9';
-                        }}
-                        onMouseOut={(e) => {
-                            const target = e.currentTarget as HTMLDivElement;
-                            target.style.backgroundColor = 'transparent';
-                        }}
-                        >
-                        <Server size={14} style={{ marginRight: '0.5rem', color: '#64748b', flexShrink: 0 }} />
-                        <span style={{ flexGrow: 1, marginRight: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name}</span>
-                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                            <Circle
-                            size={8}
-                            fill={getStatusColor(server)}
-                            color={getStatusColor(server)}
-                            style={{ marginRight: '0.25rem' }}
-                            />
-                            {server.user && server.user.trim() !== '' && (
-                                <span style={{
-                                    fontSize: '0.75rem',
-                                    color: '#9ca3af',
-                                    fontStyle: 'italic',
-                                    marginLeft: '0.5rem'
-                                }}>
-                                    {server.user}
-                                </span>
-                            )}
-                        </div>
-                        </div>
-                    )
-                    ))
-                ) : (
-                   <div style={{ padding: '0.375rem 0.5rem', fontSize: '0.9rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                       No servers in this category
-                   </div>
-                )}
-              </div>
-            )}
+            {(() => {
+              // Check if the category should be expanded
+              if (expandedCategories[category]) {
+                const serversList = serversByCategory[category];
+                
+                // Return the JSX for the server list
+                return (
+                  <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+                    {(serversList?.length || 0) > 0 ? (
+                        serversList.map((server) => (
+                        // Ensure dbId exists before rendering the server item
+                        server.dbId !== undefined && (
+                            <div
+                            key={`${category}-${server.dbId}`}
+                            onClick={() => onServerClick(`server-card-${server.dbId}`)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '0.375rem 0.5rem',
+                                marginBottom: '0.25rem',
+                                borderRadius: '0.25rem',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                transition: 'background-color 0.2s'
+                            }}
+                            onMouseOver={(e) => {
+                                const target = e.currentTarget as HTMLDivElement;
+                                target.style.backgroundColor = '#f1f5f9';
+                            }}
+                            onMouseOut={(e) => {
+                                const target = e.currentTarget as HTMLDivElement;
+                                target.style.backgroundColor = 'transparent';
+                            }}
+                            >
+                            <Server size={14} style={{ marginRight: '0.5rem', color: '#64748b', flexShrink: 0 }} />
+                            <span style={{ fontWeight: 'normal', color: '#333' }}>
+                              {server.casual_name} 
+                            </span>
+                            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                                <Circle
+                                size={8}
+                                fill={getStatusColor(server)}
+                                color={getStatusColor(server)}
+                                style={{ marginRight: '0.25rem' }}
+                                />
+                                {server.user_name && server.user_name.trim() !== '' && (
+                                    <span style={{
+                                        fontSize: '0.75rem',
+                                        color: '#9ca3af',
+                                        fontStyle: 'italic',
+                                        marginLeft: '0.5rem'
+                                    }}>
+                                        {server.user_name}
+                                    </span>
+                                )}
+                            </div>
+                            </div>
+                        )
+                        ))
+                    ) : (
+                       <div style={{ padding: '0.375rem 0.5rem', fontSize: '0.9rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                           No servers in this category
+                       </div>
+                    )}
+                  </div>
+                );
+              } else {
+                // If not expanded, return null (render nothing)
+                return null;
+              }
+            })()}
           </div>
         ))}
       </div>

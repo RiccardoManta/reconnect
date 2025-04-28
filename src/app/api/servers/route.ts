@@ -3,51 +3,51 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils'; 
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
-// Interface for the expected shape of POST/PUT request body
-// Optional fields for PUT are handled by the logic
+// UPDATE Interface for the expected shape of POST/PUT request body
+// To match the ServerData interface used in the frontend modal
 interface ServerRequestBody {
-    name: string;
-    platform?: string;
-    bench_type?: string;
-    description?: string;
-    status?: 'online' | 'offline' | 'in_use';
-    user?: string;
+    casual_name: string; // was name
+    platform?: string; // remains platform
+    bench_type?: string; // remains bench_type
+    pc_info_text?: string; // was description
+    status?: string; // was specific enum, now string to match pc_overview.status
+    user_name?: string; // was user
+    // We might need bench_id if associating with an existing bench, but POST implies new
 }
 
 // Interface for the expected shape of server data returned by GET/POST/PUT
 interface ServerApiResponse extends RowDataPacket {
-  bench_id: number;
-  hil_name: string | null;
-  category: string | null;
-  subcategory: string | null;
-  description: string | null;
+  dbId: number;
+  casual_name: string | null;
+  platform: string | null;
+  bench_type: string | null;
+  pc_info_text: string | null;
   status: string | null;
-  active_user: string | null;
-  location: string | null;
+  user_name: string | null;
 }
 
 
 // GET method to fetch all servers with joined data
 export async function GET(): Promise<NextResponse> { // Added return type
   try {
-    // Use dbUtils.query with await and specify expected return type
+    // UPDATE the SQL query
     const servers = await dbUtils.query<ServerApiResponse[]>(`
       SELECT 
-        t.bench_id,
-        p.pc_name AS hil_name, 
-        o.platform AS category, 
-        t.bench_type AS subcategory,
-        p.pc_info_text AS description,
+        p.pc_id AS dbId,          
+        p.casual_name,
+        o.platform,
+        t.bench_type,
+        p.pc_info_text,
         p.status,
-        p.active_user,
-        t.location
-      FROM test_benches t
-      LEFT JOIN pc_overview p ON t.bench_id = p.bench_id
+        p.active_user AS user_name -- Select active_user AS user_name
+      FROM pc_overview p
+      LEFT JOIN test_benches t ON p.bench_id = t.bench_id
       LEFT JOIN test_bench_project_overview o ON t.bench_id = o.bench_id
-      ORDER BY t.bench_id
+      WHERE p.casual_name IS NOT NULL AND p.casual_name <> '' -- Filter by casual_name
+      ORDER BY p.pc_id            -- Order by pc_id
     `);
     
-    return NextResponse.json({ servers });
+    return NextResponse.json({ servers }); // Return data using 'servers' key
 
   } catch (error: unknown) { // Use unknown type for error
     console.error('Error fetching server data:', error);
@@ -62,12 +62,13 @@ export async function GET(): Promise<NextResponse> { // Added return type
 // POST method to add a new server
 export async function POST(request: NextRequest): Promise<NextResponse> { // Use NextRequest
   try {
+    // Use the updated ServerRequestBody interface
     const body: ServerRequestBody = await request.json();
     
-    // Validate required fields
-    if (!body.name || !body.platform || !body.description) {
+    // Validate required fields using updated names
+    if (!body.casual_name || !body.platform || !body.pc_info_text) {
       return NextResponse.json(
-        { error: 'Name, Platform (Category), and Info (Description) are required' },
+        { error: 'Casual Name, Platform, and PC Info Text are required' }, // Updated error message
         { status: 400 }
       );
     }
@@ -75,57 +76,65 @@ export async function POST(request: NextRequest): Promise<NextResponse> { // Use
     let newServer: ServerApiResponse | null = null;
 
     // Use dbUtils.transaction
-    const benchId: number | bigint = await dbUtils.transaction(async (connection: PoolConnection) => {
-      // 1. Insert into test_benches table
+    // Update transaction to return pc_id
+    const pcId: number | bigint = await dbUtils.transaction(async (connection: PoolConnection) => {
+      // 1. Insert into test_benches table 
+      //    Set user_id to NULL for now. Link pc_overview via bench_id.
       const [testBenchResult] = await connection.query<ResultSetHeader>(
-        `INSERT INTO test_benches (hil_name, bench_type, system_type) VALUES (?, ?, ?)`, 
+        `INSERT INTO test_benches (hil_name, bench_type, system_type, user_id) VALUES (?, ?, ?, ?)`, 
         [
-            body.name, 
+            body.casual_name, // Use casual_name for hil_name for consistency?
             body.bench_type || null, 
-            body.bench_type || null 
+            body.bench_type || null, // Assuming system_type can be derived from bench_type or is ok as null/default?
+            null // Set user_id to NULL
         ]
       );
       const currentBenchId = testBenchResult.insertId;
       if (!currentBenchId) throw new Error("Failed to get bench_id after insert into test_benches");
       
-      // 2. Insert into test_bench_project_overview table
+      // 2. Insert into test_bench_project_overview table (using currentBenchId and platform)
       await connection.query(
         `INSERT INTO test_bench_project_overview (bench_id, platform) VALUES (?, ?)`, 
         [currentBenchId, body.platform || 'Uncategorized']
       );
       
-      // 3. Insert into pc_overview table
-      await connection.query(
-        `INSERT INTO pc_overview (bench_id, pc_name, pc_info_text, status, active_user) VALUES (?, ?, ?, ?, ?)`, 
+      // 3. Insert into pc_overview table using new fields
+      //    Store casual_name in both pc_name and casual_name? Or just casual_name?
+      //    Let's store in both pc_name and casual_name for now.
+      //    Store user_name in active_user.
+      const [pcOverviewResult] = await connection.query<ResultSetHeader>(
+        `INSERT INTO pc_overview (bench_id, pc_name, casual_name, pc_info_text, status, active_user) VALUES (?, ?, ?, ?, ?, ?)`, 
         [
             currentBenchId, 
-            body.name || null, 
-            body.description || null, 
-            body.status || 'online', 
-            body.user || null
+            body.casual_name || null, // Store in pc_name 
+            body.casual_name || null, // Store in casual_name
+            body.pc_info_text || null, // Use pc_info_text
+            body.status || 'online', // Use status
+            body.user_name || null // Use user_name for active_user
         ]
       );
+      const currentPcId = pcOverviewResult.insertId;
+      if (!currentPcId) throw new Error("Failed to get pc_id after insert into pc_overview");
 
-      return currentBenchId; // Return the new ID from the transaction
+      return currentPcId; // Return the new pc_id from the transaction
     });
 
-    // Fetch the newly created server outside the transaction to ensure it's committed
-    if (benchId) {
+    // Fetch the newly created server data based on pc_id using the updated query structure
+    if (pcId) {
         newServer = await dbUtils.queryOne<ServerApiResponse>(
             `SELECT 
-              t.bench_id,
-              p.pc_name AS hil_name,
-              o.platform AS category,
-              t.bench_type AS subcategory,
-              p.pc_info_text AS description,
+              p.pc_id AS dbId,
+              p.casual_name,
+              o.platform,
+              t.bench_type,
+              p.pc_info_text,
               p.status,
-              p.active_user,
-              t.location
-            FROM test_benches t
-            LEFT JOIN pc_overview p ON t.bench_id = p.bench_id
+              p.active_user AS user_name -- Select active_user AS user_name
+            FROM pc_overview p
+            LEFT JOIN test_benches t ON p.bench_id = t.bench_id
             LEFT JOIN test_bench_project_overview o ON t.bench_id = o.bench_id
-            WHERE t.bench_id = ?`,
-            [benchId]
+            WHERE p.pc_id = ?`, // Fetch by pc_id
+            [pcId]
         );
     }
     
@@ -163,7 +172,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> { // Use 
     const body: ServerRequestBody = await request.json();
     
     // Simple validation for required fields during update
-    if (!body.name || !body.platform || !body.description) {
+    if (!body.casual_name || !body.platform || !body.pc_info_text) {
       return NextResponse.json({ error: 'Name, Platform, and Info fields are required for update' }, { status: 400 });
     }
 
@@ -184,7 +193,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> { // Use 
       await connection.query(
         `UPDATE test_benches SET hil_name = ?, bench_type = ?, system_type = ? WHERE bench_id = ?`, 
         [ 
-            body.name, 
+            body.casual_name, 
             body.bench_type || null,
             body.bench_type || null, 
             numericBenchId
@@ -204,10 +213,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse> { // Use 
            ON DUPLICATE KEY UPDATE pc_name = VALUES(pc_name), pc_info_text = VALUES(pc_info_text), status = VALUES(status), active_user = VALUES(active_user)`, 
           [
             numericBenchId, 
-            body.name || null, 
-            body.description || null, 
+            body.casual_name || null, 
+            body.pc_info_text || null, 
             body.status || 'online', 
-            body.user || null
+            body.user_name || null
           ]
       );
     }); // Transaction commits automatically if no error

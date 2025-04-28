@@ -5,12 +5,12 @@ import { ServerData } from './AddServerModal';
 export interface ServerCardProps {
   id: string;
   dbId?: number;
-  name: string;
-  platform: string;
+  casual_name: string;
+  platform?: string;
   bench_type: string;
-  description: string;
-  status: 'online' | 'offline' | 'in_use';
-  user?: string;
+  pc_info_text?: string;
+  status: 'online' | 'offline' | 'in_use' | string;
+  user_name?: string;
   onOpenDeleteDialog: (dbId: number, serverName: string) => void;
   onOpenEditModal: (server: ServerData) => void;
 }
@@ -18,43 +18,54 @@ export interface ServerCardProps {
 export default function ServerCard({
   id,
   dbId,
-  name,
+  casual_name,
   platform,
   bench_type,
-  description,
+  pc_info_text,
   status,
-  user,
+  user_name,
   onOpenDeleteDialog,
   onOpenEditModal,
 }: ServerCardProps) {
 
   const getStatusDetails = () => {
-    switch (status) {
-      case 'online':
-        return {
-          dotColor: '#10b981',
-          text: 'Online',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)' // Transparent green
-        };
-      case 'offline':
-        return {
-          dotColor: '#9ca3af',
-          text: 'Offline',
-          backgroundColor: 'rgba(156, 163, 175, 0.1)' // Transparent grey
-        };
-      case 'in_use':
-        return {
-          dotColor: '#ef4444',
-          text: 'In Use',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)' // Transparent red
-        };
-      default:
-          return {
-              dotColor: '#9ca3af', 
-              text: 'Unknown', 
-              backgroundColor: 'rgba(156, 163, 175, 0.1)'
-          };
+    const dbStatus = typeof status === 'string' ? status.toLowerCase() : 'unknown';
+    const hasUser = user_name && user_name.trim() !== '';
+
+    // 1. Handle explicit 'offline' from DB (highest priority)
+    if (dbStatus === 'offline') {
+      return {
+        text: 'Offline', 
+        dotColor: '#9ca3af', // Grey
+        backgroundColor: 'rgba(156, 163, 175, 0.1)' 
+      };
     }
+
+    // 2. Handle 'In Use' state (if not offline AND user exists)
+    if (hasUser) {
+      return {
+        text: 'In Use', 
+        dotColor: '#ef4444', // Red
+        backgroundColor: 'rgba(239, 68, 68, 0.1)' 
+      };
+    }
+
+    // 3. Handle explicit 'Online' from DB (if not offline and no user)
+    if (dbStatus === 'online') {
+      return {
+        text: 'Online', 
+        dotColor: '#10b981', // Green
+        backgroundColor: 'rgba(16, 185, 129, 0.1)' 
+      };
+    }
+    
+    // 4. Default: Display other non-offline statuses from DB when no user is present
+    //    (e.g., 'maintenance', 'error', or even if dbStatus is 'unknown')
+    return {
+        text: status || 'Unknown', // Display original status text (maintains case)
+        dotColor: '#f59e0b', // Amber color for other states
+        backgroundColor: 'rgba(245, 158, 11, 0.1)' 
+    };
   };
 
   const statusDetails = getStatusDetails();
@@ -82,18 +93,18 @@ export default function ServerCard({
     };
   }, [isMenuOpen]);
 
-  const handleMaintenance = () => { console.log(`Maintenance clicked for ${name}`); setIsMenuOpen(false); };
-  const handleDeactivate = () => { console.log(`Deactivate clicked for ${name}`); setIsMenuOpen(false); };
+  const handleMaintenance = () => { console.log(`Maintenance clicked for ${casual_name}`); setIsMenuOpen(false); };
+  const handleDeactivate = () => { console.log(`Deactivate clicked for ${casual_name}`); setIsMenuOpen(false); };
   const handleEdit = () => {
     if (dbId !== undefined) {
       const serverData: ServerData = {
         dbId,
-        name,
-        platform,
-        bench_type,
-        description,
-        status: status,
-        user: user || ''
+        casual_name: casual_name,
+        platform: platform || '',
+        bench_type: bench_type,
+        pc_info_text: pc_info_text || '',
+        status: status as 'online' | 'offline' | 'in_use',
+        user_name: user_name || ''
       };
       onOpenEditModal(serverData);
     } else {
@@ -101,10 +112,10 @@ export default function ServerCard({
     }
     setIsMenuOpen(false);
   };
-  const handleManageUser = () => { console.log(`Manage User clicked for ${name}`); setIsMenuOpen(false); };
+  const handleManageUser = () => { console.log(`Manage User clicked for ${casual_name}`); setIsMenuOpen(false); };
   const handleDelete = () => {
     if (dbId !== undefined) {
-      onOpenDeleteDialog(dbId, name);
+      onOpenDeleteDialog(dbId, casual_name);
     } else {
       console.warn('Cannot delete card without dbId');
     }
@@ -143,14 +154,14 @@ export default function ServerCard({
       height: '100%'
     }}>
       <div className="card-header" style={{ flex: '1 1 auto' }}>
-        <h3 className="card-title">{name}</h3>
+        <h3 className="card-title">{casual_name}</h3>
 
         <div className="user-info">
           <div className="user-avatar" style={{ width: '1.5rem', height: '1.5rem', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#cbd5e1', borderRadius:'50%', marginRight:'0.5rem' }}>
             <User className="h-4 w-4" style={{ color: 'white' }} />
           </div>
-          {user && user.trim() !== '' ? (
-            <span className="user-name">{user}</span>
+          {user_name && user_name.trim() !== '' ? (
+            <span className="user-name">{user_name}</span>
           ) : (
             <span className="user-name" style={{ fontStyle: 'italic', color: '#94a3b8' }}>No User</span>
           )}
@@ -164,7 +175,7 @@ export default function ServerCard({
           </div>
         )}
 
-        <p className="description">{description}</p>
+        <p className="description">{pc_info_text}</p>
       </div>
 
       <div className="card-footer" style={{

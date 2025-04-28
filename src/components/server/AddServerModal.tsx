@@ -8,7 +8,7 @@ const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", 
 interface AddServerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (serverData: ServerData, dbId?: number) => void;
+  onSubmit: (updatedServerData: ServerData) => void;
   initialData?: ServerData | null; // Data for editing
   mode: 'add' | 'edit'; // Added mode prop
 }
@@ -16,18 +16,18 @@ interface AddServerModalProps {
 // Define the shape of server data used internally and passed to onSubmit
 export interface ServerData {
   dbId?: number;
-  name: string;
-  platform: string; // Corresponds to 'category' from API / schema
-  bench_type: string; // Corresponds to 'subcategory' from API / schema
-  description: string;
-  status: 'online' | 'offline' | 'in_use';
-  user: string;
+  casual_name: string;
+  platform: string;
+  bench_type: string;
+  pc_info_text: string;
+  status: 'online' | 'offline' | 'in_use' | string;
+  user_name: string;
 }
 
 export default function AddServerModal({ 
   isOpen, 
   onClose, 
-  onSubmit, 
+  onSubmit,
   initialData, 
   mode // Destructure mode
 }: AddServerModalProps) {
@@ -35,18 +35,29 @@ export default function AddServerModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Define the initial state based on mode or provide defaults
+  // Define the initial state based on mode or provide defaults using NEW names
   const getInitialFormData = (): Partial<ServerData> => {
       if (mode === 'edit' && initialData) {
-          return initialData;
+          // Ensure initialData conforms to the updated ServerData structure
+          return {
+              dbId: initialData.dbId,
+              casual_name: initialData.casual_name || '',
+              platform: initialData.platform || categories[0] || fallbackCategories[0],
+              bench_type: initialData.bench_type || '',
+              pc_info_text: initialData.pc_info_text || '',
+              // Handle potential string status from initialData if needed, default to online
+              status: initialData.status || 'online',
+              user_name: initialData.user_name || ''
+          };
       }
+      // Default for 'add' mode
       return {
-        name: '',
+        casual_name: '',
         platform: categories[0] || fallbackCategories[0],
         bench_type: '',
-        description: '',
+        pc_info_text: '',
         status: 'online',
-        user: ''
+        user_name: ''
       };
   };
 
@@ -54,6 +65,7 @@ export default function AddServerModal({
 
   // Effect to reset form data when modal opens or initialData/mode changes
   useEffect(() => {
+      // Use the updated getInitialFormData
       setFormData(getInitialFormData());
       setError(null); // Clear error when modal reopens or data changes
   }, [isOpen, initialData, mode, categories]); // Depend on categories as well for default
@@ -107,14 +119,13 @@ export default function AddServerModal({
     setError(null);
     setIsSubmitting(true);
     
-    // Use mode to determine action, but rely on dbId for URL/method
     const isEditing = mode === 'edit' && !!formData?.dbId; 
-    const url = isEditing ? `/api/servers?id=${formData.dbId}` : '/api/servers';
+    const url = isEditing ? `/api/servers/${formData.dbId}` : '/api/servers';
     const method = isEditing ? 'PUT' : 'POST';
 
-    // Simple validation
-    if (!formData.name || !formData.platform || !formData.description) {
-        setError('Name, Platform, and Info fields are required.');
+    // Simple validation using NEW field names
+    if (!formData.casual_name || !formData.platform || !formData.pc_info_text) {
+        setError('Casual Name, Platform, and PC Info Text fields are required.');
         setIsSubmitting(false);
         return;
     }
@@ -125,25 +136,35 @@ export default function AddServerModal({
         headers: {
           'Content-Type': 'application/json',
         },
-        // Ensure all required fields are present before submitting
+        // Body requires casual_name, platform, pc_info_text
+        // user_name is sent, backend calculates status for PUT
         body: JSON.stringify({
-            name: formData.name,
+            casual_name: formData.casual_name,
             platform: formData.platform,
-            bench_type: formData.bench_type || '', // Provide default if optional
-            description: formData.description,
-            status: formData.status || 'online', // Provide default
-            user: formData.user || '' // Provide default
+            bench_type: formData.bench_type || '', 
+            pc_info_text: formData.pc_info_text,
+            user_name: formData.user_name || '' 
         }),
       });
       
-      const data = await response.json(); // Attempt to parse JSON regardless of status
+      const responseData = await response.json(); // Parse JSON response
       
       if (!response.ok) {
-        throw new Error(data.error || (isEditing ? 'Failed to update server' : 'Failed to add server'));
+        // Use error from response body if available
+        throw new Error(responseData.error || (isEditing ? 'Failed to update server' : 'Failed to add server'));
       }
       
-      // Pass the submitted data (ensure it matches ServerData shape)
-      onSubmit(formData as ServerData, formData?.dbId);
+      // On success, call onSubmit with the SERVER data from the response
+      // This assumes the API returns { success: true, server: {...} }
+      if (responseData.server) {
+          // Cast responseData.server to ServerData before passing
+          onSubmit(responseData.server as ServerData); 
+      } else {
+          // Fallback or error if server data is missing in response
+          console.warn('API response successful but missing server data.');
+          // Optionally, still call onSubmit with local data, but it might be stale/incorrect
+          // onSubmit(formData as ServerData);
+      }
       
       onClose(); // Close modal on success
       
@@ -245,7 +266,7 @@ export default function AddServerModal({
             {/* Form Fields with inline styles */}
             <div style={{ marginBottom: '20px' }}>
               <label
-                htmlFor="name"
+                htmlFor="casual_name"
                 style={{
                   fontSize: '14px',
                   fontWeight: '500',
@@ -257,13 +278,13 @@ export default function AddServerModal({
                 }}
               >
                 <FileText size={16} color="#0F3460" />
-                PC Name
+                Casual Name
               </label>
               <input
                 type="text"
-                id="name"
-                name="name"
-                value={formData.name || ''}
+                id="casual_name"
+                name="casual_name"
+                value={formData.casual_name || ''}
                 onChange={handleChange}
                 style={{
                   width: '100%',
@@ -278,7 +299,7 @@ export default function AddServerModal({
                 onBlur={(e) => {(e.target as HTMLInputElement).style.borderColor = '#e5e7eb'}}
                 required
                 disabled={isSubmitting}
-                placeholder="e.g., HIL-BS-01-HostPC" // Keep placeholder from current
+                placeholder="e.g., HIL-BS-01-HostPC"
               />
             </div>
 
@@ -296,7 +317,7 @@ export default function AddServerModal({
                 }}
               >
                 <Tag size={16} color="#0F3460" />
-                 Platform (Category) {/* Use clearer label from current */}
+                 Platform
               </label>
               <select
                 id="platform"
@@ -321,9 +342,8 @@ export default function AddServerModal({
                 onFocus={(e) => {(e.target as HTMLSelectElement).style.borderColor = '#39A2DB'}}
                 onBlur={(e) => {(e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'}}
                 required
-                disabled={isSubmitting || categories.length === 0} // Disable if no categories
+                disabled={isSubmitting || categories.length === 0}
               >
-                 {/* Add disabled option from current */}
                 <option value="" disabled={!formData.platform}>Select a platform</option>
                 {categories.map(category => (
                   <option key={category} value={category}>{category}</option>
@@ -344,9 +364,8 @@ export default function AddServerModal({
                   gap: '8px'
                 }}
               >
-                 {/* Use correct icon from current */}
                 <Activity size={16} color="#0F3460" /> 
-                 Testbench Type (Subcategory) {/* Use clearer label */}
+                 Bench Type
               </label>
               <input
                 type="text"
@@ -366,13 +385,13 @@ export default function AddServerModal({
                 onFocus={(e) => {(e.target as HTMLInputElement).style.borderColor = '#39A2DB'}}
                 onBlur={(e) => {(e.target as HTMLInputElement).style.borderColor = '#e5e7eb'}}
                 disabled={isSubmitting}
-                placeholder="e.g., Body Systems" // Add placeholder
+                placeholder="e.g., Body Systems"
               />
             </div>
 
             <div style={{ marginBottom: '20px' }}>
               <label
-                htmlFor="description"
+                htmlFor="pc_info_text"
                 style={{
                   fontSize: '14px',
                   fontWeight: '500',
@@ -384,14 +403,14 @@ export default function AddServerModal({
                 }}
               >
                 <FileText size={16} color="#0F3460" />
-                 Info {/* Use simpler label */}
+                 PC Info Text
               </label>
               <textarea
-                id="description"
-                name="description"
-                value={formData.description || ''}
+                id="pc_info_text"
+                name="pc_info_text"
+                value={formData.pc_info_text || ''}
                 onChange={handleChange}
-                rows={3} // Keep rows from current
+                rows={3}
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -407,46 +426,9 @@ export default function AddServerModal({
                 onBlur={(e) => {(e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'}}
                 required
                 disabled={isSubmitting}
-                placeholder="Enter details about the testbench..." // Add placeholder
+                placeholder="e.g., Contains special measurement hardware..."
               />
             </div>
-            
-             {/* Status and User fields (if needed, add similar blocks here) */}
-             {/* Example for Status (adapt as needed) */}
-             {mode === 'edit' && ( // Only show status/user in edit mode potentially?
-                <div style={{ marginBottom: '20px' }}>
-                <label htmlFor="status" style={{ /* ... label styles ... */ }}>Status</label>
-                <select 
-                    id="status" 
-                    name="status" 
-                    value={formData.status || 'online'} 
-                    onChange={handleChange} 
-                    style={{ /* ... select styles ... */ }} 
-                    disabled={isSubmitting}
-                >
-                    <option value="online">Online</option>
-                    <option value="offline">Offline</option>
-                    <option value="in_use">In Use</option>
-                </select>
-                </div>
-             )}
-             
-             {/* Example for User (adapt as needed) */}
-             {mode === 'edit' && (
-                <div style={{ marginBottom: '20px' }}>
-                <label htmlFor="user" style={{ /* ... label styles ... */ }}>User</label>
-                <input 
-                    type="text" 
-                    id="user" 
-                    name="user" 
-                    value={formData.user || ''} 
-                    onChange={handleChange} 
-                    style={{ /* ... input styles ... */ }}
-                    disabled={isSubmitting} 
-                    placeholder="Current user"
-                />
-                </div>
-             )}
 
             {/* Form Actions / Footer with inline styles */}
             <div style={{
