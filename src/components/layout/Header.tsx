@@ -1,94 +1,22 @@
 'use client'; // Make this a client component
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, User, Settings, Menu, Database, BookOpen, Shield, LogOut, UserCircle } from 'lucide-react';
+import { Search, User, Settings, Database, BookOpen, Shield, LogOut, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-
-// Fallback categories in case API fails
-const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
+import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 export default function Header() {
-  const [categories, setCategories] = useState<string[]>(fallbackCategories);
-  const [activeCategory, setActiveCategory] = useState<string>("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const { data: session, status } = useSession();
-
-  // Fetch categories from the API
-  useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const response = await fetch('/api/categories');
-        if (!response.ok) {
-          throw new Error('Failed to fetch categories');
-        }
-        const data = await response.json();
-        
-        // Try to get categories from the API response
-        let categoriesList: string[] = [];
-        
-        if (data.categories && data.categories.length > 0) {
-          categoriesList = data.categories;
-        } else {
-          // Fallback to getting all unique categories from test_benches table
-          try {
-            const benches = await fetch('/api/testbenches');
-            if (benches.ok) {
-              const benchData = await benches.json();
-              if (benchData.testBenches && benchData.testBenches.length > 0) {
-                // Get unique bench types with proper type handling
-                const uniqueTypes: string[] = [];
-                benchData.testBenches.forEach((bench: any) => {
-                  const benchType = bench.bench_type;
-                  if (benchType && typeof benchType === 'string' && !uniqueTypes.includes(benchType)) {
-                    uniqueTypes.push(benchType);
-                  }
-                });
-                
-                if (uniqueTypes.length > 0) {
-                  categoriesList = uniqueTypes;
-                }
-              }
-            }
-          } catch (benchError) {
-            console.error('Error fetching bench types:', benchError);
-          }
-        }
-        
-        // If still no categories, use fallback
-        if (categoriesList.length === 0) {
-          console.warn('No categories found, using fallback');
-          categoriesList = fallbackCategories;
-        }
-        
-        setCategories(categoriesList);
-        // Set first category as active by default if none is selected
-        if (!activeCategory && categoriesList.length > 0) {
-          setActiveCategory(categoriesList[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        // Use fallback categories if API fails
-        setCategories(fallbackCategories);
-        if (!activeCategory) {
-          setActiveCategory(fallbackCategories[0]);
-        }
-      }
-    }
-    
-    fetchCategories();
-  }, [activeCategory]);
+  const pathname = usePathname();
 
   // Close menus when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
@@ -99,21 +27,6 @@ export default function Header() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  // Scroll to category section when clicked
-  const handleCategoryClick = (category: string) => {
-    setActiveCategory(category);
-    
-    // Find the category section and scroll to it with improved smoothness
-    const section = document.getElementById(`category-${category.toLowerCase()}`);
-    if (section) {
-      section.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start',
-        inline: 'nearest'
-      });
-    }
-  };
 
   return (
     <header style={{ 
@@ -144,40 +57,31 @@ export default function Header() {
         </Link>
       </div>
       
-      {/* Categories in middle */}
+      {/* Fixed Sections in middle */}
       <div style={{ 
         display: 'flex', 
         gap: '1rem',
         padding: '0.25rem'
       }}>
-        {categories.map(category => (
-          <button
-            key={category}
-            onClick={() => handleCategoryClick(category)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: activeCategory === category ? 'white' : 'rgba(255,255,255,0.75)',
-              fontSize: '0.875rem',
-              fontWeight: activeCategory === category ? '600' : 'normal',
-              padding: '0.5rem 0.75rem',
-              cursor: 'pointer',
-              position: 'relative',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => {
-              if (activeCategory !== category) {
-                e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (activeCategory !== category) {
-                e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
-              }
-            }}
+        {/* Connect Link */}
+        <Link href="/" style={{ textDecoration: 'none' }}>
+          <span style={{
+            background: 'none',
+            border: 'none',
+            color: pathname === '/' ? 'white' : 'rgba(255,255,255,0.75)',
+            fontSize: '0.875rem',
+            fontWeight: pathname === '/' ? '600' : 'normal',
+            padding: '0.5rem 0.75rem',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s ease',
+            display: 'inline-block'
+          }}
+          onMouseOver={(e) => { if (pathname !== '/') e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+          onMouseOut={(e) => { if (pathname !== '/') e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
           >
-            {category}
-            {activeCategory === category && (
+            Connect
+            {pathname === '/' && (
               <div style={{
                 position: 'absolute',
                 bottom: '-2px',
@@ -189,166 +93,126 @@ export default function Header() {
                 borderRadius: '3px'
               }} />
             )}
-          </button>
-        ))}
+          </span>
+        </Link>
+        {/* Placeholder Button Style (applied to others) */}
+        <button style={{
+            background: 'none',
+            border: 'none',
+            // Add active state check later when this route exists
+            color: 'rgba(255,255,255,0.75)',
+            fontSize: '0.875rem',
+            fontWeight: 'normal', 
+            padding: '0.5rem 0.75rem',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+          Bookings
+          {/* Add underscore logic later */}
+        </button>
+        <button style={{
+            background: 'none',
+            border: 'none',
+            // Add active state check later when this route exists
+            color: 'rgba(255,255,255,0.75)',
+            fontSize: '0.875rem',
+            fontWeight: 'normal',
+            padding: '0.5rem 0.75rem',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+          Activities
+           {/* Add underscore logic later */}
+        </button>
+         <button style={{
+            background: 'none',
+            border: 'none',
+            // Add active state check later when this route exists
+            color: 'rgba(255,255,255,0.75)',
+            fontSize: '0.875rem',
+            fontWeight: 'normal',
+            padding: '0.5rem 0.75rem',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+          Testautomation
+           {/* Add underscore logic later */}
+        </button>
+        {/* Database Link */}
+        <Link href="/database" style={{ textDecoration: 'none' }}>
+          <span style={{ 
+            background: 'none',
+            border: 'none',
+            color: pathname === '/database' ? 'white' : 'rgba(255,255,255,0.75)',
+            fontSize: '0.875rem',
+            fontWeight: pathname === '/database' ? '600' : 'normal',
+            padding: '0.5rem 0.75rem',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s ease',
+            display: 'inline-block' 
+          }}
+          onMouseOver={(e) => { if (pathname !== '/database') e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+          onMouseOut={(e) => { if (pathname !== '/database') e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+          >
+            Database
+            {pathname === '/database' && (
+              <div style={{
+                position: 'absolute',
+                bottom: '-2px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                height: '3px',
+                width: '40%',
+                backgroundColor: '#39A2DB',
+                borderRadius: '3px'
+              }} />
+            )}
+          </span>
+        </Link>
+        {/* Admin Panel Button */}
+        <button style={{
+            background: 'none',
+            border: 'none',
+             // Add active state check later when this route exists
+            color: 'rgba(255,255,255,0.75)',
+            fontSize: '0.875rem',
+            fontWeight: 'normal',
+            padding: '0.5rem 0.75rem',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+          Admin Panel
+           {/* Add underscore logic later */}
+        </button>
       </div>
       
       {/* Controls on right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-        {/* Menu dropdown */}
-        <div style={{ position: 'relative' }} ref={menuRef}>
-          <button 
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              cursor: 'pointer', 
-              padding: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease'
-            }}
-            onClick={() => setMenuOpen(!menuOpen)}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            <Menu size={20} color="white" />
-          </button>
-          
-          {menuOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              marginTop: '0.625rem',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-              padding: '0.5rem 0',
-              zIndex: 10,
-              minWidth: '200px',
-              animation: 'modalFadeIn 0.2s ease-out',
-              border: '1px solid rgba(0, 0, 0, 0.05)'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: '-6px',
-                right: '12px',
-                width: '12px',
-                height: '12px',
-                backgroundColor: 'white',
-                transform: 'rotate(45deg)',
-                border: '1px solid rgba(0, 0, 0, 0.05)',
-                borderBottom: 'none',
-                borderRight: 'none',
-                zIndex: 9
-              }} />
-              
-              <button style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                textAlign: 'left',
-                padding: '0.875rem 1.25rem',
-                border: 'none',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                color: '#333',
-                transition: 'background-color 0.2s',
-                borderRadius: '4px',
-                margin: '0 0.25rem',
-                width: 'calc(100% - 0.5rem)'
-              }} onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = '#f7f7f7';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}>
-                <Shield size={17} style={{ color: '#0F3460' }} />
-                Admin Panel
-              </button>
-              
-              <Link href="/database" style={{ textDecoration: 'none' }}>
-                <button style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  textAlign: 'left',
-                  padding: '0.875rem 1.25rem',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  color: '#333',
-                  transition: 'background-color 0.2s',
-                  borderRadius: '4px',
-                  margin: '0 0.25rem',
-                  width: 'calc(100% - 0.5rem)'
-                }} onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f7f7f7';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}>
-                  <Database size={17} style={{ color: '#0F3460' }} />
-                  Database
-                </button>
-              </Link>
-              
-              <button style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                textAlign: 'left',
-                padding: '0.875rem 1.25rem',
-                border: 'none',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                color: '#333',
-                transition: 'background-color 0.2s',
-                borderRadius: '4px',
-                margin: '0 0.25rem',
-                width: 'calc(100% - 0.5rem)'
-              }} onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = '#f7f7f7';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}>
-                <BookOpen size={17} style={{ color: '#0F3460' }} />
-                Bookings
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Add Logo Image */}
+        <Image 
+          src="/logo.png" 
+          alt="Company Logo"
+          width={80}
+          height={80}
+        />
 
-        <button 
-          style={{ 
-            background: 'none', 
-            border: 'none', 
-            cursor: 'pointer', 
-            padding: '0.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-        >
-          <Settings className="h-5 w-5" style={{ color: 'rgba(255, 255, 255, 0.95)' }} />
-        </button>
-        
         <div className="search-container" style={{ position: 'relative' }}>
           <div style={{ position: 'absolute', top: '50%', left: '0.75rem', transform: 'translateY(-50%)' }}>
             <Search className="h-4 w-4" style={{ color: 'rgba(255, 255, 255, 0.7)' }} />
