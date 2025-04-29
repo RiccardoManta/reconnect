@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, update, insert } from '@/db/dbUtils'; // Import update and insert functions
 import { RowDataPacket } from 'mysql2/promise';
 import bcrypt from 'bcrypt'; // Import bcrypt
+import { getServerSession } from "next-auth/next"; // Import getServerSession
+import { authOptions } from '@/lib/authOptions'; // Import from the re-exporting file
+import { getUserPermissions } from '@/utils/server/permissionUtils'; // Import permission utility
 
 // Interface for User data returned by GET
 interface AdminUserResponse extends RowDataPacket {
@@ -22,131 +25,163 @@ interface CreateUserRequest {
   userGroupId: number | null;
 }
 
-// GET method
-export async function GET() {
-  try {
-    // Join users with user_groups to get user_group_name
-    const users = await query<AdminUserResponse[]>(`
-      SELECT
-        u.user_id,
-        u.user_name,
-        u.company_username,
-        u.email,
-        u.user_group_id,        -- Renamed column
-        ug.user_group_name      -- Renamed column and table alias
-      FROM users u
-      LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id -- Renamed table and columns
-      ORDER BY u.user_name ASC
-    `);
-
-    // Ensure users is an array, even if empty
-    const usersArray = Array.isArray(users) ? users : [];
-
-    return NextResponse.json({ users: usersArray });
-  } catch (error) {
-    console.error('API Error fetching users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users from database.' },
-      { status: 500 }
-    );
-  }
-}
-
-// POST method to create a new user
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const body: CreateUserRequest = await request.json();
-    const { userName, companyUsername, email, password, userGroupId } = body;
-
-    // --- Input Validation ---
-    if (!userName || !email || !password) {
-      return NextResponse.json({ error: 'User Name, Email, and Password are required.' }, { status: 400 });
-    }
-    // Basic email format check (consider a more robust library for production)
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ error: 'Invalid email format.' }, { status: 400 });
-    }
-    if (password.length < 8) { // Example: Enforce minimum password length
-      return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
-    }
-    // Validate userGroupId if provided
-    if (userGroupId !== null && typeof userGroupId !== 'number') {
-      return NextResponse.json({ error: 'User Group ID must be a number or null' }, { status: 400 });
-    }
-
-    // --- Check for existing email ---
-    const existingUser = await query('SELECT user_id FROM users WHERE email = ?', [email]);
-    if (Array.isArray(existingUser) && existingUser.length > 0) {
-      return NextResponse.json({ error: 'Email already in use.' }, { status: 409 }); // 409 Conflict
-    }
-
-    // --- Check if group exists (if userGroupId is provided) ---
-    if (userGroupId !== null) {
-      const groupExists = await query(
-        'SELECT user_group_id FROM user_groups WHERE user_group_id = ?',
-        [userGroupId]
-      );
-      if (!Array.isArray(groupExists) || groupExists.length === 0) {
-        return NextResponse.json({ error: 'Selected Group not found.' }, { status: 404 });
-      }
-    }
-
-    // --- Password Hashing ---
-    const saltRounds = 10; // Recommended salt rounds
-    const salt = await bcrypt.genSalt(saltRounds);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    // --- Database Insertion ---
-    const newUserId = await insert(
-      'INSERT INTO users (user_name, company_username, email, password_hash, salt, user_group_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [userName, companyUsername || null, email, passwordHash, salt, userGroupId]
-    );
-
-    if (newUserId) {
-      // Fetch the newly created user data to return (optional, but good practice)
-      const newUser = await query<AdminUserResponse[]>(`
-        SELECT
-          u.user_id, u.user_name, u.company_username, u.email,
-          u.user_group_id, ug.user_group_name
-        FROM users u
-        LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
-        WHERE u.user_id = ?
-      `, [newUserId]);
-
-      return NextResponse.json({
-        success: true,
-        message: 'User created successfully',
-        user: newUser[0] || null // Return the created user data
-      }, { status: 201 }); // 201 Created status
-    } else {
-      throw new Error('User creation succeeded but insertId was not returned or was zero.');
-    }
-  } catch (error: unknown) {
-    console.error('API Error creating user:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    // Handle potential duplicate email errors during insert (race condition, though check exists)
-    if (message.includes('Duplicate entry') && message.includes('for key \'users.email\'')) {
-      return NextResponse.json({ error: 'Email already exists.', details: message }, { status: 409 });
-    }
-    // Handle potential foreign key errors during insert (e.g., invalid group id)
-    if (message.includes('foreign key constraint fails')) {
-      return NextResponse.json({ error: 'Invalid User Group ID provided.', details: message }, { status: 400 });
-    }
-    return NextResponse.json(
-      { error: 'Failed to create user.', details: message },
-      { status: 500 }
-    );
-  }
-}
-
 // Interface for PUT request body
 interface UpdateUserGroupRequest {
     userId: number;
     userGroupId: number | null; // Renamed from groupId, can be null to remove group assignment
 }
 
+// Helper function for admin check
+async function checkAdminPermission(request: NextRequest): Promise<{ isAdmin: boolean; errorResponse?: NextResponse }> {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+        return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Unauthorized: Not logged in' }, { status: 401 }) };
+    }
+    const userId = parseInt(session.user.id, 10);
+    if (isNaN(userId)) {
+         return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Unauthorized: Invalid user ID in session' }, { status: 401 }) };
+    }
+    const { permissionName } = await getUserPermissions(userId);
+    if (permissionName !== 'Admin') {
+        return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Forbidden: Requires Admin privileges' }, { status: 403 }) };
+    }
+    return { isAdmin: true };
+}
+
+// GET method
+export async function GET(request: NextRequest) {
+    const permissionCheck = await checkAdminPermission(request);
+    if (!permissionCheck.isAdmin) {
+        return permissionCheck.errorResponse;
+    }
+
+    try {
+        // Join users with user_groups to get user_group_name
+        const users = await query<AdminUserResponse[]>(`
+            SELECT
+                u.user_id,
+                u.user_name,
+                u.company_username,
+                u.email,
+                u.user_group_id,        -- Renamed column
+                ug.user_group_name      -- Renamed column and table alias
+            FROM users u
+            LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id -- Renamed table and columns
+            ORDER BY u.user_name ASC
+        `);
+
+        // Ensure users is an array, even if empty
+        const usersArray = Array.isArray(users) ? users : [];
+
+        return NextResponse.json({ users: usersArray });
+    } catch (error) {
+        console.error('API Error fetching users:', error);
+        return NextResponse.json(
+            { error: 'Failed to fetch users from database.' },
+            { status: 500 }
+        );
+    }
+}
+
+// POST method to create a new user
+export async function POST(request: NextRequest): Promise<NextResponse> {
+    const permissionCheck = await checkAdminPermission(request);
+    if (!permissionCheck.isAdmin) {
+        return permissionCheck.errorResponse!;
+    }
+
+    try {
+        const body: CreateUserRequest = await request.json();
+        const { userName, companyUsername, email, password, userGroupId } = body;
+
+        // --- Input Validation ---
+        if (!userName || !email || !password) {
+            return NextResponse.json({ error: 'User Name, Email, and Password are required.' }, { status: 400 });
+        }
+        // Basic email format check (consider a more robust library for production)
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return NextResponse.json({ error: 'Invalid email format.' }, { status: 400 });
+        }
+        if (password.length < 8) { // Example: Enforce minimum password length
+            return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
+        }
+        // Validate userGroupId if provided
+        if (userGroupId !== null && typeof userGroupId !== 'number') {
+            return NextResponse.json({ error: 'User Group ID must be a number or null' }, { status: 400 });
+        }
+
+        // --- Check for existing email ---
+        const existingUser = await query('SELECT user_id FROM users WHERE email = ?', [email]);
+        if (Array.isArray(existingUser) && existingUser.length > 0) {
+            return NextResponse.json({ error: 'Email already in use.' }, { status: 409 }); // 409 Conflict
+        }
+
+        // --- Check if group exists (if userGroupId is provided) ---
+        if (userGroupId !== null) {
+            const groupExists = await query(
+                'SELECT user_group_id FROM user_groups WHERE user_group_id = ?',
+                [userGroupId]
+            );
+            if (!Array.isArray(groupExists) || groupExists.length === 0) {
+                return NextResponse.json({ error: 'Selected Group not found.' }, { status: 404 });
+            }
+        }
+
+        // --- Password Hashing ---
+        const saltRounds = 10; // Recommended salt rounds
+        const salt = await bcrypt.genSalt(saltRounds);
+        const passwordHash = await bcrypt.hash(password, salt);
+
+        // --- Database Insertion ---
+        const newUserId = await insert(
+            'INSERT INTO users (user_name, company_username, email, password_hash, salt, user_group_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [userName, companyUsername || null, email, passwordHash, salt, userGroupId]
+        );
+
+        if (newUserId) {
+            // Fetch the newly created user data to return (optional, but good practice)
+            const newUser = await query<AdminUserResponse[]>(`
+                SELECT
+                    u.user_id, u.user_name, u.company_username, u.email,
+                    u.user_group_id, ug.user_group_name
+                FROM users u
+                LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
+                WHERE u.user_id = ?
+            `, [newUserId]);
+
+            return NextResponse.json({
+                success: true,
+                message: 'User created successfully',
+                user: newUser[0] || null // Return the created user data
+            }, { status: 201 }); // 201 Created status
+        } else {
+            throw new Error('User creation succeeded but insertId was not returned or was zero.');
+        }
+    } catch (error: unknown) {
+        console.error('API Error creating user:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        // Handle potential duplicate email errors during insert (race condition, though check exists)
+        if (message.includes('Duplicate entry') && message.includes('for key \'users.email\'')) {
+            return NextResponse.json({ error: 'Email already exists.', details: message }, { status: 409 });
+        }
+        // Handle potential foreign key errors during insert (e.g., invalid group id)
+        if (message.includes('foreign key constraint fails')) {
+            return NextResponse.json({ error: 'Invalid User Group ID provided.', details: message }, { status: 400 });
+        }
+        return NextResponse.json(
+            { error: 'Failed to create user.', details: message },
+            { status: 500 }
+        );
+    }
+}
+
 // PUT method to update user group
 export async function PUT(request: NextRequest): Promise<NextResponse> {
+    const permissionCheck = await checkAdminPermission(request);
+    if (!permissionCheck.isAdmin) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
         const body: UpdateUserGroupRequest = await request.json();
 

@@ -3,34 +3,33 @@ import { Link, User, Info, Settings, Wrench, PowerOff, Edit3, Users, Trash2 } fr
 import { ServerData } from './AddServerModal';
 
 export interface ServerCardProps {
-  id: string;
-  dbId?: number;
-  casual_name: string;
-  platform?: string;
-  bench_type: string;
-  pc_info_text?: string;
-  status: 'online' | 'offline' | 'in_use' | string;
-  user_name?: string;
-  onOpenDeleteDialog: (dbId: number, serverName: string) => void;
-  onOpenEditModal: (server: ServerData) => void;
+  pcId: number;
+  casualName: string | null;
+  platformName?: string | null;
+  benchType: string | null;
+  pcInfoText?: string | null;
+  status: string | null;
+  activeUser?: string | null;
+  platformId?: number | null;
+  onOpenDeleteDialog: (pcId: number, serverName: string) => void;
+  onOpenEditModal: (server: any) => void;
 }
 
 export default function ServerCard({
-  id,
-  dbId,
-  casual_name,
-  platform,
-  bench_type,
-  pc_info_text,
+  pcId,
+  casualName,
+  platformName,
+  benchType,
+  pcInfoText,
   status,
-  user_name,
+  activeUser,
   onOpenDeleteDialog,
   onOpenEditModal,
 }: ServerCardProps) {
 
   const getStatusDetails = () => {
     const dbStatus = typeof status === 'string' ? status.toLowerCase() : 'unknown';
-    const hasUser = user_name && user_name.trim() !== '';
+    const hasUser = activeUser && activeUser.trim() !== '';
 
     // 1. Handle explicit 'offline' from DB (highest priority)
     if (dbStatus === 'offline') {
@@ -93,32 +92,24 @@ export default function ServerCard({
     };
   }, [isMenuOpen]);
 
-  const handleMaintenance = () => { console.log(`Maintenance clicked for ${casual_name}`); setIsMenuOpen(false); };
-  const handleDeactivate = () => { console.log(`Deactivate clicked for ${casual_name}`); setIsMenuOpen(false); };
+  const handleMaintenance = () => { console.log(`Maintenance clicked for ${casualName}`); setIsMenuOpen(false); };
+  const handleDeactivate = () => { console.log(`Deactivate clicked for ${casualName}`); setIsMenuOpen(false); };
   const handleEdit = () => {
-    if (dbId !== undefined) {
-      const serverData: ServerData = {
-        dbId,
-        casual_name: casual_name,
-        platform: platform || '',
-        bench_type: bench_type,
-        pc_info_text: pc_info_text || '',
-        status: status as 'online' | 'offline' | 'in_use',
-        user_name: user_name || ''
-      };
-      onOpenEditModal(serverData);
-    } else {
-      console.warn('Cannot edit card without dbId');
-    }
+    const serverDataForModal = {
+      dbId: pcId,
+      casual_name: casualName || '',
+      platform: platformName || '',
+      bench_type: benchType || '',
+      pc_info_text: pcInfoText || '',
+      status: status as any,
+      user_name: activeUser || ''
+    };
+    onOpenEditModal(serverDataForModal);
     setIsMenuOpen(false);
   };
-  const handleManageUser = () => { console.log(`Manage User clicked for ${casual_name}`); setIsMenuOpen(false); };
+  const handleManageUser = () => { console.log(`Manage User clicked for ${casualName}`); setIsMenuOpen(false); };
   const handleDelete = () => {
-    if (dbId !== undefined) {
-      onOpenDeleteDialog(dbId, casual_name);
-    } else {
-      console.warn('Cannot delete card without dbId');
-    }
+    onOpenDeleteDialog(pcId, casualName || 'Unknown Server');
     setIsMenuOpen(false);
   };
 
@@ -148,34 +139,34 @@ export default function ServerCard({
   );
 
   return (
-    <div className="server-card" id={id} style={{
+    <div className="server-card" id={`server-${pcId}`} style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100%'
     }}>
       <div className="card-header" style={{ flex: '1 1 auto' }}>
-        <h3 className="card-title">{casual_name}</h3>
+        <h3 className="card-title">{casualName}</h3>
 
         <div className="user-info">
           <div className="user-avatar" style={{ width: '1.5rem', height: '1.5rem', display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'#cbd5e1', borderRadius:'50%', marginRight:'0.5rem' }}>
             <User className="h-4 w-4" style={{ color: 'white' }} />
           </div>
-          {user_name && user_name.trim() !== '' ? (
-            <span className="user-name">{user_name}</span>
+          {activeUser && activeUser.trim() !== '' ? (
+            <span className="user-name">{activeUser}</span>
           ) : (
             <span className="user-name" style={{ fontStyle: 'italic', color: '#94a3b8' }}>No User</span>
           )}
         </div>
 
-        {bench_type && (
+        {benchType && (
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <div className="category">
-              {bench_type}
+              {benchType}
             </div>
           </div>
         )}
 
-        <p className="description">{pc_info_text}</p>
+        <p className="description">{pcInfoText}</p>
       </div>
 
       <div className="card-footer" style={{
@@ -212,14 +203,14 @@ export default function ServerCard({
           </button>
 
           <button
-              className={`connect-button ${status}`}
+              className={`connect-button ${status ? status.toLowerCase() : 'unknown'}`}
               style={{
-                  ...(status === 'in_use' && { backgroundColor: '#ef4444' /* Tailwind red-500 */ }),
+                  ...(statusDetails.text === 'In Use' && { backgroundColor: '#ef4444' /* Tailwind red-500 */ }),
               }}
-              title={status === 'offline' ? "Server Offline" : "Connect"}
+              title={statusDetails.text === 'Offline' ? "Server Offline" : "Connect"}
             >
-            <Link className="h-4 w-4" style={{ color: status === 'online' || status === 'in_use' ? 'white' : '#4b5563' }} />
-            <span style={{ color: status === 'online' || status === 'in_use' ? 'white' : 'inherit' }}>
+            <Link className="h-4 w-4" style={{ color: statusDetails.text !== 'Offline' ? 'white' : '#4b5563' }} />
+            <span style={{ color: statusDetails.text !== 'Offline' ? 'white' : 'inherit' }}>
               Connect
             </span>
           </button>
@@ -275,12 +266,12 @@ export default function ServerCard({
                   zIndex: 49
                 }} />
 
-                {renderMenuItem(<Wrench size={16} />, 'Maintenance', handleMaintenance)}
+                {renderMenuItem(<Wrench size={16} />, 'Maintenance Mode', handleMaintenance)}
                 {renderMenuItem(<PowerOff size={16} />, 'Deactivate', handleDeactivate)}
-                {renderMenuItem(<Edit3 size={16} />, 'Edit', handleEdit)}
+                {renderMenuItem(<Edit3 size={16} />, 'Edit Server', handleEdit)}
                 {renderMenuItem(<Users size={16} />, 'Manage User', handleManageUser)}
-                <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '0.5rem 0' }} />
-                {renderMenuItem(<Trash2 size={16} color="#ef4444"/>, 'Delete', handleDelete)}
+                <div style={{ borderTop: '1px solid #e5e7eb', margin: '0.25rem 0' }}></div>
+                {renderMenuItem(<Trash2 size={16} style={{color: '#dc2626'}} />, 'Delete Server', handleDelete)}
               </div>
             )}
           </div>

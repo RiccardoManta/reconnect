@@ -10,12 +10,14 @@ import AddGroupModal from '@/components/admin/AddGroupModal';
 // Import the new EditGroupPlatformsModal
 import EditGroupPlatformsModal from '@/components/admin/EditGroupPlatformsModal';
 
-// Interface for Group data fetched from API
+// Interface for Group data fetched from API - Added permissionId AND permissionName
 interface UserGroup {
   userGroupId: number;
   userGroupName: string;
   accessiblePlatformNames: string | null;
   accessiblePlatformIds: string | null; // Need IDs for editing
+  permissionId: number; 
+  permissionName: string; // Added
 }
 
 // Interface for User data relevant to this page (matches AdminUsersPage for now)
@@ -55,9 +57,8 @@ export default function AdminGroupsPage() {
       const groupsData = await groupsResponse.json();
       const usersData = await usersResponse.json();
 
-      // API returns user_group_id, user_group_name (snake_case)
+      // keysToCamel should handle permission_id -> permissionId and permission_name -> permissionName
       setGroups(keysToCamel<UserGroup[]>(groupsData.groups || []));
-      // API returns user data including user_group_id, user_group_name (snake_case)
       setAllUsers(keysToCamel<AdminUserDisplay[]>(usersData.users || []));
 
     } catch (err) {
@@ -111,30 +112,59 @@ export default function AdminGroupsPage() {
     setEditingGroupPlatforms(group);
   };
 
-  // Function to save platform changes
-  const handleSaveGroupPlatforms = async (groupId: number, platformIds: number[]) => {
+  // Updated function to save both platform and permission changes
+  const handleSaveGroupChanges = async (groupId: number, platformIds: number[], permissionId: number) => {
     setError(null);
-    // Optional: Add specific loading state
-    console.log(`Saving platforms for group ${groupId}:`, platformIds); 
+    let platformUpdateOk = false;
+    let permissionUpdateOk = false;
+    
+    console.log(`Saving changes for group ${groupId}: Platforms=`, platformIds, `PermissionId=`, permissionId);
+    
     try {
-       const response = await fetch(`/api/admin/groups/${groupId}/platforms`, { // Use dynamic route
+      // 1. Update Platforms
+       const platformResponse = await fetch(`/api/admin/groups/${groupId}/platforms`, { 
            method: 'PUT', 
            headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ platformIds: platformIds }), // Send the array of IDs
+           body: JSON.stringify({ platformIds: platformIds }),
        });
-
-       if (!response.ok) {
-           const errorData = await response.json();
-           throw new Error(errorData.error || 'Failed to update platform access');
+       if (!platformResponse.ok) {
+           const errorData = await platformResponse.json();
+           throw new Error(`Platform Update Failed: ${errorData.error || 'Unknown error'}`);
        }
+       platformUpdateOk = true; // Mark platform update as successful
+       console.log(`Group ${groupId} platform access updated successfully.`);
 
-       setEditingGroupPlatforms(null); // Close modal on success
+       // 2. Update Permission ID
+       const permissionResponse = await fetch(`/api/admin/groups/${groupId}`, { // Use the endpoint for group details
+           method: 'PUT',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ permissionId: permissionId }), // Send only the permission ID
+       });
+       if (!permissionResponse.ok) {
+            const errorData = await permissionResponse.json();
+            throw new Error(`Permission Update Failed: ${errorData.error || 'Unknown error'}`);
+        }
+        permissionUpdateOk = true; // Mark permission update as successful
+        console.log(`Group ${groupId} permission updated successfully.`);
+
+       // Both updates successful
+       setEditingGroupPlatforms(null); // Close modal
        await fetchData(); // Refresh data
        
     } catch (err) {
-       console.error("Failed to save platforms:", err);
-       setError('Failed to save platform access: ' + (err instanceof Error ? err.message : 'Unknown error'));
-       // Keep modal open on error?
+       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+       console.error("Failed to save group changes:", errorMessage, err);
+       
+       // Provide more specific error feedback
+       let finalError = 'Failed to save changes.';
+       if (platformUpdateOk && !permissionUpdateOk) {
+           finalError = `Platforms updated, but failed to update permission: ${errorMessage}`;
+       } else if (!platformUpdateOk && !permissionUpdateOk) {
+           finalError = `Failed to update platforms and permission: ${errorMessage}`;
+       } // No need for platform failed, permission ok case as they run sequentially
+       
+       setError(finalError);
+       // Keep modal open on error to allow retry or cancellation
     }
   };
 
@@ -179,28 +209,36 @@ export default function AdminGroupsPage() {
             </div>
         )}
 
-        {/* Group Sections */}
+        {/* Group Sections - Use flex wrap */}
         {!loading && !error && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
                 {groups.length === 0 && (
-                    <p style={{ textAlign: 'center', color: '#6b7280' }}>No groups found.</p>
+                    <p style={{ textAlign: 'center', color: '#6b7280', width: '100%' }}>No groups found.</p>
                 )}
                 {groups.map((group) => {
                     const usersInGroup = getUsersInGroup(group.userGroupId);
                     return (
                         <div key={group.userGroupId} style={styles.groupSection}>
                             <div style={styles.groupHeader}>
-                                <h2 style={styles.groupHeadingNoBorder}>{group.userGroupName} (ID: {group.userGroupId})</h2>
+                                <h2 style={styles.groupHeadingNoBorder}>{group.userGroupName}</h2>
                                 <button 
-                                   onClick={() => handleOpenEditPlatformsModal(group)}
+                                   onClick={() => handleOpenEditPlatformsModal(group)} // Pass the full group object
                                    style={styles.editButton}
-                                   title="Edit accessible platforms"
+                                   title="Edit Group Permissions & Platforms"
                                 >
                                     <Settings size={16} style={{ marginRight: '0.25rem' }} />
-                                    Edit Platforms
+                                    Edit Group
                                 </button> 
                             </div>
                             
+                            {/* Display Permission Name */}
+                            <div style={{marginBottom: '0.5rem'}}>
+                                <strong style={styles.subHeading}>Permission:</strong> 
+                                <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151' }}>
+                                    {group.permissionName || 'N/A'} {/* Display fetched name */}
+                                </span>
+                            </div>
+
                             <div style={{marginBottom: '1rem'}}>
                                 <strong style={styles.subHeading}>Accessible Platforms:</strong> 
                                 <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151' }}>
@@ -214,7 +252,6 @@ export default function AdminGroupsPage() {
                                     <table style={styles.table}>
                                         <thead>
                                             <tr style={styles.tableHeaderRow}>
-                                                <th style={styles.tableHeaderCell}>User ID</th>
                                                 <th style={styles.tableHeaderCell}>User Name</th>
                                                 <th style={styles.tableHeaderCell}>Email</th>
                                             </tr>
@@ -222,7 +259,6 @@ export default function AdminGroupsPage() {
                                         <tbody>
                                             {usersInGroup.map((user) => (
                                                 <tr key={user.userId} style={styles.tableBodyRow}>
-                                                    <td style={styles.tableBodyCell}>{user.userId}</td>
                                                     <td style={styles.tableBodyCell}>{user.userName}</td>
                                                     <td style={styles.tableBodyCell}>{user.email}</td>
                                                 </tr>
@@ -248,13 +284,13 @@ export default function AdminGroupsPage() {
         />
       )}
 
-      {/* Render Edit Platforms Modal */}
+      {/* Render Edit Group Modal - Pass the updated handler */}
       {editingGroupPlatforms && (
         <EditGroupPlatformsModal
           isOpen={editingGroupPlatforms !== null}
-          groupData={editingGroupPlatforms} // Pass group data including current platforms
+          groupData={editingGroupPlatforms} // Pass group data including permissionId
           onClose={() => setEditingGroupPlatforms(null)}
-          onSave={handleSaveGroupPlatforms} 
+          onSave={handleSaveGroupChanges} // Use the new handler
         />
       )}
 
@@ -262,7 +298,7 @@ export default function AdminGroupsPage() {
   );
 }
 
-// Basic styles object (can be refined later)
+// Updated styles
 const styles = {
   headerContainer: {
     display: 'flex',
@@ -320,12 +356,16 @@ const styles = {
     backgroundColor: 'white', 
     borderRadius: '0.5rem',
     padding: '1.5rem', 
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    width: 'calc(50% - 1rem)', // Fit two per row with 2rem gap
+    boxSizing: 'border-box' as const, // Include padding/border in width calculation
+    display: 'flex', // Use flex for internal layout
+    flexDirection: 'column' as const, // Stack content vertically
   },
-  groupHeader: {
+  groupHeader: { 
      display: 'flex', 
      justifyContent: 'space-between', 
-     alignItems: 'flex-start', 
+     alignItems: 'flex-start', // Align items to top
      borderBottom: '1px solid #e5e7eb', 
      paddingBottom: '0.75rem', 
      marginBottom: '1rem' 
@@ -334,7 +374,8 @@ const styles = {
     fontSize: '1.25rem', 
     fontWeight: 600, 
     color: '#111827', 
-    margin: 0 
+    margin: 0, 
+    marginRight: '1rem' // Add some space before the button
   },
   editButton: {
     backgroundColor: '#eef2ff', 
@@ -348,7 +389,8 @@ const styles = {
     fontSize: '0.8rem',
     fontWeight: 500,
     transition: 'background-color 0.2s ease',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    flexShrink: 0 // Prevent button shrinking
   },
   subHeading: {
       fontSize: '0.9rem',
@@ -358,7 +400,8 @@ const styles = {
       display: 'inline-block'
   },
   tableContainer: {
-      overflowX: 'auto' as const
+      overflowX: 'auto' as const,
+      flexGrow: 1 // Allow table container to grow if needed
   },
   table: {
     width: '100%', 

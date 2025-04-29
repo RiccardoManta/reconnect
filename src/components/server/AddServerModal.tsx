@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Tag, FileText, Activity } from 'lucide-react';
+import { X, User, Tag, FileText, Activity, Cog } from 'lucide-react';
+
+// --- NEW: Platform Interface --- (Matches API response)
+interface Platform {
+    platform_id: number;
+    platform_name: string;
+}
 
 // Fallback categories in case API fails
 const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
@@ -16,8 +22,9 @@ interface AddServerModalProps {
 // Define the shape of server data used internally and passed to onSubmit
 export interface ServerData {
   dbId?: number;
+  hil_name: string;
   casual_name: string;
-  platform: string;
+  platform: string; // Stores the platform NAME
   bench_type: string;
   pc_info_text: string;
   status: 'online' | 'offline' | 'in_use' | string;
@@ -31,29 +38,35 @@ export default function AddServerModal({
   initialData, 
   mode // Destructure mode
 }: AddServerModalProps) {
-  const [categories, setCategories] = useState<string[]>(fallbackCategories);
+  // --- UPDATED STATE: Use availablePlatforms --- 
+  // const [categories, setCategories] = useState<string[]>(fallbackCategories);
+  const [availablePlatforms, setAvailablePlatforms] = useState<Platform[]>([]);
+  const [platformsLoading, setPlatformsLoading] = useState(false);
+  const [platformsError, setPlatformsError] = useState<string | null>(null);
+  // --- 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Define the initial state based on mode or provide defaults using NEW names
   const getInitialFormData = (): Partial<ServerData> => {
+      const defaultPlatformName = availablePlatforms[0]?.platform_name || '';
       if (mode === 'edit' && initialData) {
-          // Ensure initialData conforms to the updated ServerData structure
           return {
               dbId: initialData.dbId,
+              hil_name: initialData.hil_name || '',
               casual_name: initialData.casual_name || '',
-              platform: initialData.platform || categories[0] || fallbackCategories[0],
+              platform: initialData.platform || defaultPlatformName,
               bench_type: initialData.bench_type || '',
               pc_info_text: initialData.pc_info_text || '',
-              // Handle potential string status from initialData if needed, default to online
               status: initialData.status || 'online',
               user_name: initialData.user_name || ''
           };
       }
       // Default for 'add' mode
       return {
+        hil_name: '',
         casual_name: '',
-        platform: categories[0] || fallbackCategories[0],
+        platform: defaultPlatformName,
         bench_type: '',
         pc_info_text: '',
         status: 'online',
@@ -63,55 +76,58 @@ export default function AddServerModal({
 
   const [formData, setFormData] = useState<Partial<ServerData>>(getInitialFormData());
 
-  // Effect to reset form data when modal opens or initialData/mode changes
-  useEffect(() => {
-      // Use the updated getInitialFormData
-      setFormData(getInitialFormData());
-      setError(null); // Clear error when modal reopens or data changes
-  }, [isOpen, initialData, mode, categories]); // Depend on categories as well for default
-
-  // Fetch categories when the modal is open
+  // --- UPDATED EFFECT: Fetch Platforms from /api/platforms --- 
   useEffect(() => {
     if (isOpen) {
-      async function fetchCategories() {
-        let fetchedCategories = fallbackCategories; // Start with fallback
+      setPlatformsLoading(true);
+      setPlatformsError(null);
+      async function fetchPlatforms() {
         try {
-          const response = await fetch('/api/categories');
-          if (response.ok) {
-            const data = await response.json();
-            if (data.categories && data.categories.length > 0) {
-              fetchedCategories = data.categories;
-            } else {
-              console.warn('No categories fetched, using fallback.');
+          const response = await fetch('/api/platforms'); // Correct endpoint
+          if (!response.ok) {
+            let errorMsg = 'Failed to fetch platforms';
+            try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch(e){} 
+            throw new Error(errorMsg);
+          }
+          // const data: Platform[] = await response.json(); // Expect Platform[] directly
+          const responseData = await response.json(); // Get the response object
+          const data: Platform[] = responseData.platforms; // CORRECT: Extract the array
+
+          if (Array.isArray(data) && data.length > 0) {
+            setAvailablePlatforms(data);
+            // Update default platform in form only if it hasn't been set by initialData
+            if (mode === 'add' || (mode === 'edit' && !initialData?.platform)) {
+                setFormData(prev => ({ ...prev, platform: data[0].platform_name || '' }));
             }
           } else {
-            console.error('Failed to fetch categories, using fallback.');
+            console.warn('No platforms found or API response was not an array or empty.'); // Updated log
+            setAvailablePlatforms([]); // Set to empty array
+            setPlatformsError('No platforms available.');
           }
         } catch (err) {
-          console.error('Error fetching categories:', err);
+          console.error('Error fetching platforms:', err);
+          setPlatformsError(err instanceof Error ? err.message : 'Could not load platforms');
+          setAvailablePlatforms([]); // Set to empty on error
         } finally {
-            setCategories(fetchedCategories);
-            // Update default platform if form is in add mode and hasn't been touched
-            if (mode === 'add' && !initialData) { 
-                setFormData(prev => ({ ...prev, platform: fetchedCategories[0] || ''}));
-            }
+          setPlatformsLoading(false);
         }
       }
-      
-      fetchCategories();
+      fetchPlatforms();
+    } else {
+        // Optionally clear platforms when modal closes
+        // setAvailablePlatforms([]); 
     }
-  }, [isOpen, mode, initialData]); // Refetch categories if modal opens
+  }, [isOpen]); // Re-run only when modal opens/closes
+
+  // Effect to reset form when initial data or mode changes, DEPENDING on available platforms
+  useEffect(() => {
+      setFormData(getInitialFormData());
+      setError(null); // Clear submit error
+  }, [initialData, mode, availablePlatforms]); // Now depends on availablePlatforms for default
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
-      // Handle checkboxes if you add any
-      // const checkbox = e.target as HTMLInputElement;
-      // setFormData(prev => ({ ...prev, [name]: checkbox.checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,9 +139,9 @@ export default function AddServerModal({
     const url = isEditing ? `/api/servers/${formData.dbId}` : '/api/servers';
     const method = isEditing ? 'PUT' : 'POST';
 
-    // Simple validation using NEW field names
-    if (!formData.casual_name || !formData.platform || !formData.pc_info_text) {
-        setError('Casual Name, Platform, and PC Info Text fields are required.');
+    // Updated validation
+    if (!formData.hil_name || !formData.casual_name || !formData.platform || !formData.pc_info_text) {
+        setError('Testbench Name, Casual Name, Platform, and PC Info Text fields are required.');
         setIsSubmitting(false);
         return;
     }
@@ -136,9 +152,9 @@ export default function AddServerModal({
         headers: {
           'Content-Type': 'application/json',
         },
-        // Body requires casual_name, platform, pc_info_text
-        // user_name is sent, backend calculates status for PUT
+        // Updated body to include hil_name
         body: JSON.stringify({
+            hil_name: formData.hil_name,
             casual_name: formData.casual_name,
             platform: formData.platform,
             bench_type: formData.bench_type || '', 
@@ -147,30 +163,22 @@ export default function AddServerModal({
         }),
       });
       
-      const responseData = await response.json(); // Parse JSON response
+      const responseData = await response.json();
       
       if (!response.ok) {
-        // Use error from response body if available
         throw new Error(responseData.error || (isEditing ? 'Failed to update server' : 'Failed to add server'));
       }
       
-      // On success, call onSubmit with the SERVER data from the response
-      // This assumes the API returns { success: true, server: {...} }
       if (responseData.server) {
-          // Cast responseData.server to ServerData before passing
           onSubmit(responseData.server as ServerData); 
       } else {
-          // Fallback or error if server data is missing in response
           console.warn('API response successful but missing server data.');
-          // Optionally, still call onSubmit with local data, but it might be stale/incorrect
-          // onSubmit(formData as ServerData);
       }
       
-      onClose(); // Close modal on success
+      onClose(); 
       
-      // Optionally reset form only in add mode
       if (mode === 'add') {
-          setFormData(getInitialFormData()); // Reset form fields
+          setFormData(getInitialFormData()); 
       }
 
     } catch (err: any) {
@@ -248,244 +256,229 @@ export default function AddServerModal({
           </div>
 
            {/* Form Body with inline styles */}
-          <form onSubmit={handleSubmit} style={{ padding: '24px', maxHeight: 'calc(80vh - 120px)', overflowY: 'auto' /* Add scroll for long forms */ }}>
-            {/* Error Display with inline styles */}
-            {error && (
-              <div style={{
-                backgroundColor: '#fee2e2',
-                color: '#b91c1c',
-                padding: '10px',
-                borderRadius: '8px',
-                marginBottom: '20px',
-                fontSize: '14px'
-              }}>
-                {error}
+          <form onSubmit={handleSubmit} style={{
+            padding: '24px',
+            maxHeight: 'calc(80vh - 140px)', // Adjust max height if needed
+            overflowY: 'auto'
+          }}>
+             {/* -- Form Fields using inline styles based on provided example -- */}
+             {/* ADDED: HIL Name / Testbench Name Field */}
+             <div style={formGroupStyle}> 
+               <label htmlFor="hil_name" style={labelStyle}>
+                 <Cog size={16} style={iconStyle} />
+                 Testbench Name (HIL Name)
+               </label>
+               <input 
+                 type="text" 
+                 id="hil_name" 
+                 name="hil_name" 
+                 value={formData.hil_name || ''} 
+                 onChange={handleChange}
+                 style={inputStyle} 
+                 required 
+                 placeholder="e.g., HIL-BS-01"
+               />
+             </div>
+
+             {/* Casual Name */}
+             <div style={formGroupStyle}> 
+               <label htmlFor="casual_name" style={labelStyle}>
+                 <User size={16} style={iconStyle} />
+                 Casual Name
+               </label>
+               <input 
+                 type="text" 
+                 id="casual_name" 
+                 name="casual_name" 
+                 value={formData.casual_name || ''} 
+                 onChange={handleChange}
+                 style={inputStyle} 
+                 required 
+               />
+             </div>
+
+             {/* Platform Dropdown - UPDATED */}
+             <div style={formGroupStyle}> 
+                <label htmlFor="platform" style={labelStyle}>
+                  <Tag size={16} style={iconStyle} />
+                  Platform
+                </label>
+                {platformsLoading ? (
+                  <div style={{color: '#666', fontSize:'14px'}}>Loading platforms...</div>
+                ) : platformsError ? (
+                  <div style={{color: '#ef4444', fontSize:'14px'}}>{platformsError}</div>
+                ) : (
+                  <select
+                    id="platform"
+                    name="platform"
+                    value={formData.platform || ''} // Value is the platform name string
+                    onChange={handleChange}
+                    style={inputStyle} // Reuse input style, adjust if needed
+                    required
+                  >
+                    {/* Provide a default disabled option if no platform is selected initially */}
+                    {availablePlatforms.length === 0 && <option value="" disabled>No platforms available</option>}
+                    {availablePlatforms.map((p) => (
+                      <option key={p.platform_id} value={p.platform_name}>
+                        {p.platform_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
-            )}
-
-            {/* Form Fields with inline styles */}
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="casual_name"
-                style={{
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#4b5563',
-                  marginBottom: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <FileText size={16} color="#0F3460" />
-                Casual Name
-              </label>
-              <input
-                type="text"
-                id="casual_name"
-                name="casual_name"
-                value={formData.casual_name || ''}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  transition: 'all 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => {(e.target as HTMLInputElement).style.borderColor = '#39A2DB'}}
-                onBlur={(e) => {(e.target as HTMLInputElement).style.borderColor = '#e5e7eb'}}
-                required
-                disabled={isSubmitting}
-                placeholder="e.g., HIL-BS-01-HostPC"
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="platform"
-                style={{
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#4b5563',
-                  marginBottom: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Tag size={16} color="#0F3460" />
-                 Platform
-              </label>
-              <select
-                id="platform"
-                name="platform"
-                value={formData.platform || ''}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  transition: 'all 0.2s',
-                  outline: 'none',
-                  backgroundColor: 'white',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 10px center',
-                  backgroundSize: '20px'
-                }}
-                onFocus={(e) => {(e.target as HTMLSelectElement).style.borderColor = '#39A2DB'}}
-                onBlur={(e) => {(e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'}}
-                required
-                disabled={isSubmitting || categories.length === 0}
-              >
-                <option value="" disabled={!formData.platform}>Select a platform</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="bench_type"
-                style={{
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#4b5563',
-                  marginBottom: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Activity size={16} color="#0F3460" /> 
+              
+             {/* Bench Type */}
+             <div style={formGroupStyle}> 
+               <label htmlFor="bench_type" style={labelStyle}>
+                 <Tag size={16} style={iconStyle} />
                  Bench Type
-              </label>
-              <input
-                type="text"
-                id="bench_type"
-                name="bench_type"
-                value={formData.bench_type || ''}
-                onChange={handleChange}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  transition: 'all 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => {(e.target as HTMLInputElement).style.borderColor = '#39A2DB'}}
-                onBlur={(e) => {(e.target as HTMLInputElement).style.borderColor = '#e5e7eb'}}
-                disabled={isSubmitting}
-                placeholder="e.g., Body Systems"
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="pc_info_text"
-                style={{
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#4b5563',
-                  marginBottom: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <FileText size={16} color="#0F3460" />
+               </label>
+               <input 
+                 type="text" 
+                 id="bench_type" 
+                 name="bench_type" 
+                 value={formData.bench_type || ''} 
+                 onChange={handleChange}
+                 style={inputStyle} 
+               />
+             </div>
+             
+             {/* PC Info Text */}
+             <div style={formGroupStyle}> 
+               <label htmlFor="pc_info_text" style={labelStyle}>
+                 <FileText size={16} style={iconStyle} />
                  PC Info Text
-              </label>
-              <textarea
-                id="pc_info_text"
-                name="pc_info_text"
-                value={formData.pc_info_text || ''}
-                onChange={handleChange}
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  resize: 'vertical',
-                  minHeight: '100px',
-                  transition: 'all 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => {(e.target as HTMLTextAreaElement).style.borderColor = '#39A2DB'}}
-                onBlur={(e) => {(e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'}}
-                required
-                disabled={isSubmitting}
-                placeholder="e.g., Contains special measurement hardware..."
-              />
-            </div>
+               </label>
+               <textarea 
+                 id="pc_info_text" 
+                 name="pc_info_text" 
+                 value={formData.pc_info_text || ''} 
+                 onChange={handleChange}
+                 style={textAreaStyle} 
+                 rows={3}
+                 required 
+               />
+             </div>
+             
+             {/* User Name */}
+             <div style={formGroupStyle}> 
+               <label htmlFor="user_name" style={labelStyle}>
+                 <User size={16} style={iconStyle} />
+                 Active User
+               </label>
+               <input 
+                 type="text" 
+                 id="user_name" 
+                 name="user_name" 
+                 value={formData.user_name || ''} 
+                 onChange={handleChange}
+                 style={inputStyle} 
+               />
+             </div>
 
-            {/* Form Actions / Footer with inline styles */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '12px',
-              borderTop: '1px solid #f0f0f0',
-              paddingTop: '20px',
-              marginTop: '10px' // Add some margin before footer
-            }}>
-              {/* Cancel Button */}
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  background: '#f3f4f6',
-                  color: '#4b5563',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#e5e7eb'}}
-                onMouseOut={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f3f4f6'}}
-                 disabled={isSubmitting} // Disable when submitting
-              >
-                Cancel
-              </button>
-              {/* Submit Button */}
-              <button
-                type="submit"
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  background: '#0F3460',
-                  color: 'white',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  opacity: isSubmitting ? 0.7 : 1 // Dim when submitting
-                }}
-                onMouseOver={(e) => { if (!isSubmitting) (e.target as HTMLButtonElement).style.backgroundColor = '#0a2647' }}
-                onMouseOut={(e) => { if (!isSubmitting) (e.target as HTMLButtonElement).style.backgroundColor = '#0F3460' }}
-                 disabled={isSubmitting} // Disable when submitting
-              >
-                 {/* Use mode prop for button text */}
-                 {isSubmitting ? (mode === 'edit' ? 'Saving...' : 'Adding...') : (mode === 'edit' ? 'Save Changes' : 'Add Testbench')}
-              </button>
-            </div>
+             {/* -- Display Error Message -- */} 
+             {error && (
+               <p style={errorStyle}>
+                 {error}
+               </p>
+             )}
+
+             {/* -- Form Actions (Footer) -- */}
+             <div style={{ 
+               padding: '20px 24px', 
+               borderTop: '1px solid #f0f0f0',
+               display: 'flex',
+               justifyContent: 'flex-end',
+               gap: '0.75rem' // Use gap for spacing
+             }}>
+               <button 
+                 type="button" 
+                 onClick={onClose}
+                 style={secondaryButtonStyle}
+                 disabled={isSubmitting}
+               >
+                 Cancel
+               </button>
+               <button 
+                 type="submit"
+                 style={primaryButtonStyle}
+                 disabled={isSubmitting || platformsLoading || !!platformsError}
+               >
+                 {isSubmitting ? (
+                     <>{mode === 'edit' ? 'Saving Changes...' : 'Adding Testbench...'}</> 
+                 ) : (
+                     <>{mode === 'edit' ? 'Save Changes' : 'Add Testbench'}</>
+                 )}
+               </button>
+             </div>
           </form>
         </div>
       </div>
     </>
   );
-} 
+}
+
+// --- Replicated Inline Styles (for completeness, assuming these were defined) --- 
+const formGroupStyle: React.CSSProperties = {
+  marginBottom: '1.5rem' // Add space between form groups
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'flex', // Use flex for icon alignment
+  alignItems: 'center',
+  fontSize: '14px', 
+  fontWeight: 500, 
+  color: '#374151', 
+  marginBottom: '0.5rem' // Space below label
+};
+
+const iconStyle: React.CSSProperties = {
+  marginRight: '0.5rem',
+  color: '#6b7280' // Icon color
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  border: '1px solid #d1d5db',
+  borderRadius: '8px',
+  fontSize: '14px',
+  boxSizing: 'border-box' // Ensure padding doesn't increase size
+};
+
+const textAreaStyle: React.CSSProperties = {
+  ...inputStyle, // Inherit input styles
+  resize: 'vertical' // Allow vertical resize
+};
+
+const errorStyle: React.CSSProperties = {
+  color: '#ef4444', // Red color for errors
+  fontSize: '0.875rem', // Smaller font size
+  marginTop: '-0.5rem', // Pull up below last field
+  marginBottom: '1rem' // Space before footer
+};
+
+const primaryButtonStyle: React.CSSProperties = {
+  padding: '10px 20px',
+  border: 'none',
+  borderRadius: '8px',
+  backgroundColor: '#0F3460', // Primary color
+  color: 'white',
+  cursor: 'pointer',
+  fontSize: '14px',
+  fontWeight: 500
+  // Add disabled styles directly or via className
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  padding: '10px 20px',
+  border: '1px solid #d1d5db',
+  borderRadius: '8px',
+  backgroundColor: 'white',
+  color: '#374151',
+  cursor: 'pointer',
+  fontSize: '14px',
+  fontWeight: 500
+  // Add disabled styles
+};
+

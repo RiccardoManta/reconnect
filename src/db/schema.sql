@@ -1,7 +1,15 @@
 /* ---------- core entities ---------- */
+CREATE TABLE permissions (
+    permission_id   INT PRIMARY KEY AUTO_INCREMENT,
+    permission_name VARCHAR(50) NOT NULL UNIQUE -- e.g., 'Default', 'Read', 'Edit', 'Admin'
+);
+
 CREATE TABLE user_groups (
     user_group_id   INT PRIMARY KEY AUTO_INCREMENT, -- Renamed from group_id
-    user_group_name VARCHAR(100) NOT NULL UNIQUE -- Renamed from group_name
+    user_group_name VARCHAR(100) NOT NULL UNIQUE,
+    permission_id   INT NOT NULL, -- Added column for permission level
+    FOREIGN KEY (permission_id) REFERENCES permissions(permission_id) -- Added FK constraint
+    -- Consider adding ON DELETE RESTRICT or SET DEFAULT if needed, depends on policy
 );
 
 -- Dedicated platforms table

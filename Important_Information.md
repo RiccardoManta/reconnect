@@ -21,6 +21,7 @@ This document summarizes key findings, workarounds, and potential pitfalls disco
     *   When defining API route handlers (e.g., `GET`, `POST`), using specific types for the `context` parameter (like `context: { params: { id: string } }`) caused persistent build errors in the Docker environment (Next.js 15.3.0).
     *   **Workaround:** Use `context: any` as the type annotation for the second argument of the route handler function.
     *   **Consequence:** When accessing route parameters, you **must** use optional chaining and type casting, e.g., `const idStr = (context?.params?.id as string) || ''; const id = parseInt(idStr, 10);`.
+    *   **Recurrence (2024-08-28):** This issue resurfaced while creating the `PUT /api/admin/groups/[groupId]/platforms` route. Despite trying explicit types (`{ params: { groupId: string } }` and a defined `RouteContext` type), the build failed with the error `Type "{ params: { groupId: string; }; }" is not a valid type for the function's second argument.` The `context: any` workaround was required again.
 *   **Dynamic Route Naming:** Next.js requires dynamic route segments at the same level to use the same name (e.g., use `[license_id]` consistently, not `[id]` and `[license_id]` under the same parent directory).
 
 ## Frontend (`React Components`)
@@ -58,3 +59,25 @@ This document summarizes key findings, workarounds, and potential pitfalls disco
     ALTER TABLE users 
     ADD COLUMN password_hash VARCHAR(255) NOT NULL,
     ADD COLUMN salt VARCHAR(64) NOT NULL;
+
+## Permission and Access Control System
+
+This outlines the intended logic for user permissions and platform access control:
+
+*   **Roles/Permissions:** Defined in the `permissions` table (e.g., 'Admin', 'Edit', 'Read', 'Default').
+*   **Groups:** Users belong to a single group defined in `user_groups`. Each group is assigned exactly one `permission_id` from the `permissions` table.
+*   **Platform Access:** The `group_platform_access` table links `user_groups` to the specific `platforms` they are allowed to interact with.
+*   **Permission Utility (`src/utils/server/permissionUtils.ts`):**
+    *   The `getUserPermissions(userId)` function returns an object `{ permissionName: string, accessiblePlatformIds: number[] }`.
+    *   `permissionName` is the name corresponding to the user's group's `permission_id`.
+    *   `accessiblePlatformIds` is an array of platform IDs the user's group has access to via `group_platform_access`.
+*   **API Enforcement Rules:**
+    *   **Admin Role:** Users whose group has the 'Admin' `permissionName` generally bypass platform-specific restrictions in API endpoints.
+        *   `GET /api/servers`: Admins see data associated with *all* platforms.
+        *   Other actions (POST/PUT/DELETE): Admins are typically allowed to perform actions on any resource, regardless of platform association.
+    *   **Non-Admin Roles:**
+        *   `GET /api/servers`: Data is filtered to only include items linked to platforms listed in the user's `accessiblePlatformIds`.
+        *   Actions (POST/PUT/DELETE on `/api/servers`): Require:
+            1.  An appropriate permission level (e.g., 'Edit' might be needed for PUT, potentially 'Admin' needed for DELETE). **Note:** The exact level required for each action needs consistent implementation.
+            2.  Access to the specific platform(s) involved in the operation (checked via `accessiblePlatformIds`).
+    *   **Admin Routes (`/api/admin/*`):** These routes should explicitly check if the user's `permissionName` is 'Admin' and deny access otherwise.

@@ -2,14 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 // import type { NextApiRequest } from 'next'; // No longer needed
 import { transaction } from '@/db/dbUtils';
 import { PoolConnection } from 'mysql2/promise';
+import { getServerSession } from "next-auth/next"; // Import
+import { authOptions } from '@/lib/authOptions'; // Import
+import { getUserPermissions } from '@/utils/server/permissionUtils'; // Import
 
 // Interface for expected request body
 interface UpdatePlatformsRequest {
     platformIds: number[];
 }
 
+// Helper function for admin check (copied from users route)
+async function checkAdminPermission(request: NextRequest): Promise<{ isAdmin: boolean; errorResponse?: NextResponse }> {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+        return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Unauthorized: Not logged in' }, { status: 401 }) };
+    }
+    const userId = parseInt(session.user.id, 10);
+    if (isNaN(userId)) {
+         return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Unauthorized: Invalid user ID in session' }, { status: 401 }) };
+    }
+    const { permissionName } = await getUserPermissions(userId);
+    if (permissionName !== 'Admin') {
+        return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Forbidden: Requires Admin privileges' }, { status: 403 }) };
+    }
+    return { isAdmin: true };
+}
+
 // Workaround: Use context: any as per important_Information.md
 export async function PUT(request: NextRequest, context: any): Promise<NextResponse> {
+    // Check permissions first
+    const permissionCheck = await checkAdminPermission(request);
+    if (!permissionCheck.isAdmin) {
+        return permissionCheck.errorResponse!;
+    }
+
     // Access params using optional chaining and type casting
     const groupIdString = (context?.params?.groupId as string) || '';
     const groupId = parseInt(groupIdString, 10); 

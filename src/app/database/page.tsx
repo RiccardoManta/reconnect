@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react'; // Keep React import, useState is no longer needed here
+import React, { useState, useEffect } from 'react'; // Added useState, useEffect
+import { useSession } from 'next-auth/react'; // Added useSession
 import Header from '@/components/layout/Header';
-import { Database as DatabaseIcon, Table, Server, Lock } from 'lucide-react'; // Keep only used icons
+import { Database as DatabaseIcon, Table, Server, Lock, AlertTriangle, Loader2 } from 'lucide-react'; // Added AlertTriangle, Loader2
 
 // Import all refactored list components
 import TestBenchList from '@/components/database/TestBenchList'; 
@@ -24,6 +25,85 @@ import SoftwareList from '@/components/database/SoftwareList';
 // Removed modal imports (DetailsModal, AddEntryModal, EditableDetailsModal)
 
 export default function DatabasePage() {
+  const { data: session, status: sessionStatus } = useSession(); // Get session
+  const [permissionStatus, setPermissionStatus] = useState<{ 
+      loading: boolean; 
+      isAdmin: boolean; 
+      error: string | null; 
+  }>({ loading: true, isAdmin: false, error: null });
+
+  useEffect(() => {
+    // Only check permissions if the session is authenticated
+    if (sessionStatus === 'authenticated') {
+      setPermissionStatus({ loading: true, isAdmin: false, error: null });
+      
+      const checkPermission = async () => {
+        try {
+          const response = await fetch('/api/auth/permission');
+          if (!response.ok) {
+             let errorMsg = 'Failed to fetch permissions';
+             try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch(e){} 
+             throw new Error(errorMsg);
+          }
+          const data = await response.json();
+          if (data.permissionName === 'Admin') {
+            setPermissionStatus({ loading: false, isAdmin: true, error: null });
+          } else {
+            setPermissionStatus({ loading: false, isAdmin: false, error: 'Access Denied: Admin permission required.' });
+          }
+        } catch (err) {
+          console.error("Permission check error:", err);
+          setPermissionStatus({ loading: false, isAdmin: false, error: err instanceof Error ? err.message : 'Error checking permissions' });
+        }
+      };
+      checkPermission();
+    } else if (sessionStatus === 'unauthenticated') {
+       // If not logged in, deny access immediately
+       setPermissionStatus({ loading: false, isAdmin: false, error: 'Access Denied: Please log in.' });
+    } else {
+       // Session status is 'loading', keep our loading state true
+       setPermissionStatus({ loading: true, isAdmin: false, error: null });
+    }
+
+  }, [sessionStatus]); // Rerun effect when session status changes
+
+  // --- Loading State --- 
+  if (permissionStatus.loading) {
+      return (
+        <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+          <Header />
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#0F3460' }}>
+            <Loader2 size={24} className="animate-spin" style={{ marginRight: '0.5rem' }} />
+            <span>Loading...</span>
+          </div>
+        </main>
+      );
+  }
+
+  // --- Access Denied State --- 
+  if (!permissionStatus.isAdmin) {
+      return (
+        <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+          <Header />
+          <div style={{
+            flex: 1, 
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '2rem',
+            textAlign: 'center'
+          }}>
+            <AlertTriangle size={48} style={{ color: '#ef4444', marginBottom: '1rem' }} />
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626', marginBottom: '0.5rem' }}>Access Denied</h1>
+            <p style={{ color: '#4b5563' }}>{permissionStatus.error || 'You do not have permission to view this page.'}</p>
+            {/* Optional: Add a button to go back or to the home page */} 
+          </div>
+        </main>
+      );
+  }
+
+  // --- Admin Access Granted: Render Page Content --- 
   return (
     <main style={{ 
       minHeight: '100vh', 

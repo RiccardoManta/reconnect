@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Server, Circle } from 'lucide-react';
-import { ServerData } from '@/components/server/AddServerModal';
 
+// Define the structure for server data based on API response and ServerCardProps
+// (Duplicated from page.tsx - consider moving to a shared types file later)
+interface DisplayServerData {
+  pcId: number;          
+  casualName: string | null;
+  platformName?: string | null; 
+  benchType: string | null;   
+  pcInfoText?: string | null;  
+  status: string | null;      
+  activeUser?: string | null; 
+  platformId?: number | null; 
+}
+
+// Update SidebarProps to use the new type
 interface SidebarProps {
-  servers: ServerData[];
+  servers: DisplayServerData[];
   categories: string[];
   onCategoryClick: (category: string) => void;
   onServerClick: (serverElementId: string) => void;
@@ -37,20 +50,21 @@ export default function Sidebar({
     }));
   };
 
-  // Group servers by category
+  // Group servers by category - Use platformName and DisplayServerData
   const serversByCategory = categories.reduce((acc, category) => {
-    acc[category] = servers.filter((server) => server.platform === category);
+    acc[category] = servers.filter((server) => server.platformName === category);
     return acc;
-  }, {} as Record<string, ServerData[]>);
+  }, {} as Record<string, DisplayServerData[]>); // Use DisplayServerData
 
   // Get effective status based on user presence and explicitly set status
-  const getEffectiveStatus = (server: ServerData) => {
-    if (server.status === 'offline') return 'offline';
-    return server.user_name && server.user_name.trim() !== '' ? 'in_use' : 'online';
+  const getEffectiveStatus = (server: DisplayServerData) => {
+    if (server.status?.toLowerCase() === 'offline') return 'offline';
+    // Use activeUser
+    return server.activeUser && server.activeUser.trim() !== '' ? 'in_use' : 'online'; 
   };
 
   // Update the status indicator in the sidebar
-  const getStatusColor = (server: ServerData) => {
+  const getStatusColor = (server: DisplayServerData) => {
     const effectiveStatus = getEffectiveStatus(server);
     switch (effectiveStatus) {
       case 'online':
@@ -134,77 +148,65 @@ export default function Sidebar({
             </div>
 
             {/* Servers list */}
-            {(() => {
-              // Check if the category should be expanded
-              if (expandedCategories[category]) {
-                const serversList = serversByCategory[category];
-                
-                // Return the JSX for the server list
-                return (
-                  <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
-                    {(serversList?.length || 0) > 0 ? (
-                        serversList.map((server) => (
-                        // Ensure dbId exists before rendering the server item
-                        server.dbId !== undefined && (
-                            <div
-                            key={`${category}-${server.dbId}`}
-                            onClick={() => onServerClick(`server-card-${server.dbId}`)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                padding: '0.375rem 0.5rem',
-                                marginBottom: '0.25rem',
-                                borderRadius: '0.25rem',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                transition: 'background-color 0.2s'
-                            }}
-                            onMouseOver={(e) => {
-                                const target = e.currentTarget as HTMLDivElement;
-                                target.style.backgroundColor = '#f1f5f9';
-                            }}
-                            onMouseOut={(e) => {
-                                const target = e.currentTarget as HTMLDivElement;
-                                target.style.backgroundColor = 'transparent';
-                            }}
-                            >
-                            <Server size={14} style={{ marginRight: '0.5rem', color: '#64748b', flexShrink: 0 }} />
-                            <span style={{ fontWeight: 'normal', color: '#333' }}>
-                              {server.casual_name} 
-                            </span>
-                            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                                <Circle
-                                size={8}
-                                fill={getStatusColor(server)}
-                                color={getStatusColor(server)}
-                                style={{ marginRight: '0.25rem' }}
-                                />
-                                {server.user_name && server.user_name.trim() !== '' && (
-                                    <span style={{
-                                        fontSize: '0.75rem',
-                                        color: '#9ca3af',
-                                        fontStyle: 'italic',
-                                        marginLeft: '0.5rem'
-                                    }}>
-                                        {server.user_name}
-                                    </span>
-                                )}
-                            </div>
-                            </div>
-                        )
-                        ))
-                    ) : (
-                       <div style={{ padding: '0.375rem 0.5rem', fontSize: '0.9rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                           No servers in this category
-                       </div>
-                    )}
-                  </div>
-                );
-              } else {
-                // If not expanded, return null (render nothing)
-                return null;
-              }
-            })()}
+            {expandedCategories[category] && (
+              <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+                {(serversByCategory[category]?.length || 0) > 0 ? (
+                    serversByCategory[category].map((server) => (
+                      // Use pcId as key and for click handler
+                      <div
+                        key={`${category}-${server.pcId}`}
+                        onClick={() => onServerClick(`server-card-${server.pcId}`)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '0.375rem 0.5rem',
+                            marginBottom: '0.25rem',
+                            borderRadius: '0.25rem',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            transition: 'background-color 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                            const target = e.currentTarget as HTMLDivElement;
+                            target.style.backgroundColor = '#f1f5f9';
+                        }}
+                        onMouseOut={(e) => {
+                            const target = e.currentTarget as HTMLDivElement;
+                            target.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <Server size={14} style={{ marginRight: '0.5rem', color: '#64748b', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 'normal', color: '#333' }}>
+                          {server.casualName} {/* Use casualName */}
+                        </span>
+                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                            <Circle
+                              size={8}
+                              fill={getStatusColor(server)}
+                              color={getStatusColor(server)}
+                              style={{ marginRight: '0.25rem' }}
+                            />
+                            {/* Use activeUser */} 
+                            {server.activeUser && server.activeUser.trim() !== '' && (
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    color: '#9ca3af',
+                                    fontStyle: 'italic',
+                                    marginLeft: '0.5rem'
+                                }}>
+                                    {server.activeUser}
+                                </span>
+                            )}
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                    <div style={{ padding: '0.375rem 0.5rem', fontSize: '0.9rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                        No servers in this category
+                    </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

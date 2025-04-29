@@ -1,6 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { query, insert } from '@/db/dbUtils';
 import { RowDataPacket } from 'mysql2/promise';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from '@/lib/authOptions';
+import { getUserPermissions } from '@/utils/server/permissionUtils';
 
 // Interface for Group data (used by GET and returned by POST)
 interface Group extends RowDataPacket {
@@ -15,40 +18,72 @@ interface CreateGroupRequest {
     groupName: string;
 }
 
-// GET method to fetch all groups with their accessible platforms
-export async function GET(): Promise<NextResponse> {
-  try {
-    // Join groups with access table and platforms, group by group, and concat platform info
-    const groups = await query<Group[]>(`
-      SELECT 
-        ug.user_group_id, 
-        ug.user_group_name,
-        GROUP_CONCAT(p.platform_id ORDER BY p.platform_name ASC) AS accessible_platform_ids,
-        GROUP_CONCAT(p.platform_name ORDER BY p.platform_name ASC SEPARATOR ', ') AS accessible_platform_names
-      FROM user_groups ug
-      LEFT JOIN group_platform_access gpa ON ug.user_group_id = gpa.user_group_id
-      LEFT JOIN platforms p ON gpa.platform_id = p.platform_id
-      GROUP BY ug.user_group_id, ug.user_group_name
-      ORDER BY ug.user_group_name ASC
-    `);
-    
-    // GROUP_CONCAT returns null if no platforms are linked, handle this case
-    const groupsArray = Array.isArray(groups) ? groups.map(g => ({...g})) : []; // Create shallow copies if needed
+// Helper function for admin check (copied from users route)
+async function checkAdminPermission(request: NextRequest): Promise<{ isAdmin: boolean; errorResponse?: NextResponse }> {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+        return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Unauthorized: Not logged in' }, { status: 401 }) };
+    }
+    const userId = parseInt(session.user.id, 10);
+    if (isNaN(userId)) {
+         return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Unauthorized: Invalid user ID in session' }, { status: 401 }) };
+    }
+    const { permissionName } = await getUserPermissions(userId);
+    if (permissionName !== 'Admin') {
+        return { isAdmin: false, errorResponse: NextResponse.json({ error: 'Forbidden: Requires Admin privileges' }, { status: 403 }) };
+    }
+    return { isAdmin: true };
+}
 
-    return NextResponse.json({ groups: groupsArray });
+// GET method to fetch all groups with their accessible platforms AND permission names
+export async function GET(request: NextRequest): Promise<NextResponse> {
+    // Check permissions first
+    const permissionCheck = await checkAdminPermission(request);
+    if (!permissionCheck.isAdmin) {
+        return permissionCheck.errorResponse!;
+    }
 
-  } catch (error: unknown) {
-    console.error('API Error fetching groups with platforms:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: 'Failed to fetch groups', details: message },
-      { status: 500 }
-    );
-  }
+    try {
+        // Join groups with permissions, access table and platforms
+        const groups = await query<Group[]>(`
+          SELECT 
+            ug.user_group_id, 
+            ug.user_group_name,
+            ug.permission_id,      -- Include permission_id
+            p_main.permission_name,-- Include permission_name
+            GROUP_CONCAT(DISTINCT plat.platform_id ORDER BY plat.platform_name ASC) AS accessible_platform_ids,
+            GROUP_CONCAT(DISTINCT plat.platform_name ORDER BY plat.platform_name ASC SEPARATOR ', ') AS accessible_platform_names
+          FROM user_groups ug
+          JOIN permissions p_main ON ug.permission_id = p_main.permission_id -- Join for permission name
+          LEFT JOIN group_platform_access gpa ON ug.user_group_id = gpa.user_group_id
+          LEFT JOIN platforms plat ON gpa.platform_id = plat.platform_id
+          GROUP BY ug.user_group_id, ug.user_group_name, ug.permission_id, p_main.permission_name
+          ORDER BY ug.user_group_name ASC
+        `);
+        
+        // Map results (keysToCamel will handle snake_case to camelCase)
+        const groupsArray = Array.isArray(groups) ? groups.map(g => ({...g})) : []; 
+
+        return NextResponse.json({ groups: groupsArray });
+
+    } catch (error: unknown) {
+        console.error('API Error fetching groups with platforms and permissions:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json(
+          { error: 'Failed to fetch groups', details: message },
+          { status: 500 }
+        );
+    }
 }
 
 // POST method to create a new group
 export async function POST(request: NextRequest): Promise<NextResponse> {
+    // Check permissions first
+    const permissionCheck = await checkAdminPermission(request);
+    if (!permissionCheck.isAdmin) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
         const body: CreateGroupRequest = await request.json();
         const { groupName } = body;
@@ -70,8 +105,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // Insert new group
         const newGroupId = await insert(
-            'INSERT INTO user_groups (user_group_name) VALUES (?)',
-            [trimmedGroupName]
+            'INSERT INTO user_groups (user_group_name, permission_id) VALUES (?, ?)',
+            [trimmedGroupName, 1]
         );
 
         if (newGroupId) {
@@ -85,8 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return NextResponse.json({
                 success: true,
                 message: 'Group created successfully',
-                // Newly created group won't have platforms yet, so no need to query them here
-                group: { ...newGroup[0], accessible_platform_ids: null, accessible_platform_names: null } 
+                group: { ...newGroup[0], accessible_platform_ids: null, accessible_platform_names: null, permission_id: 1 } 
             }, { status: 201 });
         } else {
             throw new Error('Group creation succeeded but insertId was not returned or was zero.');
