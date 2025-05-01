@@ -1,7 +1,13 @@
 'use client'; // Make this a client component
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, User, Settings, Database, BookOpen, Shield, LogOut, UserCircle } from 'lucide-react';
+import { 
+    Search, User, Settings, Database, BookOpen, Shield, LogOut, UserCircle, 
+    Network, // Added for Connect
+    CalendarDays, // Added for Bookings
+    Activity, // Added for Activities
+    FlaskConical // Added for Testautomation
+} from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -27,6 +33,35 @@ export default function Header() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+  
+  // Common style for nav links
+  const navLinkStyle = (isActive: boolean): React.CSSProperties => ({
+      display: 'inline-flex', // Use flex to align icon and text
+      alignItems: 'center', // Vertically align icon and text
+      gap: '0.5rem', // Space between icon and text
+      background: 'none',
+      border: 'none',
+      color: isActive ? 'white' : 'rgba(255,255,255,0.75)',
+      fontSize: '0.95rem', // Slightly increased font size
+      fontWeight: isActive ? '600' : 'normal',
+      padding: '0.5rem 0.75rem',
+      cursor: 'pointer',
+      position: 'relative',
+      transition: 'all 0.2s ease',
+      textDecoration: 'none' // Ensure no underline for Links
+  });
+  
+  // Style for the active underline
+  const activeUnderlineStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: '-2px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    height: '3px',
+    width: '40%',
+    backgroundColor: '#39A2DB',
+    borderRadius: '3px'
+  };
 
   return (
     <header style={{ 
@@ -64,155 +99,54 @@ export default function Header() {
         padding: '0.25rem'
       }}>
         {/* Connect Link */}
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <span style={{
-            background: 'none',
-            border: 'none',
-            color: pathname === '/' ? 'white' : 'rgba(255,255,255,0.75)',
-            fontSize: '0.875rem',
-            fontWeight: pathname === '/' ? '600' : 'normal',
-            padding: '0.5rem 0.75rem',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease',
-            display: 'inline-block'
-          }}
-          onMouseOver={(e) => { if (pathname !== '/') e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
-          onMouseOut={(e) => { if (pathname !== '/') e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
-          >
-            Connect
-            {pathname === '/' && (
-              <div style={{
-                position: 'absolute',
-                bottom: '-2px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                height: '3px',
-                width: '40%',
-                backgroundColor: '#39A2DB',
-                borderRadius: '3px'
-              }} />
-            )}
-          </span>
+        <Link href="/" passHref style={navLinkStyle(pathname === '/')} 
+            onMouseOver={(e) => { if (pathname !== '/') e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { if (pathname !== '/') e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+            <Network size={18} /> Connect
+            {pathname === '/' && <div style={activeUnderlineStyle} />}
         </Link>
-        {/* Placeholder Button Style (applied to others) */}
-        <button style={{
-            background: 'none',
-            border: 'none',
-            // Add active state check later when this route exists
-            color: 'rgba(255,255,255,0.75)',
-            fontSize: '0.875rem',
-            fontWeight: 'normal', 
-            padding: '0.5rem 0.75rem',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
-          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        
+        {/* Bookings Button (Update to Link when route exists) */}
+        <button style={navLinkStyle(false)} // Assuming not active for now
+            onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
         >
-          Bookings
-          {/* Add underscore logic later */}
+          <CalendarDays size={18} /> Booking
         </button>
-        <button style={{
-            background: 'none',
-            border: 'none',
-            // Add active state check later when this route exists
-            color: 'rgba(255,255,255,0.75)',
-            fontSize: '0.875rem',
-            fontWeight: 'normal',
-            padding: '0.5rem 0.75rem',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
-          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        
+        {/* Activities Button (Example placeholder) */}
+        <button style={navLinkStyle(false)} 
+            onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
         >
-          Activities
-           {/* Add underscore logic later */}
+          <Activity size={18} /> Activity
         </button>
-         <button style={{
-            background: 'none',
-            border: 'none',
-            // Add active state check later when this route exists
-            color: 'rgba(255,255,255,0.75)',
-            fontSize: '0.875rem',
-            fontWeight: 'normal',
-            padding: '0.5rem 0.75rem',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
-          onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
-        >
-          Testautomation
-           {/* Add underscore logic later */}
-        </button>
+        
+         {/* Testautomation Button (Example placeholder) */}
+         <button style={navLinkStyle(false)} 
+            onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+         >
+          <FlaskConical size={18} /> Testautomation
+         </button>
+         
         {/* Database Link */}
-        <Link href="/database" style={{ textDecoration: 'none' }}>
-          <span style={{ 
-            background: 'none',
-            border: 'none',
-            color: pathname === '/database' ? 'white' : 'rgba(255,255,255,0.75)',
-            fontSize: '0.875rem',
-            fontWeight: pathname === '/database' ? '600' : 'normal',
-            padding: '0.5rem 0.75rem',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease',
-            display: 'inline-block' 
-          }}
-          onMouseOver={(e) => { if (pathname !== '/database') e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
-          onMouseOut={(e) => { if (pathname !== '/database') e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
-          >
-            Database
-            {pathname === '/database' && (
-              <div style={{
-                position: 'absolute',
-                bottom: '-2px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                height: '3px',
-                width: '40%',
-                backgroundColor: '#39A2DB',
-                borderRadius: '3px'
-              }} />
-            )}
-          </span>
+        <Link href="/database" passHref style={navLinkStyle(pathname === '/database')}
+            onMouseOver={(e) => { if (pathname !== '/database') e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { if (pathname !== '/database') e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+            <Database size={18} /> Database
+            {pathname === '/database' && <div style={activeUnderlineStyle} />}
         </Link>
-        {/* Admin Panel Link - UPDATE HREF */}
-        <Link href="/admin/users" style={{ textDecoration: 'none' }}>
-          <span style={{
-            background: 'none',
-            border: 'none',
-            color: pathname?.startsWith('/admin') ? 'white' : 'rgba(255,255,255,0.75)',
-            fontSize: '0.875rem',
-            fontWeight: pathname?.startsWith('/admin') ? '600' : 'normal',
-            padding: '0.5rem 0.75rem',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease',
-            display: 'inline-block' 
-          }}
-          onMouseOver={(e) => { if (!pathname?.startsWith('/admin')) e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
-          onMouseOut={(e) => { if (!pathname?.startsWith('/admin')) e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
-          >
-            Admin Panel
-            {pathname?.startsWith('/admin') && (
-              <div style={{
-                position: 'absolute',
-                bottom: '-2px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                height: '3px',
-                width: '40%',
-                backgroundColor: '#39A2DB',
-                borderRadius: '3px'
-              }} />
-            )}
-          </span>
+        
+        {/* Admin Panel Link */}
+        <Link href="/admin/users" passHref style={navLinkStyle(pathname?.startsWith('/admin') ?? false)}
+            onMouseOver={(e) => { if (!pathname?.startsWith('/admin')) e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { if (!pathname?.startsWith('/admin')) e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+            <Shield size={18} /> Admin Dashboard
+            {pathname?.startsWith('/admin') && <div style={activeUnderlineStyle} />}
         </Link>
       </div>
       

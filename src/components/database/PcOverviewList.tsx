@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { PcCase, RefreshCw, Plus } from 'lucide-react';
+import React, { useState, useEffect, CSSProperties } from 'react';
+import { PcCase as Cpu, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { PcOverview, TestBench, Software, License } from '../../types/database';
@@ -36,8 +36,6 @@ export default function PcOverviewList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPc, setSelectedPc] = useState<PcOverview | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [testBenches, setTestBenches] = useState<TestBench[]>([]); // For dropdown
 
@@ -122,7 +120,7 @@ export default function PcOverviewList() {
         console.error("assignedLicenses received from API is not an array:", licenses);
         setAssignedLicenses([]);
       } else {
-        setAssignedLicenses(licenses);
+        setAssignedLicenses(keysToCamel<AssignedLicenseInfo[]>(licenses));
       }      
     } catch (err) {
       console.error(`Error fetching assigned licenses for PC ${pcId}:`, err);
@@ -134,7 +132,6 @@ export default function PcOverviewList() {
   };
 
   const fetchData = async () => {
-    if (hasLoaded) return;
     setLoading(true);
     setError(null);
     try {
@@ -144,7 +141,6 @@ export default function PcOverviewList() {
       }
       const data = await response.json();
       setPcOverviews(keysToCamel<PcOverview[]>(data.pcs || []));
-      setHasLoaded(true);
     } catch (err) {
       setError('Error loading PC overviews: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching PC overviews:', err);
@@ -153,23 +149,21 @@ export default function PcOverviewList() {
     }
   };
 
-  const toggleExpand = () => {
-    const newExpandedState = !isExpanded;
-    setIsExpanded(newExpandedState);
-    if (newExpandedState && !hasLoaded && !loading) {
-      fetchData();
-    }
-  };
+  // Load data on component mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchData(); // Fetch main PC list
+      await fetchRelatedData(); // Fetch related benches and software
+    };
+    loadInitialData();
+  }, []);
 
-  const handleAddClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    fetchRelatedData();
+  const handleAddClick = () => {
     setIsAddModalOpen(true);
   };
 
   const handleRowClick = async (pc: PcOverview) => {
     setSelectedPc(pc);
-    await fetchRelatedData();
     if (pc.pcId !== undefined) {
         await fetchAssignedSoftware(pc.pcId);
         await fetchAssignedLicenses(pc.pcId);
@@ -220,7 +214,7 @@ export default function PcOverviewList() {
       }
 
       const data = await response.json();
-      const updatedPc = keysToCamel<PcOverview>(data.pc);
+      const updatedPc = keysToCamel<PcOverview>(data.pc || data.pcOverview);
 
       if (updatedPc) {
         setPcOverviews(prev =>
@@ -228,7 +222,9 @@ export default function PcOverviewList() {
             pc.pcId === updatedPc.pcId ? updatedPc : pc
           )
         );
-        setSelectedPc(updatedPc);
+        if (selectedPc?.pcId === updatedPc.pcId) {
+             setSelectedPc(updatedPc);
+        }
       } else {
         console.error("Failed to get updated PC data from API response:", data);
         throw new Error("Failed to process update response from server.");
@@ -244,17 +240,16 @@ export default function PcOverviewList() {
   const handleAssignSoftware = async (softwareId: number) => {
     if (!selectedPc?.pcId) {
       console.error("Cannot assign software: No PC selected.");
-      // Optionally set an error state to display to the user
       setAssignmentError("Cannot assign software: No PC selected.");
-      return; // Early exit
+      return;
     }
-    setAssignmentLoading(true); // Indicate loading for this action
+    setAssignmentLoading(true);
     setAssignmentError(null);
     try {
       const response = await fetch(`/api/pcs/${selectedPc.pcId}/software`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ software_id: softwareId }), // Send snake_case
+        body: JSON.stringify({ softwareId }),
       });
 
       if (!response.ok) {
@@ -262,14 +257,12 @@ export default function PcOverviewList() {
         throw new Error(errorData.error || 'Failed to assign software');
       }
 
-      // Update local state immediately for responsiveness
-      setAssignedSoftwareIds(prev => [...prev, softwareId].sort((a, b) => a - b));
+      setAssignedSoftwareIds(prev => [...prev, softwareId]);
 
     } catch (err) {
       console.error("Failed to assign software:", err);
       const errorMsg = `Error assigning software: ${err instanceof Error ? err.message : String(err)}`;
       setAssignmentError(errorMsg);
-      // Re-throw or handle otherwise if the sub-component needs to know about the error
     } finally {
       setAssignmentLoading(false);
     }
@@ -279,15 +272,10 @@ export default function PcOverviewList() {
     if (!selectedPc?.pcId) {
       console.error("Cannot unassign software: No PC selected.");
       setAssignmentError("Cannot unassign software: No PC selected.");
-      return; // Early exit
+      return;
     }
     
-    // Optional: Confirmation dialog before deleting
-    // if (!confirm(`Are you sure you want to remove software ID ${softwareId} from this PC?`)) {
-    //   return;
-    // }
-
-    setAssignmentLoading(true); // Indicate loading for this action
+    setAssignmentLoading(true);
     setAssignmentError(null);
     try {
       const response = await fetch(`/api/pcs/${selectedPc.pcId}/software/${softwareId}`, {
@@ -299,14 +287,12 @@ export default function PcOverviewList() {
         throw new Error(errorData.error || 'Failed to unassign software');
       }
 
-      // Update local state immediately
       setAssignedSoftwareIds(prev => prev.filter(id => id !== softwareId));
 
     } catch (err) {
       console.error("Failed to unassign software:", err);
       const errorMsg = `Error unassigning software: ${err instanceof Error ? err.message : String(err)}`;
       setAssignmentError(errorMsg);
-      // Re-throw or handle otherwise
     } finally {
       setAssignmentLoading(false);
     }
@@ -367,11 +353,59 @@ export default function PcOverviewList() {
   ];
 
   // Helper object for table styles (optional, keeps JSX cleaner)
-  const styles = {
-    th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' } as React.CSSProperties,
-    td: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' } as React.CSSProperties,
-    tr: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' } as React.CSSProperties,
-    tdCenter: { padding: '2rem', textAlign: 'center', color: '#6b7280' } as React.CSSProperties,
+  const styles: { [key: string]: CSSProperties } = {
+    headerContainer: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' },
+    headerTitleContainer: { display: 'flex', alignItems: 'center' },
+    headerIcon: { color: '#0F3460', marginRight: '1rem' },
+    headerTitle: { fontSize: '1.75rem', fontWeight: 'bold', color: '#0F3460', margin: 0 },
+    addButton: { border: 'none', borderRadius: '0.375rem', padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', backgroundColor: '#0F3460', color: 'white' },
+    tableContainer: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto' },
+    loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' },
+    loadingSpinner: { animation: 'spin 1s linear infinite', marginBottom: '0.5rem' },
+    errorContainer: { textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    tableHeaderRow: { borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' },
+    tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
+    tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
+    tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
+    assignmentSection: {
+        marginTop: '1.5rem',
+        paddingTop: '1.5rem',
+        borderTop: '1px solid #e5e7eb',
+    },
+    assignmentTitle: {
+        fontSize: '1rem',
+        fontWeight: 600,
+        color: '#111827',
+        marginBottom: '1rem',
+    },
+    assignmentList: {
+        maxHeight: '200px',
+        overflowY: 'auto',
+        border: '1px solid #e5e7eb',
+        borderRadius: '0.375rem',
+        padding: '0.5rem',
+    },
+    assignmentItem: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0.5rem 0.75rem',
+        fontSize: '0.875rem',
+        borderBottom: '1px solid #f3f4f6',
+    },
+    assignmentItemLast: {
+        borderBottom: 'none',
+    },
+    assignmentDetails: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.1rem'
+    },
+    assignmentTextMuted: {
+        fontSize: '0.75rem',
+        color: '#6b7280',
+    }
   };
 
   // --- Handlers for Assigning/Unassigning Licenses from PC view ---
@@ -380,187 +414,141 @@ export default function PcOverviewList() {
       setLicenseAssignmentError("Cannot unassign: No PC selected.");
       return;
     }
-    // Optional: Confirmation
-    // if (!confirm('Are you sure you want to unassign this license from this PC?')) return;
-
-    setLicenseAssignmentLoading(true); // Use the specific loading state for this section
+    setLicenseAssignmentLoading(true);
     setLicenseAssignmentError(null);
     try {
-        const response = await fetch(`/api/licenses/${licenseId}/assignment`, {
+        const response = await fetch(`/api/pcs/${selectedPc.pcId}/licenses/${licenseId}`, {
             method: 'DELETE',
         });
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to unassign license');
         }
-        // Success! Refetch the licenses for this PC to update the list
         await fetchAssignedLicenses(selectedPc.pcId);
     } catch (err) {
         const errorMsg = `Error unassigning license: ${err instanceof Error ? err.message : String(err)}`;
         console.error(errorMsg);
-        setLicenseAssignmentError(errorMsg); // Set the specific error state
+        setLicenseAssignmentError(errorMsg);
     } finally {
-        setLicenseAssignmentLoading(false); // Clear the specific loading state
+        setLicenseAssignmentLoading(false);
     }
   };
   // --- End License Assignment Handlers ---
 
+  const getBenchName = (id: number | null | undefined): string => {
+    if (id === undefined || id === null) return 'N/A';
+    // Add loading check
+    if (testBenches.length === 0 && loading) return 'Loading...';
+    return testBenches.find(tb => tb.benchId === id)?.hilName || 'N/A';
+  };
+
   return (
-    <div style={{ marginTop: '2rem' }}>
-      <div 
-        style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '0.75rem 1rem', backgroundColor: 'white', borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', cursor: 'pointer',
-          marginBottom: isExpanded ? '0.5rem' : '0', transition: 'background-color 0.2s'
-        }}
-        onClick={toggleExpand}
-        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
-      >
-        <h2 style={{
-          fontSize: '1.25rem', fontWeight: '600', color: '#111827',
-          display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0
-        }}>
-          <PcCase size={18} />
-          PC Overview {hasLoaded ? `(${pcOverviews.length})` : ''}
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {loading && <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', color: '#6b7280' }} />}
-          <button
-            onClick={handleAddClick}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                     width: '24px', height: '24px', borderRadius: '50%', background: '#2563eb',
-                     color: 'white', border: 'none', cursor: 'pointer', padding: 0 }}
-            title="Add new PC overview"
-          >
-            <Plus size={16} />
-          </button>
-          <div style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.2s' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </div>
+    <div>
+      {/* Page Header */}
+      <div style={styles.headerContainer}>
+        <div style={styles.headerTitleContainer}>
+          <Cpu size={28} style={styles.headerIcon} />
+          <h1 style={styles.headerTitle}>PC Overview {pcOverviews.length > 0 ? `(${pcOverviews.length})` : ''}</h1>
         </div>
+        <button
+          onClick={handleAddClick}
+          style={styles.addButton}
+          title="Add new PC overview"
+        >
+          <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+          Add PC
+        </button>
       </div>
-      
-      {isExpanded && (
-        <div style={{
-          backgroundColor: 'white', borderRadius: '0 0 0.5rem 0.5rem', padding: '1rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto', transition: 'max-height 0.3s ease-in-out'
-        }}>
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' }}>
-              <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.5rem' }} />
-              <p style={{ margin: 0 }}>Loading PC overviews...</p>
-              <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-            </div>
-          ) : error ? (
-            <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' }}>
-              <p>{error}</p>
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                  <th style={styles.th}>ID</th>
-                  <th style={styles.th}>PC Name</th>
-                  <th style={styles.th}>Casual Name</th>
-                  <th style={styles.th}>Role</th>
-                  <th style={styles.th}>Model</th>
-                  <th style={styles.th}>IP Address</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Active User</th>
-                  <th style={styles.th}>Test Bench</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pcOverviews.length === 0 ? (
-                  <tr><td colSpan={9} style={styles.tdCenter}>No PC overviews found</td></tr>
-                ) : (
-                  pcOverviews.map((pc) => {
-                    const benchName = testBenches.find(tb => tb.benchId === pc.benchId)?.hilName || 'N/A';
 
-                    return (
-                      <tr key={pc.pcId} style={styles.tr}
-                          onClick={() => handleRowClick(pc)}
-                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                        <td style={styles.td}>{pc.pcId}</td>
-                        <td style={styles.td}>{pc.pcName || '-'}</td>
-                        <td style={styles.td}>{pc.casualName || '-'}</td>
-                        <td style={styles.td}>{pc.pcRole || '-'}</td>
-                        <td style={styles.td}>{pc.pcModel || '-'}</td>
-                        <td style={styles.td}>{pc.ipAddress || '-'}</td>
-                        <td style={styles.td}>{pc.status || '-'}</td>
-                        <td style={styles.td}>{pc.activeUser || '-'}</td>
-                        <td style={styles.td}>{benchName}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+      {/* Table Container */}
+      <div style={styles.tableContainer}>
+        {loading ? (
+          <div style={styles.loadingContainer}>
+            <RefreshCw size={24} style={styles.loadingSpinner} />
+            <p style={{ margin: 0 }}>Loading PC overviews...</p>
+            <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : error ? (
+          <div style={styles.errorContainer}><p>{error}</p></div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.tableHeaderRow}>
+                <th style={styles.tableHeaderCell}>ID</th>
+                <th style={styles.tableHeaderCell}>Name</th>
+                <th style={styles.tableHeaderCell}>Casual Name</th>
+                <th style={styles.tableHeaderCell}>Inventory Nr.</th>
+                <th style={styles.tableHeaderCell}>Role</th>
+                <th style={styles.tableHeaderCell}>Model</th>
+                <th style={styles.tableHeaderCell}>IP Address</th>
+                <th style={styles.tableHeaderCell}>Status</th>
+                <th style={styles.tableHeaderCell}>Active User</th>
+                <th style={styles.tableHeaderCell}>Linked Bench</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pcOverviews.length === 0 ? (
+                <tr><td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No PC overviews found</td></tr>
+              ) : (
+                pcOverviews.map((pc) => {
+                  const linkedBenchName = getBenchName(pc.benchId);
+                  return (
+                    <tr key={pc.pcId}
+                      style={styles.tableBodyRow}
+                      onClick={() => handleRowClick(pc)}
+                      onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <td style={styles.tableBodyCell}>{pc.pcId}</td>
+                      <td style={styles.tableBodyCell}>{pc.pcName || '-'}</td>
+                      <td style={styles.tableBodyCell}>{pc.casualName || '-'}</td>
+                      <td style={styles.tableBodyCell}>{pc.inventoryNumber || '-'}</td>
+                      <td style={styles.tableBodyCell}>{pc.pcRole || '-'}</td>
+                      <td style={styles.tableBodyCell}>{pc.pcModel || '-'}</td>
+                      <td style={styles.tableBodyCell}>{pc.ipAddress || '-'}</td>
+                      <td style={styles.tableBodyCell}>{pc.status || '-'}</td>
+                      <td style={styles.tableBodyCell}>{pc.activeUser || '-'}</td>
+                      <td style={styles.tableBodyCell}>{linkedBenchName}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
 
+      {/* Modals: Pass assignment state and handlers */} 
       {selectedPc && (
         <EditableDetailsModal
           isOpen={selectedPc !== null}
-          onClose={() => {
-            setSelectedPc(null);
-            setAssignedSoftwareIds([]);
-            setAssignmentError(null);
-            setAssignedLicenses([]);
-            setLicenseAssignmentError(null);
-          }}
-          title={`PC Details: ${selectedPc.pcName || selectedPc.casualName || `ID ${selectedPc.pcId}`}`}
+          onClose={() => setSelectedPc(null)}
+          title={`PC Details: ${selectedPc.pcName || selectedPc.casualName || `ID: ${selectedPc.pcId}`}`}
           data={selectedPc}
           fields={detailsFields}
           onSave={handleUpdatePc}
         >
-          {/* DEBUG: Log state before rendering children */}
-          {/* {(() => { // REMOVE
-            console.log('[DEBUG] Rendering modal children. States:', {
-               selectedPcId: selectedPc?.pcId,
-               allSoftwareLength: allSoftware?.length,
-               assignedSoftwareIds,
-               assignedLicenses,
-               isSoftLoading: assignmentLoading,
-               isLicLoading: licenseAssignmentLoading,
-             });
-             return null; // Return null to satisfy ReactNode requirement
-          })()} */}
-
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem', fontWeight: '600' }}>
-              Assigned Software
-            </h3>
-            {selectedPc?.pcId !== undefined ? (
-              <ManagePCSwAssignments
-                pcId={selectedPc.pcId}
+          {/* Add Software Assignment Section */} 
+          <div style={styles.assignmentSection}>
+            <ManagePCSwAssignments
+                pcId={selectedPc.pcId!}
                 allSoftware={allSoftware}
                 assignedSoftwareIds={assignedSoftwareIds}
                 onAssign={handleAssignSoftware}
                 onUnassign={handleUnassignSoftware}
                 isLoading={assignmentLoading}
                 error={assignmentError}
-              />
-            ) : (
-              <p>Cannot manage software: PC ID is missing.</p>
-            )}
-          </div>
-
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem', fontWeight: '600' }}>
-              Assigned Licenses
-            </h3>
-            <ManagePCLicenseAssignments
-              assignedLicenses={assignedLicenses}
-              isLoading={licenseAssignmentLoading}
-              error={licenseAssignmentError}
-              onUnassign={handleUnassignLicense}
             />
           </div>
+          {/* Add License Assignment Section */}
+           <div style={styles.assignmentSection}>
+             <ManagePCLicenseAssignments
+                 assignedLicenses={assignedLicenses}
+                 onUnassign={handleUnassignLicense}
+                 isLoading={licenseAssignmentLoading}
+                 error={licenseAssignmentError}
+             />
+           </div>
         </EditableDetailsModal>
       )}
 

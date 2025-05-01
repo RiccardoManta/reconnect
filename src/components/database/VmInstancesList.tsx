@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { HardDrive, RefreshCw, Plus } from 'lucide-react';
+import React, { useState, useEffect, CSSProperties } from 'react';
+import { Cloud, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { VmInstance, Software } from '../../types/database';
@@ -25,8 +25,6 @@ export default function VmInstancesList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedVmInstance, setSelectedVmInstance] = useState<VmInstance | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // State for software relationship management
@@ -37,7 +35,6 @@ export default function VmInstancesList() {
 
   // Fetch all software (needed for assignment dropdown)
   const fetchAllSoftware = async () => {
-    // Prevent re-fetching if already loaded
     if (allSoftware.length > 0) return; 
     try {
       const response = await fetch('/api/software');
@@ -59,7 +56,7 @@ export default function VmInstancesList() {
     setAssignmentLoading(true);
     setAssignmentError(null);
     try {
-      const response = await fetch(`/api/vms/${vmId}/software`); // Use VM API endpoint
+      const response = await fetch(`/api/vms/${vmId}/software`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch assigned VM software');
@@ -77,19 +74,15 @@ export default function VmInstancesList() {
   };
 
   const fetchData = async () => {
-    if (hasLoaded) return;
     setLoading(true);
     setError(null);
     try {
-      // Assuming the API endpoint is /api/vm-instances (adjust if different)
       const response = await fetch('/api/vminstances');
       if (!response.ok) {
         throw new Error('Failed to fetch VM instances');
       }
       const data = await response.json();
-      // Convert incoming snake_case keys to camelCase
       setVmInstances(keysToCamel<VmInstance[]>(data.vmInstances || [])); 
-      setHasLoaded(true);
     } catch (err) {
       setError('Error loading VM instances: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching VM instances:', err);
@@ -98,22 +91,18 @@ export default function VmInstancesList() {
     }
   };
 
-  const toggleExpand = () => {
-    const newExpandedState = !isExpanded;
-    setIsExpanded(newExpandedState);
-    if (newExpandedState && !hasLoaded && !loading) {
-      fetchData();
-    }
-  };
+  // Load data on component mount
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const handleAddClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleAddClick = () => {
     setIsAddModalOpen(true);
   };
 
   const handleRowClick = async (vmInstance: VmInstance) => {
     setSelectedVmInstance(vmInstance);
-    await fetchAllSoftware(); // Ensure all software list is available
+    await fetchAllSoftware();
     if (vmInstance.vmId !== undefined) {
       await fetchAssignedVmSoftware(vmInstance.vmId);
     }
@@ -121,7 +110,6 @@ export default function VmInstancesList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      // Convert outgoing camelCase keys to snake_case
       const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/vminstances', {
         method: 'POST',
@@ -134,9 +122,8 @@ export default function VmInstancesList() {
         throw new Error(errorData.error || 'Failed to add VM instance');
       }
 
-      // Refresh data - API returns snake_case, convert to camelCase
       const savedData = await response.json();
-      const newVmInstance = keysToCamel<VmInstance>(savedData.vmInstance); // Adjust key if needed
+      const newVmInstance = keysToCamel<VmInstance>(savedData.vmInstance);
       setVmInstances(prev => [...prev, newVmInstance]);
       setIsAddModalOpen(false);
 
@@ -148,12 +135,10 @@ export default function VmInstancesList() {
 
   const handleUpdateVmInstance = async (formData: Record<string, any>) => {
     try {
-      // Ensure vmId is present (camelCase)
       if (!formData.vmId) {
         throw new Error('VM ID is required');
       }
 
-      // Convert outgoing camelCase keys to snake_case
       const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/vminstances', {
         method: 'PUT',
@@ -166,20 +151,18 @@ export default function VmInstancesList() {
         throw new Error(errorData.error || 'Failed to update VM instance');
       }
 
-      // API returns updated record in snake_case, convert to camelCase
       const data = await response.json();
-      const updatedVmInstance = keysToCamel<VmInstance>(data.vmInstance); // Adjust key if needed
+      const updatedVmInstance = keysToCamel<VmInstance>(data.vmInstance);
 
-      // Update local state with camelCase data
       setVmInstances(prev =>
-        prev.map(vmInstance =>
-          vmInstance.vmId === updatedVmInstance.vmId ? updatedVmInstance : vmInstance
+        prev.map(vm =>
+          vm.vmId === updatedVmInstance.vmId ? updatedVmInstance : vm
         )
       );
-
-      // Update selected VM instance with camelCase data
-      setSelectedVmInstance(updatedVmInstance);
-      // setSelectedVmInstance(null); // Optionally close modal
+      
+      if (selectedVmInstance?.vmId === updatedVmInstance.vmId) {
+           setSelectedVmInstance(updatedVmInstance);
+      }
 
     } catch (err) {
       console.error("Failed to update VM instance:", err);
@@ -252,105 +235,101 @@ export default function VmInstancesList() {
     { name: 'vmAddress', label: 'VM Address', type: 'text', required: false, editable: true },
   ];
 
-  return (
-    <div style={{ marginTop: '2rem' }}>
-      <div 
-        style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '0.75rem 1rem', backgroundColor: 'white', borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', cursor: 'pointer',
-          marginBottom: isExpanded ? '0.5rem' : '0', transition: 'background-color 0.2s'
-        }}
-        onClick={toggleExpand}
-        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
-      >
-        <h2 style={{
-          fontSize: '1.25rem', fontWeight: '600', color: '#111827',
-          display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0
-        }}>
-          <HardDrive size={18} />
-          VM Instances {hasLoaded ? `(${vmInstances.length})` : ''}
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {loading && <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', color: '#6b7280' }} />}
-          <button
-            onClick={handleAddClick}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                     width: '24px', height: '24px', borderRadius: '50%', background: '#2563eb',
-                     color: 'white', border: 'none', cursor: 'pointer', padding: 0 }}
-            title="Add new VM instance"
-          >
-            <Plus size={16} />
-          </button>
-          <div style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.2s' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </div>
-        </div>
-      </div>
-      
-      {isExpanded && (
-        <div style={{
-          backgroundColor: 'white', borderRadius: '0 0 0.5rem 0.5rem', padding: '1rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto', transition: 'max-height 0.3s ease-in-out'
-        }}>
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' }}>
-              <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.5rem' }} />
-              <p style={{ margin: 0 }}>Loading VM instances...</p>
-              <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-            </div>
-          ) : error ? (
-            <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' }}>
-              <p>{error}</p>
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>VM Name</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>VM Address</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vmInstances.length === 0 ? (
-                  <tr><td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No VM instances found</td></tr>
-                ) : (
-                  vmInstances.map((vmInstance) => (
-                    <tr key={vmInstance.vmId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => handleRowClick(vmInstance)}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{vmInstance.vmId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{vmInstance.vmName}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{vmInstance.vmAddress || '-'}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+  // --- Styles --- 
+  const styles: { [key: string]: CSSProperties } = {
+    headerContainer: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' },
+    headerTitleContainer: { display: 'flex', alignItems: 'center' },
+    headerIcon: { color: '#0F3460', marginRight: '1rem' },
+    headerTitle: { fontSize: '1.75rem', fontWeight: 'bold', color: '#0F3460', margin: 0 },
+    addButton: { border: 'none', borderRadius: '0.375rem', padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', backgroundColor: '#0F3460', color: 'white' },
+    tableContainer: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto' },
+    loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' },
+    loadingSpinner: { animation: 'spin 1s linear infinite', marginBottom: '0.5rem' },
+    errorContainer: { textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    tableHeaderRow: { borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' },
+    tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
+    tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
+    tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
+    assignmentSection: { marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb', },
+    assignmentTitle: { fontSize: '1rem', fontWeight: 600, color: '#111827', marginBottom: '1rem', },
+    assignmentList: { maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '0.5rem', },
+    assignmentItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', fontSize: '0.875rem', borderBottom: '1px solid #f3f4f6', },
+    assignmentItemLast: { borderBottom: 'none', },
+    assignmentDetails: { display: 'flex', flexDirection: 'column', gap: '0.1rem' },
+    assignmentTextMuted: { fontSize: '0.75rem', color: '#6b7280', }
+  };
 
+  return (
+    <div>
+      {/* Page Header */}
+      <div style={styles.headerContainer}>
+        <div style={styles.headerTitleContainer}>
+          <Cloud size={28} style={styles.headerIcon} />
+          <h1 style={styles.headerTitle}>VM Instances {vmInstances.length > 0 ? `(${vmInstances.length})` : ''}</h1>
+        </div>
+        <button
+          onClick={handleAddClick}
+          style={styles.addButton}
+          title="Add new VM instance"
+        >
+          <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+          Add VM Instance
+        </button>
+      </div>
+
+      {/* Table Container */}
+      <div style={styles.tableContainer}>
+        {loading ? (
+          <div style={styles.loadingContainer}>
+            <RefreshCw size={24} style={styles.loadingSpinner} />
+            <p style={{ margin: 0 }}>Loading VM instances...</p>
+            <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : error ? (
+          <div style={styles.errorContainer}><p>{error}</p></div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.tableHeaderRow}>
+                <th style={styles.tableHeaderCell}>ID</th>
+                <th style={styles.tableHeaderCell}>VM Name</th>
+                <th style={styles.tableHeaderCell}>VM Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vmInstances.length === 0 ? (
+                <tr><td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No VM instances found</td></tr>
+              ) : (
+                vmInstances.map((vmInstance) => (
+                  <tr key={vmInstance.vmId}
+                    style={styles.tableBodyRow}
+                    onClick={() => handleRowClick(vmInstance)}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <td style={styles.tableBodyCell}>{vmInstance.vmId}</td>
+                    <td style={styles.tableBodyCell}>{vmInstance.vmName}</td>
+                    <td style={styles.tableBodyCell}>{vmInstance.vmAddress || '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Modals */} 
       {selectedVmInstance && (
         <EditableDetailsModal
           isOpen={selectedVmInstance !== null}
-          onClose={() => {
-            setSelectedVmInstance(null);
-            setAssignedSoftwareIds([]); // Clear assignments when closing modal
-            setAssignmentError(null); // Clear errors
-          }}
-          title={`VM Instance Details: ${selectedVmInstance.vmName}`}
+          onClose={() => setSelectedVmInstance(null)}
+          title={`VM Details: ${selectedVmInstance.vmName}`}
           data={selectedVmInstance}
           fields={detailsFields}
           onSave={handleUpdateVmInstance}
         >
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem', fontWeight: '600' }}>
-              Assigned Software
-            </h3>
+          <div style={styles.assignmentSection}>
             <ManagePCSwAssignments
               pcId={selectedVmInstance.vmId!}
               allSoftware={allSoftware}

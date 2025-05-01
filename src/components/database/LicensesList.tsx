@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Lock, RefreshCw, Plus } from 'lucide-react';
+import React, { useState, useEffect, CSSProperties } from 'react';
+import { KeyRound, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { License, Software, PcOverview, VmInstance } from '../../types/database';
@@ -35,8 +35,6 @@ export default function LicensesList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedLicense, setSelectedLicense] = useState<License | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [software, setSoftware] = useState<Software[]>([]);
 
@@ -113,7 +111,6 @@ export default function LicensesList() {
   };
 
   const fetchData = async () => {
-    if (hasLoaded) return;
     setLoading(true);
     setError(null);
     try {
@@ -123,7 +120,6 @@ export default function LicensesList() {
       }
       const data = await response.json();
       setLicenses(keysToCamel<License[]>(data.licenses || []));
-      setHasLoaded(true);
     } catch (err) {
       setError('Error loading licenses: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching licenses:', err);
@@ -132,18 +128,17 @@ export default function LicensesList() {
     }
   };
 
-  const toggleExpand = () => {
-    const newExpandedState = !isExpanded;
-    setIsExpanded(newExpandedState);
-    if (newExpandedState && !hasLoaded && !loading) {
-      fetchData();
-      // Don't fetch all related data here, wait until modal opens
-    }
-  };
+  // Load data on component mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchData(); // Fetch main licenses list
+      await fetchRelatedData(); // Fetch related data (including software)
+    };
+    loadInitialData();
+  }, []); // Empty dependency array ensures this runs once on mount
 
-  const handleAddClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    fetchRelatedData(); // Need Software list for Add modal
+  const handleAddClick = () => {
+    // fetchRelatedData(); // No longer needed here, fetched on mount
     setIsAddModalOpen(true);
   };
 
@@ -262,6 +257,8 @@ export default function LicensesList() {
 
   // Helper function to get software name by ID
   const getSoftwareName = (id: number): string => {
+    // Add a check for when software list might still be loading
+    if (software.length === 0 && loading) return 'Loading...'; 
     const sw = software.find(s => s.softwareId === id);
     if (!sw) return `ID: ${id}`; // Fallback if software not found
     return `${sw.softwareName}${sw.majorVersion ? ' ('+sw.majorVersion+')' : ''}`;
@@ -383,123 +380,117 @@ export default function LicensesList() {
   };
   // --- End Assignment Handlers ---
 
-  return (
-    <div style={{ marginTop: '2rem' }}>
-      <div 
-        style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '0.75rem 1rem', backgroundColor: 'white', borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', cursor: 'pointer',
-          marginBottom: isExpanded ? '0.5rem' : '0', transition: 'background-color 0.2s'
-        }}
-        onClick={toggleExpand}
-        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
-      >
-        <h2 style={{
-          fontSize: '1.25rem', fontWeight: '600', color: '#111827',
-          display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0
-        }}>
-          <Lock size={18} />
-          Licenses {hasLoaded ? `(${licenses.length})` : ''}
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {loading && <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', color: '#6b7280' }} />}
-          <button
-            onClick={handleAddClick}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                     width: '24px', height: '24px', borderRadius: '50%', background: '#2563eb',
-                     color: 'white', border: 'none', cursor: 'pointer', padding: 0 }}
-            title="Add new license"
-          >
-            <Plus size={16} />
-          </button>
-          <div style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.2s' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </div>
-        </div>
-      </div>
-      
-      {isExpanded && (
-        <div style={{
-          backgroundColor: 'white', borderRadius: '0 0 0.5rem 0.5rem', padding: '1rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto', transition: 'max-height 0.3s ease-in-out'
-        }}>
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' }}>
-              <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.5rem' }} />
-              <p style={{ margin: 0 }}>Loading licenses...</p>
-              <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-            </div>
-          ) : error ? (
-            <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' }}>
-              <p>{error}</p>
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Software Name</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>License Name</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>License Number</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Type</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Maintenance End</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Owner</th>
-                </tr>
-              </thead>
-              <tbody>
-                {licenses.length === 0 ? (
-                  <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No licenses found</td></tr>
-                ) : (
-                  licenses.map((license) => (
-                    <tr key={license.licenseId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onClick={() => handleRowClick(license)}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{license.licenseId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{getSoftwareName(license.softwareId)}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{license.licenseName || '-'}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{license.licenseNumber || '-'}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{license.licenseType || '-'}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{license.maintenanceEnd || '-'}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{license.owner || '-'}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+  // --- Styles --- 
+  const styles: { [key: string]: CSSProperties } = {
+    headerContainer: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' },
+    headerTitleContainer: { display: 'flex', alignItems: 'center' },
+    headerIcon: { color: '#0F3460', marginRight: '1rem' },
+    headerTitle: { fontSize: '1.75rem', fontWeight: 'bold', color: '#0F3460', margin: 0 },
+    addButton: { border: 'none', borderRadius: '0.375rem', padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', backgroundColor: '#0F3460', color: 'white' },
+    tableContainer: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto' },
+    loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' },
+    loadingSpinner: { animation: 'spin 1s linear infinite', marginBottom: '0.5rem' },
+    errorContainer: { textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    tableHeaderRow: { borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' },
+    tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
+    tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
+    tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
+    // Styles for assignment section in modal
+    assignmentSection: { marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb', },
+  };
 
+  return (
+    <div>
+      {/* Page Header */}
+      <div style={styles.headerContainer}>
+        <div style={styles.headerTitleContainer}>
+          <KeyRound size={28} style={styles.headerIcon} />
+          <h1 style={styles.headerTitle}>Licenses {licenses.length > 0 ? `(${licenses.length})` : ''}</h1>
+        </div>
+        <button
+          onClick={handleAddClick}
+          style={styles.addButton}
+          title="Add new license"
+        >
+          <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+          Add License
+        </button>
+      </div>
+
+      {/* Table Container */}
+      <div style={styles.tableContainer}>
+        {loading ? (
+          <div style={styles.loadingContainer}>
+            <RefreshCw size={24} style={styles.loadingSpinner} />
+            <p style={{ margin: 0 }}>Loading licenses...</p>
+            <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : error ? (
+          <div style={styles.errorContainer}><p>{error}</p></div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.tableHeaderRow}>
+                <th style={styles.tableHeaderCell}>ID</th>
+                <th style={styles.tableHeaderCell}>Software</th>
+                <th style={styles.tableHeaderCell}>License Name</th>
+                <th style={styles.tableHeaderCell}>Type</th>
+                <th style={styles.tableHeaderCell}>License No.</th>
+                <th style={styles.tableHeaderCell}>Dongle No.</th>
+                <th style={styles.tableHeaderCell}>User</th>
+                <th style={styles.tableHeaderCell}>Maintenance End</th>
+              </tr>
+            </thead>
+            <tbody>
+              {licenses.length === 0 ? (
+                <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No licenses found</td></tr>
+              ) : (
+                licenses.map((license) => (
+                  <tr key={license.licenseId}
+                    style={styles.tableBodyRow}
+                    onClick={() => handleRowClick(license)}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <td style={styles.tableBodyCell}>{license.licenseId}</td>
+                    <td style={styles.tableBodyCell}>{getSoftwareName(license.softwareId)}</td>
+                    <td style={styles.tableBodyCell}>{license.licenseName || '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.licenseType || '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.licenseNumber || '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.dongleNumber || '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.licenseUser || '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.maintenanceEnd ? new Date(license.maintenanceEnd).toLocaleDateString() : '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Modals */} 
       {selectedLicense && (
         <EditableDetailsModal
           isOpen={selectedLicense !== null}
-          onClose={() => {
-            setSelectedLicense(null);
-            // Clear assignment state when closing modal
-            setCurrentAssignment(null);
-            setAssignmentError(null);
-          }}
-          title={`License Details: ${selectedLicense.licenseName || getSoftwareName(selectedLicense.softwareId)}`}
+          onClose={() => setSelectedLicense(null)}
+          title={`License Details: ${selectedLicense.licenseName || `ID ${selectedLicense.licenseId}`}`}
           data={selectedLicense}
           fields={detailsFields}
           onSave={handleUpdateLicense}
         >
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem', fontWeight: '600' }}>
-              Assignment
-            </h3>
-            <ManageLicenseAssignment 
-              allPcs={allPcs}
-              allVms={allVms}
-              currentAssignment={currentAssignment}
-              isLoading={assignmentLoading} 
-              error={assignmentError}
-              onAssign={handleAssignLicense}
-              onUnassign={handleUnassignLicense}
-            />
+          {/* Add Assignment Management Section */}
+          <div style={styles.assignmentSection}>
+              <ManageLicenseAssignment
+                  allPcs={allPcs}
+                  allVms={allVms}
+                  currentAssignment={currentAssignment}
+                  isLoading={assignmentLoading}
+                  error={assignmentError}
+                  onAssign={handleAssignLicense}
+                  onUnassign={handleUnassignLicense}
+                  // Pass any necessary styles if ManageLicenseAssignment expects them
+              />
           </div>
         </EditableDetailsModal>
       )}

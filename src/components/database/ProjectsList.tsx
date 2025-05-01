@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Folder, RefreshCw, Plus } from 'lucide-react';
+import React, { useState, useEffect, CSSProperties } from 'react';
+import { ClipboardList, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '@/components/EditableDetailsModal';
 import AddEntryModal from '@/components/AddEntryModal';
 import { Project } from '@/types/database';
@@ -47,12 +47,9 @@ export default function ProjectsList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchData = async () => {
-    if (hasLoaded) return;
     setLoading(true);
     setError(null);
     try {
@@ -63,7 +60,6 @@ export default function ProjectsList() {
       const data = await response.json();
       // Convert incoming snake_case keys to camelCase
       setProjects(keysToCamel<Project[]>(data.projects || []));
-      setHasLoaded(true);
     } catch (err) {
       setError('Error loading projects: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching projects:', err);
@@ -72,16 +68,11 @@ export default function ProjectsList() {
     }
   };
 
-  const toggleExpand = () => {
-    const newExpandedState = !isExpanded;
-    setIsExpanded(newExpandedState);
-    if (newExpandedState && !hasLoaded && !loading) {
-      fetchData();
-    }
-  };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const handleAddClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleAddClick = () => {
     setIsAddModalOpen(true);
   };
 
@@ -148,9 +139,9 @@ export default function ProjectsList() {
       );
 
       // Update selected project with camelCase data
-      setSelectedProject(updatedProject);
-      // Optionally close the modal on successful update
-      // setSelectedProject(null);
+      if (selectedProject?.projectId === updatedProject.projectId) {
+          setSelectedProject(updatedProject);
+      }
 
     } catch (err) {
       console.error("Failed to update project:", err);
@@ -167,163 +158,79 @@ export default function ProjectsList() {
   // Define fields for the editable details modal using camelCase names
   const detailsFields: ModalField[] = [
     { name: 'projectId', label: 'Project ID', type: 'number', editable: false },
-    { name: 'projectNumber', label: 'Project Number', type: 'text', required: true },
-    { name: 'projectName', label: 'Project Name', type: 'text', required: true },
+    { name: 'projectNumber', label: 'Project Number', type: 'text', required: true, editable: true },
+    { name: 'projectName', label: 'Project Name', type: 'text', required: true, editable: true },
   ];
 
+  // --- Styles --- (Adapted from other lists)
+  const styles: { [key: string]: CSSProperties } = {
+    headerContainer: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' },
+    headerTitleContainer: { display: 'flex', alignItems: 'center' },
+    headerIcon: { color: '#0F3460', marginRight: '1rem' },
+    headerTitle: { fontSize: '1.75rem', fontWeight: 'bold', color: '#0F3460', margin: 0 },
+    addButton: { border: 'none', borderRadius: '0.375rem', padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', backgroundColor: '#0F3460', color: 'white' },
+    tableContainer: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto' },
+    loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' },
+    loadingSpinner: { animation: 'spin 1s linear infinite', marginBottom: '0.5rem' },
+    errorContainer: { textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    tableHeaderRow: { borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' },
+    tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
+    tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
+    tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
+  };
+
   return (
-    <div style={{ marginTop: '2rem' }}>
-      <div 
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0.75rem 1rem',
-          backgroundColor: 'white',
-          borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          cursor: 'pointer',
-          marginBottom: isExpanded ? '0.5rem' : '0',
-          transition: 'background-color 0.2s'
-        }}
-        onClick={toggleExpand}
-        onMouseOver={(e) => {
-          e.currentTarget.style.backgroundColor = '#f9fafb';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.backgroundColor = 'white';
-        }}
-      >
-        <h2 style={{
-          fontSize: '1.25rem',
-          fontWeight: '600',
-          color: '#111827',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          margin: 0
-        }}>
-          <Folder size={18} />
-          Projects {hasLoaded ? `(${projects.length})` : ''}
-        </h2>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          {loading && (
-            <RefreshCw size={16} style={{ 
-              animation: 'spin 1s linear infinite',
-              color: '#6b7280'
-            }} />
-          )}
-          <button
-            onClick={handleAddClick}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              background: '#2563eb',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-            }}
-            title="Add new project"
-          >
-            <Plus size={16} />
-          </button>
-          <div style={{
-            transform: `rotate(${isExpanded ? 180 : 0}deg)`,
-            transition: 'transform 0.2s'
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-        </div>
-      </div>
-      
-      {isExpanded && (
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '0 0 0.5rem 0.5rem',
-          padding: '1rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          overflowX: 'auto',
-          transition: 'max-height 0.3s ease-in-out'
-        }}>
+    <div>
+       {/* Page Header */}
+       <div style={styles.headerContainer}>
+         <div style={styles.headerTitleContainer}>
+           <ClipboardList size={28} style={styles.headerIcon} />
+           <h1 style={styles.headerTitle}>Projects {projects.length > 0 ? `(${projects.length})` : ''}</h1>
+         </div>
+         <button
+           onClick={handleAddClick}
+           style={styles.addButton}
+           title="Add new project"
+         >
+           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+           Add Project
+         </button>
+       </div>
+
+       {/* Table Container */}
+       <div style={styles.tableContainer}>
           {loading ? (
-            <div style={{ 
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '2rem',
-              color: '#6b7280'
-            }}>
-              <RefreshCw size={24} style={{ 
-                animation: 'spin 1s linear infinite',
-                marginBottom: '0.5rem'
-              }} />
+            <div style={styles.loadingContainer}>
+              <RefreshCw size={24} style={styles.loadingSpinner} />
               <p style={{ margin: 0 }}>Loading projects...</p>
-              <style jsx>{`
-                @keyframes spin {
-                  from { transform: rotate(0deg); }
-                  to { transform: rotate(360deg); }
-                }
-              `}</style>
+              <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : error ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '1rem',
-              backgroundColor: '#fee2e2',
-              color: '#b91c1c',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem'
-            }}>
-              <p>{error}</p>
-            </div>
+            <div style={styles.errorContainer}><p>{error}</p></div>
           ) : (
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse'
-            }}>
+            <table style={styles.table}>
               <thead>
-                <tr style={{
-                  borderBottom: '1px solid #e5e7eb',
-                  backgroundColor: '#f9fafb'
-                }}>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Project Number</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Project Name</th>
+                <tr style={styles.tableHeaderRow}>
+                  <th style={styles.tableHeaderCell}>ID</th>
+                  <th style={styles.tableHeaderCell}>Project Number</th>
+                  <th style={styles.tableHeaderCell}>Project Name</th>
                 </tr>
               </thead>
               <tbody>
                 {projects.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No projects found</td>
-                  </tr>
+                  <tr><td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No projects found</td></tr>
                 ) : (
                   projects.map((project) => (
-                    <tr key={project.projectId} style={{
-                      borderBottom: '1px solid #e5e7eb',
-                      transition: 'background-color 0.2s',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => setSelectedProject(project)} // Use camelCase data
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f9fafb';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{project.projectId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{project.projectNumber}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{project.projectName}</td>
+                    <tr key={project.projectId}
+                      style={styles.tableBodyRow}
+                      onClick={() => setSelectedProject(project)} // Set selected for modal
+                      onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <td style={styles.tableBodyCell}>{project.projectId}</td>
+                      <td style={styles.tableBodyCell}>{project.projectNumber}</td>
+                      <td style={styles.tableBodyCell}>{project.projectName}</td>
                     </tr>
                   ))
                 )}
@@ -331,16 +238,16 @@ export default function ProjectsList() {
             </table>
           )}
         </div>
-      )}
-
+      
+      {/* Modals */} 
       {selectedProject && (
         <EditableDetailsModal
           isOpen={selectedProject !== null}
           onClose={() => setSelectedProject(null)}
-          title={`Project Details: ${selectedProject.projectName}`} // Use camelCase
-          data={selectedProject} // Pass camelCase data
-          fields={detailsFields} // Pass camelCase fields
-          onSave={handleUpdateProject} // Handler expects camelCase, converts to snake_case
+          title={`Project Details: ${selectedProject.projectName}`}
+          data={selectedProject}
+          fields={detailsFields}
+          onSave={handleUpdateProject}
         />
       )}
 
@@ -349,8 +256,8 @@ export default function ProjectsList() {
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           title="Add New Project"
-          fields={addEntryFields} // Pass camelCase fields
-          onSave={handleSaveEntry} // Handler expects camelCase, converts to snake_case
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
         />
       )}
     </div>

@@ -72,8 +72,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main style={{
           flex: 1,
           padding: '2rem', 
-          backgroundColor: '#f8fafc', // Same as database page content area
-          overflowY: 'auto' // Ensure content scrolls if it overflows
+          backgroundColor: '#f8fafc',
+          overflowY: 'auto', // Ensure content scrolls if it overflows
+          height: 'calc(100vh - 64px)' // Explicit height (adjust 64px if header height differs)
         }}>
           {children}
         </main>

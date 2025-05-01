@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Microchip, RefreshCw, Plus } from 'lucide-react';
+import React, { useState, useEffect, CSSProperties } from 'react';
+import { CircuitBoard, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { HilTechnology, TestBench } from '../../types/database';
@@ -24,13 +24,12 @@ export default function HilTechnologyList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTechnology, setSelectedTechnology] = useState<HilTechnology | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [testBenches, setTestBenches] = useState<TestBench[]>([]); // State for related TestBenches
 
   // Fetch related TestBench data for dropdowns
   const fetchRelatedData = async () => {
+    if (testBenches.length > 0) return;
     try {
       const response = await fetch('/api/testbenches');
       if (response.ok) {
@@ -47,17 +46,15 @@ export default function HilTechnologyList() {
   };
 
   const fetchData = async () => {
-    if (hasLoaded) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/hiltechnology'); // Changed endpoint
+      const response = await fetch('/api/hiltechnology');
       if (!response.ok) {
         throw new Error('Failed to fetch HIL technology');
       }
       const data = await response.json();
-      setHilTechnology(keysToCamel<HilTechnology[]>(data.technology || [])); // Changed data.hilTechnology to data.technology
-      setHasLoaded(true);
+      setHilTechnology(keysToCamel<HilTechnology[]>(data.technology || []));
     } catch (err) {
       setError('Error loading HIL technology: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching HIL technology:', err);
@@ -66,29 +63,29 @@ export default function HilTechnologyList() {
     }
   };
 
-  const toggleExpand = () => {
-    const newExpandedState = !isExpanded;
-    setIsExpanded(newExpandedState);
-    if (newExpandedState && !hasLoaded && !loading) {
-      fetchData();
-    }
-  };
+  // Fetch data on mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchData(); // Fetch main technology list
+      await fetchRelatedData(); // Fetch related test benches
+    };
+    loadInitialData();
+  }, []);
 
-  const handleAddClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    fetchRelatedData();
+  const handleAddClick = () => {
+    // fetchRelatedData(); // No longer needed here
     setIsAddModalOpen(true);
   };
 
   const handleRowClick = (tech: HilTechnology) => {
-      fetchRelatedData();
+      // fetchRelatedData(); // No longer needed here
       setSelectedTechnology(tech);
   }
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hiltechnology', { // Changed endpoint
+      const response = await fetch('/api/hiltechnology', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -100,7 +97,7 @@ export default function HilTechnologyList() {
       }
 
       const savedData = await response.json();
-      const newTechnology = keysToCamel<HilTechnology>(savedData.technology); // Changed savedData.hilTechnology to savedData.technology
+      const newTechnology = keysToCamel<HilTechnology>(savedData.technology);
       setHilTechnology(prev => [...prev, newTechnology]);
       setIsAddModalOpen(false);
 
@@ -112,12 +109,12 @@ export default function HilTechnologyList() {
 
   const handleUpdateTechnology = async (formData: Record<string, any>) => {
     try {
-      if (!formData.techId) { // Check camelCase ID
+      if (!formData.techId) {
         throw new Error('Technology ID is required');
       }
 
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/hiltechnology', { // Changed endpoint
+      const response = await fetch('/api/hiltechnology', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
@@ -129,15 +126,16 @@ export default function HilTechnologyList() {
       }
 
       const data = await response.json();
-      const updatedTechnology = keysToCamel<HilTechnology>(data.technology); // Changed data.hilTechnology to data.technology
+      const updatedTechnology = keysToCamel<HilTechnology>(data.technology);
 
       setHilTechnology(prev =>
         prev.map(tech =>
           tech.techId === updatedTechnology.techId ? updatedTechnology : tech
         )
       );
-      setSelectedTechnology(updatedTechnology);
-      // setSelectedTechnology(null); // Optionally close
+      if (selectedTechnology?.techId === updatedTechnology.techId) {
+           setSelectedTechnology(updatedTechnology);
+      }
 
     } catch (err) {
       console.error("Failed to update HIL technology:", err);
@@ -152,11 +150,11 @@ export default function HilTechnologyList() {
       label: 'Test Bench',
       type: 'select',
       required: true,
-      options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      options: [
+          { value: '', label: 'Select a Bench' },
+          ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      ]
     },
-    // benchId select will populate hilName automatically based on selection in the API/backend ideally
-    // If not, hilName might need to be set based on benchId selection or be a read-only field populated after selection
-    // { name: 'hilName', label: 'HIL Name', type: 'text', required: true, editable: false }, 
     { name: 'fiuInfo', label: 'FIU Info', type: 'text' },
     { name: 'ioInfo', label: 'I/O Info', type: 'text' },
     { name: 'canInterface', label: 'CAN Interface', type: 'text' },
@@ -173,7 +171,10 @@ export default function HilTechnologyList() {
       type: 'select',
       required: true,
       editable: true,
-      options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      options: [
+        { value: '', label: 'Select a Bench' },
+        ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      ]
     },
     { name: 'fiuInfo', label: 'FIU Info', type: 'text', editable: true },
     { name: 'ioInfo', label: 'I/O Info', type: 'text', editable: true },
@@ -183,106 +184,107 @@ export default function HilTechnologyList() {
     { name: 'leakageModule', label: 'Leakage Module', type: 'text', editable: true },
   ];
 
-  return (
-    <div style={{ marginTop: '2rem' }}>
-      <div 
-        style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '0.75rem 1rem', backgroundColor: 'white', borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', cursor: 'pointer',
-          marginBottom: isExpanded ? '0.5rem' : '0', transition: 'background-color 0.2s'
-        }}
-        onClick={toggleExpand}
-        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
-      >
-        <h2 style={{
-          fontSize: '1.25rem', fontWeight: '600', color: '#111827',
-          display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0
-        }}>
-          <Microchip size={18} />
-          HIL Technology {hasLoaded ? `(${hilTechnology.length})` : ''}
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {loading && <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', color: '#6b7280' }} />}
-          <button
-            onClick={handleAddClick}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                     width: '24px', height: '24px', borderRadius: '50%', background: '#2563eb',
-                     color: 'white', border: 'none', cursor: 'pointer', padding: 0 }}
-            title="Add new HIL technology"
-          >
-            <Plus size={16} />
-          </button>
-          <div style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: 'transform 0.2s' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </div>
-        </div>
-      </div>
-      
-      {isExpanded && (
-        <div style={{
-          backgroundColor: 'white', borderRadius: '0 0 0.5rem 0.5rem', padding: '1rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto', transition: 'max-height 0.3s ease-in-out'
-        }}>
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' }}>
-              <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.5rem' }} />
-              <p style={{ margin: 0 }}>Loading HIL technology...</p>
-              <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-            </div>
-          ) : error ? (
-            <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' }}>
-              <p>{error}</p>
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                  {/* Adjust headers based on desired display columns */}
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>HIL Name</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>FIU Info</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>I/O Info</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>CAN Interface</th>
-                </tr>
-              </thead>
-              <tbody>
-                {hilTechnology.length === 0 ? (
-                  <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL technology found</td></tr>
-                ) : (
-                  hilTechnology.map((tech) => {
-                    // Find the associated test bench name
-                    const hilName = testBenches.find(tb => tb.benchId === tech.benchId)?.hilName || 'N/A';
-                    
-                    return (
-                      <tr key={tech.techId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                          onClick={() => handleRowClick(tech)}
-                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                        {/* Display relevant columns */}
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.techId}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{hilName}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.fiuInfo || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.ioInfo || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{tech.canInterface || '-'}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+  // Helper to get bench name (consider memoization)
+  const getBenchName = (id: number | undefined): string => {
+      if (id === undefined) return 'N/A';
+      // Add loading check
+      if (testBenches.length === 0 && loading) return 'Loading...'; 
+      return testBenches.find(b => b.benchId === id)?.hilName || 'Unknown';
+  }
 
+  // --- Styles --- 
+  const styles: { [key: string]: CSSProperties } = {
+    headerContainer: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' },
+    headerTitleContainer: { display: 'flex', alignItems: 'center' },
+    headerIcon: { color: '#0F3460', marginRight: '1rem' },
+    headerTitle: { fontSize: '1.75rem', fontWeight: 'bold', color: '#0F3460', margin: 0 },
+    addButton: { border: 'none', borderRadius: '0.375rem', padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', backgroundColor: '#0F3460', color: 'white' },
+    tableContainer: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto' },
+    loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' },
+    loadingSpinner: { animation: 'spin 1s linear infinite', marginBottom: '0.5rem' },
+    errorContainer: { textAlign: 'center', padding: '1rem', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '0.5rem', fontSize: '0.875rem' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    tableHeaderRow: { borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' },
+    tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
+    tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
+    tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
+  };
+
+  return (
+    <div>
+      {/* Page Header */}
+      <div style={styles.headerContainer}>
+        <div style={styles.headerTitleContainer}>
+          <CircuitBoard size={28} style={styles.headerIcon} />
+          <h1 style={styles.headerTitle}>HIL Technology {hilTechnology.length > 0 ? `(${hilTechnology.length})` : ''}</h1>
+        </div>
+        <button
+          onClick={handleAddClick}
+          style={styles.addButton}
+          title="Add new HIL technology"
+        >
+          <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+          Add Technology
+        </button>
+      </div>
+
+      {/* Table Container */}
+      <div style={styles.tableContainer}>
+        {loading ? (
+          <div style={styles.loadingContainer}>
+            <RefreshCw size={24} style={styles.loadingSpinner} />
+            <p style={{ margin: 0 }}>Loading HIL technology...</p>
+            <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : error ? (
+          <div style={styles.errorContainer}><p>{error}</p></div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.tableHeaderRow}>
+                <th style={styles.tableHeaderCell}>Tech ID</th>
+                <th style={styles.tableHeaderCell}>HIL Name</th>
+                <th style={styles.tableHeaderCell}>FIU Info</th>
+                <th style={styles.tableHeaderCell}>I/O Info</th>
+                <th style={styles.tableHeaderCell}>CAN Interface</th>
+                <th style={styles.tableHeaderCell}>Power Interface</th>
+                <th style={styles.tableHeaderCell}>Leakage Module</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hilTechnology.length === 0 ? (
+                <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL technology found</td></tr>
+              ) : (
+                hilTechnology.map((tech) => (
+                  <tr key={tech.techId}
+                    style={styles.tableBodyRow}
+                    onClick={() => handleRowClick(tech)}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <td style={styles.tableBodyCell}>{tech.techId}</td>
+                    <td style={styles.tableBodyCell}>{getBenchName(tech.benchId)}</td> 
+                    <td style={styles.tableBodyCell}>{tech.fiuInfo || '-'}</td>
+                    <td style={styles.tableBodyCell}>{tech.ioInfo || '-'}</td>
+                    <td style={styles.tableBodyCell}>{tech.canInterface || '-'}</td>
+                    <td style={styles.tableBodyCell}>{tech.powerInterface || '-'}</td>
+                    <td style={styles.tableBodyCell}>{tech.leakageModule || '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Modals */} 
       {selectedTechnology && (
         <EditableDetailsModal
           isOpen={selectedTechnology !== null}
           onClose={() => setSelectedTechnology(null)}
-          title={`HIL Technology for Bench: ${testBenches.find(tb => tb.benchId === selectedTechnology.benchId)?.hilName || selectedTechnology.benchId}`}
+          title={`HIL Technology Details (Bench: ${getBenchName(selectedTechnology.benchId)})`}
           data={selectedTechnology}
-          fields={detailsFields} // Ensure options are populated
+          fields={detailsFields}
           onSave={handleUpdateTechnology}
         />
       )}
@@ -292,7 +294,7 @@ export default function HilTechnologyList() {
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           title="Add New HIL Technology"
-          fields={addEntryFields} // Ensure options are populated
+          fields={addEntryFields}
           onSave={handleSaveEntry}
         />
       )}

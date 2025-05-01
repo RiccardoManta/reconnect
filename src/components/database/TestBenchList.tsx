@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Server, RefreshCw, Plus } from 'lucide-react';
-import EditableDetailsModal from '@/components/EditableDetailsModal'; 
-import AddEntryModal from '@/components/AddEntryModal'; 
-import { TestBench, User, Project } from '@/types/database'; 
+import React, { useState, useEffect, CSSProperties } from 'react';
+import { Server, RefreshCw, PlusCircle } from 'lucide-react';
+import EditableDetailsModal from '@/components/EditableDetailsModal';
+import AddEntryModal from '@/components/AddEntryModal';
+import { TestBench, User, Project } from '@/types/database';
 import { keysToCamel, keysToSnake } from '@/utils/caseConverter';
 
 // Define field types for modals (can be moved to a shared types file later)
@@ -47,8 +47,6 @@ export default function TestBenchList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTestBench, setSelectedTestBench] = useState<TestBench | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -93,7 +91,6 @@ export default function TestBenchList() {
   };
 
   const fetchData = async () => {
-    if (hasLoaded) return;
     setLoading(true);
     setError(null); // Clear previous errors
     try {
@@ -104,7 +101,6 @@ export default function TestBenchList() {
       const data = await response.json();
       // Convert incoming snake_case keys to camelCase
       setTestBenches(keysToCamel<TestBench[]>(data.testBenches || []));
-      setHasLoaded(true);
     } catch (err) {
       setError('Error loading test benches: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching test benches:', err);
@@ -113,18 +109,23 @@ export default function TestBenchList() {
     }
   };
 
-  const toggleExpand = () => {
-    const newExpandedState = !isExpanded;
-    setIsExpanded(newExpandedState);
-    if (newExpandedState && !hasLoaded && !loading) {
-      fetchData();
-    }
+  // Load data on component mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchData(); // Fetch main test benches
+      await fetchRelatedData(); // Fetch related users, projects, types
+    };
+    loadInitialData();
+  }, []);
+
+  const handleAddClick = () => {
+    // fetchRelatedData(); // No longer needed here
+    setIsAddModalOpen(true);
   };
 
-  const handleAddClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    fetchRelatedData(); // Fetch users and projects for dropdowns
-    setIsAddModalOpen(true);
+  const handleRowClick = (bench: TestBench) => {
+    // fetchRelatedData(); // No longer needed here
+    setSelectedTestBench(bench);
   };
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
@@ -146,7 +147,7 @@ export default function TestBenchList() {
 
       // Refresh data - API returns snake_case, convert to camelCase
       // No need to call fetchData() again, just update state with new data
-      const savedData = await response.json(); 
+      const savedData = await response.json();
       const newBench = keysToCamel<TestBench>(savedData.testBench);
       setTestBenches(prev => [...prev, newBench]);
       setIsAddModalOpen(false); // Close modal on success
@@ -154,7 +155,7 @@ export default function TestBenchList() {
     } catch (err) {
        console.error("Failed to save entry:", err);
        // Let the modal handle displaying the error
-       throw err; 
+       throw err;
     }
   };
 
@@ -202,7 +203,7 @@ export default function TestBenchList() {
     } catch (err) {
       console.error("Failed to update test bench:", err);
       // Let the modal handle displaying the error
-      throw err; 
+      throw err;
     }
   };
 
@@ -283,215 +284,221 @@ export default function TestBenchList() {
     },
   ];
 
+  // Explicitly type the styles object
+  const styles: { [key: string]: CSSProperties } = {
+    headerContainer: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: '2rem'
+    },
+    headerTitleContainer: {
+      display: 'flex',
+      alignItems: 'center'
+    },
+    headerIcon: {
+      color: '#0F3460',
+      marginRight: '1rem'
+    },
+    headerTitle: {
+      fontSize: '1.75rem',
+      fontWeight: 'bold',
+      color: '#0F3460',
+      margin: 0
+    },
+    addButton: {
+      border: 'none',
+      borderRadius: '0.375rem',
+      padding: '0.5rem 0.75rem',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '0.875rem',
+      fontWeight: 500,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+      backgroundColor: '#0F3460',
+      color: 'white',
+    },
+    tableContainer: {
+      backgroundColor: 'white',
+      borderRadius: '0.5rem',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+      overflowX: 'auto', // Type compatibility ensured by CSSProperties
+    },
+     loadingContainer: {
+        display: 'flex',
+        flexDirection: 'column', // No longer needs 'as const'
+        alignItems: 'center',
+        padding: '2rem',
+        color: '#6b7280'
+      },
+      loadingSpinner: {
+        animation: 'spin 1s linear infinite',
+        marginBottom: '0.5rem'
+      },
+      errorContainer: {
+        textAlign: 'center', // No longer needs 'as const'
+        padding: '1rem',
+        backgroundColor: '#fee2e2',
+        color: '#b91c1c',
+        borderRadius: '0.5rem',
+        fontSize: '0.875rem'
+      },
+      table: {
+        width: '100%',
+        borderCollapse: 'collapse' // No longer needs 'as const'
+      },
+      tableHeaderRow: {
+        borderBottom: '1px solid #e5e7eb',
+        backgroundColor: '#f9fafb'
+      },
+      tableHeaderCell: {
+        padding: '0.75rem 1rem',
+        textAlign: 'left', // No longer needs 'as const'
+        fontSize: '0.875rem',
+        fontWeight: 600, // Use number for fontWeight
+        color: '#4b5563'
+      },
+      tableBodyRow: {
+        borderBottom: '1px solid #e5e7eb',
+        transition: 'background-color 0.2s',
+        cursor: 'pointer'
+      },
+      tableBodyCell: {
+        padding: '0.75rem 1rem',
+        fontSize: '0.875rem',
+        color: '#111827'
+      }
+  };
 
-  // JSX remains largely the same, but references camelCase properties
   return (
-     <div style={{ marginTop: '2rem' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0.75rem 1rem',
-          backgroundColor: 'white',
-          borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          cursor: 'pointer',
-          marginBottom: isExpanded ? '0.5rem' : '0',
-          transition: 'background-color 0.2s'
-        }}
-        onClick={toggleExpand}
-        onMouseOver={(e) => {
-          e.currentTarget.style.backgroundColor = '#f9fafb';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.backgroundColor = 'white';
-        }}
-      >
-        <h2 style={{
-          fontSize: '1.25rem',
-          fontWeight: '600',
-          color: '#111827',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          margin: 0
-        }}>
-          <Server size={18} />
-          Test Benches {hasLoaded ? `(${testBenches.length})` : ''}
-        </h2>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          {loading && (
-            <RefreshCw size={16} style={{ 
-              animation: 'spin 1s linear infinite',
-              color: '#6b7280'
-            }} />
-          )}
-          <button
-            onClick={handleAddClick}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              background: '#2563eb',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-            }}
-            title="Add new test bench"
-          >
-            <Plus size={16} />
-          </button>
-          <div style={{
-            transform: `rotate(${isExpanded ? 180 : 0}deg)`,
-            transition: 'transform 0.2s'
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-        </div>
-      </div>
-      
-      {isExpanded && (
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '0 0 0.5rem 0.5rem',
-          padding: '1rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          overflowX: 'auto',
-          transition: 'max-height 0.3s ease-in-out'
-        }}>
+     <div>
+       {/* Page Header */}
+       <div style={styles.headerContainer}>
+         <div style={styles.headerTitleContainer}>
+           {/* Use Server Icon */}
+           <Server size={28} style={styles.headerIcon} />
+           {/* Update Title */}
+           <h1 style={styles.headerTitle}>
+             Test Benches {testBenches.length > 0 ? `(${testBenches.length})` : ''}
+           </h1>
+         </div>
+         {/* Add Test Bench Button */}
+         <button
+           onClick={handleAddClick} // Use updated handler
+           style={styles.addButton}
+           title="Add new test bench"
+         >
+           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+           Add Test Bench
+         </button>
+       </div>
+
+      {/* Table Container - No longer conditional */}
+       <div style={styles.tableContainer}>
           {loading ? (
-             <div style={{ 
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '2rem',
-              color: '#6b7280'
-            }}>
-              <RefreshCw size={24} style={{ 
-                animation: 'spin 1s linear infinite',
-                marginBottom: '0.5rem'
-              }} />
-              <p style={{ margin: 0 }}>Loading test benches...</p>
-              {/* Keep keyframes style block if needed */}
-              <style jsx>{`
-                @keyframes spin {
-                  from { transform: rotate(0deg); }
-                  to { transform: rotate(360deg); }
-                }
-              `}</style>
-            </div>
-          ) : error ? (
-             <div style={{ 
-              textAlign: 'center', 
-              padding: '1rem',
-              backgroundColor: '#fee2e2',
-              color: '#b91c1c',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem'
-            }}>
-              <p>{error}</p>
-            </div>
-          ) : (
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse'
-            }}>
-              <thead>
-                <tr style={{
-                  borderBottom: '1px solid #e5e7eb',
-                  backgroundColor: '#f9fafb'
-                }}>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>HIL Name</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>PP Number</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>System Type</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Usage Period</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Location</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Inv. Number</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>E-Plan</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>User</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Project</th>
-                </tr>
-              </thead>
-              <tbody>
-                {testBenches.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No test benches found</td>
-                  </tr>
-                ) : (
-                  testBenches.map((bench) => {
-                    // Find user and project names based on IDs
-                    const userName = users.find(u => u.userId === bench.userId)?.userName || 'N/A';
-                    const projectName = projects.find(p => p.projectId === bench.projectId)?.projectName || 'N/A';
-                    
-                    return (
-                      <tr key={bench.benchId} style={{
-                      borderBottom: '1px solid #e5e7eb',
-                      transition: 'background-color 0.2s',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => {
-                        fetchRelatedData();
-                        setSelectedTestBench(bench);
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f9fafb';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.benchId}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.hilName}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.ppNumber || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.systemType || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.usagePeriod || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.location || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.inventoryNumber || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{bench.eplan || '-'}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{userName}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{projectName}</td>
-                    </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
+             <div style={styles.loadingContainer}>
+               <RefreshCw size={24} style={styles.loadingSpinner} />
+               <p style={{ margin: 0 }}>Loading test benches...</p>
+               <style jsx>{`
+                 @keyframes spin {
+                   from { transform: rotate(0deg); }
+                   to { transform: rotate(360deg); }
+                 }
+               `}</style>
+             </div>
+           ) : error ? (
+             <div style={styles.errorContainer}>
+               <p>{error}</p>
+             </div>
+           ) : (
+             <table style={styles.table}>
+               <thead>
+                 <tr style={styles.tableHeaderRow}>
+                   {/* Use style objects for header cells */}
+                   <th style={styles.tableHeaderCell}>ID</th>
+                   <th style={styles.tableHeaderCell}>HIL Name</th>
+                   <th style={styles.tableHeaderCell}>PP Number</th>
+                   <th style={styles.tableHeaderCell}>System Type</th>
+                   <th style={styles.tableHeaderCell}>Bench Type</th> {/* Added Bench Type Header */}
+                   <th style={styles.tableHeaderCell}>Acquisition Date</th> {/* Added Acq Date Header */}
+                   <th style={styles.tableHeaderCell}>Usage Period</th>
+                   <th style={styles.tableHeaderCell}>Location</th>
+                   <th style={styles.tableHeaderCell}>Inv. Number</th>
+                   <th style={styles.tableHeaderCell}>E-Plan</th>
+                   <th style={styles.tableHeaderCell}>User</th>
+                   <th style={styles.tableHeaderCell}>Project</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {testBenches.length === 0 ? (
+                   <tr>
+                     {/* Update colspan */}
+                     <td colSpan={12} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No test benches found</td>
+                   </tr>
+                 ) : (
+                   testBenches.map((bench) => {
+                     // Find user and project names based on IDs
+                     const userName = (users.length === 0 && loading) ? 'Loading...' : (users.find(u => u.userId === bench.userId)?.userName || 'N/A');
+                     const projectName = (projects.length === 0 && loading) ? 'Loading...' : (projects.find(p => p.projectId === bench.projectId)?.projectName || 'N/A');
+
+                     // Format date if it exists
+                     const formattedAcquisitionDate = bench.acquisitionDate
+                       ? new Date(bench.acquisitionDate).toLocaleDateString()
+                       : '-';
+
+                     return (
+                       <tr key={bench.benchId}
+                         style={styles.tableBodyRow}
+                         onClick={() => {
+                             handleRowClick(bench);
+                         }}
+                         onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                         onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                       >
+                         {/* Use style objects for body cells */}
+                         <td style={styles.tableBodyCell}>{bench.benchId}</td>
+                         <td style={styles.tableBodyCell}>{bench.hilName}</td>
+                         <td style={styles.tableBodyCell}>{bench.ppNumber || '-'}</td>
+                         <td style={styles.tableBodyCell}>{bench.systemType || '-'}</td>
+                         <td style={styles.tableBodyCell}>{bench.benchType || '-'}</td> {/* Added Bench Type Cell */}
+                         <td style={styles.tableBodyCell}>{formattedAcquisitionDate}</td> {/* Added Acq Date Cell */}
+                         <td style={styles.tableBodyCell}>{bench.usagePeriod || '-'}</td>
+                         <td style={styles.tableBodyCell}>{bench.location || '-'}</td>
+                         <td style={styles.tableBodyCell}>{bench.inventoryNumber || '-'}</td>
+                         <td style={styles.tableBodyCell}>{bench.eplan || '-'}</td>
+                         <td style={styles.tableBodyCell}>{userName}</td>
+                         <td style={styles.tableBodyCell}>{projectName}</td>
+                       </tr>
+                     );
+                   })
+                 )}
+               </tbody>
+             </table>
+           )}
         </div>
-      )}
 
-      {/* Modals: Pass camelCase data and fields */} 
-      {selectedTestBench && (
-        <EditableDetailsModal
-          isOpen={selectedTestBench !== null}
-          onClose={() => setSelectedTestBench(null)}
-          title={`Test Bench Details: ${selectedTestBench.hilName}`}
-          data={selectedTestBench}
-          fields={detailsFields}
-          onSave={handleUpdateTestBench}
-        />
-      )}
+       {/* Modals: Pass camelCase data and fields */}
+       {selectedTestBench && (
+         <EditableDetailsModal
+           isOpen={selectedTestBench !== null}
+           onClose={() => setSelectedTestBench(null)}
+           title={`Test Bench Details: ${selectedTestBench.hilName}`}
+           data={selectedTestBench}
+           fields={detailsFields}
+           onSave={handleUpdateTestBench}
+         />
+       )}
 
-      {isAddModalOpen && (
-        <AddEntryModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          title="Add New Test Bench"
-          fields={addEntryFields}
-          onSave={handleSaveEntry}
-        />
-      )}
-    </div>
+       {isAddModalOpen && (
+         <AddEntryModal
+           isOpen={isAddModalOpen}
+           onClose={() => setIsAddModalOpen(false)}
+           title="Add New Test Bench"
+           fields={addEntryFields}
+           onSave={handleSaveEntry}
+         />
+       )}
+     </div>
   );
 } 

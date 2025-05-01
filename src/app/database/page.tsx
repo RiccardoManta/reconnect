@@ -1,39 +1,84 @@
 'use client';
 
-import React, { useState, useEffect } from 'react'; // Added useState, useEffect
-import { useSession } from 'next-auth/react'; // Added useSession
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { useSession } from 'next-auth/react';
 import Header from '@/components/layout/Header';
-import { Database as DatabaseIcon, Table, Server, Lock, AlertTriangle, Loader2 } from 'lucide-react'; // Added AlertTriangle, Loader2
+// Import necessary icons for sidebar and loading/error states
+import { 
+    Database as DatabaseIcon, 
+    Server, // TestBenches
+    Users, // Users
+    ClipboardList, // Projects, ProjectOverview
+    Package, // Software
+    Cpu, // PcOverview
+    Archive, // ModelStands
+    TestTube, // Wetbenches
+    CircuitBoard, // HilTechnology, HardwareInstallation
+    SlidersHorizontal, // HilOperation
+    KeyRound, // Licenses
+    Cloud, // VmInstances
+    AlertTriangle, 
+    Loader2,
+    Settings,
+    CheckSquare,
+    Activity,
+    Wrench,
+    FileText,
+    Gauge
+} from 'lucide-react'; 
 
-// Import all refactored list components
-import TestBenchList from '@/components/database/TestBenchList'; 
-import ProjectsList from '@/components/database/ProjectsList'; 
-import UsersList from '@/components/database/UsersList';
-import LicensesList from '@/components/database/LicensesList';
-import VmInstancesList from '@/components/database/VmInstancesList';
-import ModelStandsList from '@/components/database/ModelStandsList';
-import WetbenchesList from '@/components/database/WetbenchesList';
-import HilTechnologyList from '@/components/database/HilTechnologyList';
-import HilOperationList from '@/components/database/HilOperationList';
-import HardwareInstallationList from '@/components/database/HardwareInstallationList';
-import PcOverviewList from '@/components/database/PcOverviewList';
-import ProjectOverviewList from '@/components/database/ProjectOverviewList';
-import SoftwareList from '@/components/database/SoftwareList';
+// Lazy load components
+const TestBenchList = lazy(() => import('@/components/database/TestBenchList'));
+const PcOverviewList = lazy(() => import('@/components/database/PcOverviewList'));
+const ProjectsList = lazy(() => import('@/components/database/ProjectsList'));
+const UsersList = lazy(() => import('@/components/database/UsersList'));
+const SoftwareList = lazy(() => import('@/components/database/SoftwareList'));
+const ModelStandsList = lazy(() => import('@/components/database/ModelStandsList'));
+const VmInstancesList = lazy(() => import('@/components/database/VmInstancesList'));
+const LicensesList = lazy(() => import('@/components/database/LicensesList'));
+const WetbenchesList = lazy(() => import('@/components/database/WetbenchesList'));
+const HilTechnologyList = lazy(() => import('@/components/database/HilTechnologyList'));
+const HilOperationList = lazy(() => import('@/components/database/HilOperationList'));
+const HardwareInstallationList = lazy(() => import('@/components/database/HardwareInstallationList'));
+const ProjectOverviewList = lazy(() => import('@/components/database/ProjectOverviewList'));
 
-// Removed all original List function definitions (UsersList, LicensesList, etc.)
-// Removed imports for specific database types (TestBench, Project, etc.)
-// Removed modal imports (DetailsModal, AddEntryModal, EditableDetailsModal)
+// Type definition for table configuration
+interface TableConfig {
+    key: string;
+    name: string;
+    icon: React.ElementType;
+    component: React.ElementType;
+}
+
+// Configuration for the sidebar navigation
+const tableConfig: TableConfig[] = [
+    { key: 'TestBenches', name: 'Test Benches', icon: Server, component: TestBenchList },
+    { key: 'PcOverview', name: 'PC Overview', icon: Settings, component: PcOverviewList },
+    { key: 'Projects', name: 'Projects', icon: FileText, component: ProjectsList },
+    { key: 'Users', name: 'Users', icon: Users, component: UsersList },
+    { key: 'Software', name: 'Software', icon: CheckSquare, component: SoftwareList },
+    { key: 'ModelStands', name: 'Model Stands', icon: DatabaseIcon, component: ModelStandsList },
+    { key: 'VmInstances', name: 'VM Instances', icon: Server, component: VmInstancesList },
+    { key: 'Licenses', name: 'Licenses', icon: KeyRound, component: LicensesList },
+    { key: 'Wetbenches', name: 'Wetbenches', icon: TestTube, component: WetbenchesList },
+    { key: 'HilTechnology', name: 'HIL Technology', icon: CircuitBoard, component: HilTechnologyList },
+    { key: 'HilOperation', name: 'HIL Operation', icon: Activity, component: HilOperationList },
+    { key: 'HardwareInstallation', name: 'Hardware Installation', icon: Wrench, component: HardwareInstallationList },
+    { key: 'ProjectOverview', name: 'Project Overview', icon: Gauge, component: ProjectOverviewList },
+];
 
 export default function DatabasePage() {
-  const { data: session, status: sessionStatus } = useSession(); // Get session
+  const { data: session, status: sessionStatus } = useSession();
   const [permissionStatus, setPermissionStatus] = useState<{ 
       loading: boolean; 
       isAdmin: boolean; 
       error: string | null; 
   }>({ loading: true, isAdmin: false, error: null });
 
+  // State to track the selected table view
+  const [selectedTable, setSelectedTable] = useState<string>(tableConfig[0].key); // Default to first table
+
   useEffect(() => {
-    // Only check permissions if the session is authenticated
     if (sessionStatus === 'authenticated') {
       setPermissionStatus({ loading: true, isAdmin: false, error: null });
       
@@ -58,14 +103,12 @@ export default function DatabasePage() {
       };
       checkPermission();
     } else if (sessionStatus === 'unauthenticated') {
-       // If not logged in, deny access immediately
        setPermissionStatus({ loading: false, isAdmin: false, error: 'Access Denied: Please log in.' });
     } else {
-       // Session status is 'loading', keep our loading state true
        setPermissionStatus({ loading: true, isAdmin: false, error: null });
     }
 
-  }, [sessionStatus]); // Rerun effect when session status changes
+  }, [sessionStatus]);
 
   // --- Loading State --- 
   if (permissionStatus.loading) {
@@ -97,245 +140,109 @@ export default function DatabasePage() {
             <AlertTriangle size={48} style={{ color: '#ef4444', marginBottom: '1rem' }} />
             <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626', marginBottom: '0.5rem' }}>Access Denied</h1>
             <p style={{ color: '#4b5563' }}>{permissionStatus.error || 'You do not have permission to view this page.'}</p>
-            {/* Optional: Add a button to go back or to the home page */} 
           </div>
         </main>
       );
   }
 
-  // --- Admin Access Granted: Render Page Content --- 
+  // --- Admin Access Granted: Render Page Content with Sidebar Layout --- 
+
+  // Find the component to render based on selectedTable state
+  const ActiveComponent = tableConfig.find(t => t.key === selectedTable)?.component;
+
+  const sidebarWidth = 240; // Define sidebar width
+
   return (
     <main style={{ 
       minHeight: '100vh', 
       display: 'flex', 
       flexDirection: 'column',
-      overflow: 'auto',
-      maxHeight: '100vh'
     }}>
       <Header />
       
+      {/* Flex container for sidebar and content - THIS should handle overflow and height */}
       <div style={{ 
-        flex: 1, 
-        padding: '2rem', 
-        backgroundColor: '#f8fafc',
-        overflowY: 'auto'
+        flex: 1, // Take remaining vertical space
+        display: 'flex', 
+        overflow: 'hidden' // Prevent this container itself from scrolling; children will scroll
       }}>
-        <div style={{ 
-          maxWidth: '1200px', 
-          margin: '0 auto'
+        
+        {/* Sidebar */}
+        <aside style={{
+          width: `${sidebarWidth}px`,
+          minWidth: `${sidebarWidth}px`,
+          backgroundColor: '#eef2f6',
+          borderRight: '1px solid #d1d5db',
+          padding: '1.5rem 1rem',
+          overflowY: 'auto', // Allow sidebar scrolling if needed
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem'
+          // Removed height: 100% - let the parent div control height
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: '2rem'
-          }}>
-            <DatabaseIcon size={28} style={{ color: '#0F3460', marginRight: '1rem' }} />
-            <h1 style={{
-              fontSize: '1.75rem',
-              fontWeight: 'bold',
-              color: '#0F3460',
-              margin: 0
-            }}>Database Management</h1>
-          </div>
-          
-          {/* Static Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '2rem'
-          }}>
-            {/* Database Connection Card */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '0.5rem',
-              padding: '1.5rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              cursor: 'pointer'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <h2 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: '600',
-                  color: '#111827',
-                  margin: 0
-                }}>Connection Settings</h2>
-                <Server size={20} style={{ color: '#0F3460' }} />
-              </div>
-              <p style={{
-                fontSize: '0.875rem',
-                color: '#4b5563',
-                margin: 0
-              }}>Configure database connection parameters and credentials</p>
-            </div>
-            
-            {/* Database Tables Card */}
-             <div style={{
-              backgroundColor: 'white',
-              borderRadius: '0.5rem',
-              padding: '1.5rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              cursor: 'pointer'
-            }}
-             onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <h2 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: '600',
-                  color: '#111827',
-                  margin: 0
-                }}>Tables</h2>
-                <Table size={20} style={{ color: '#0F3460' }} />
-              </div>
-              <p style={{
-                fontSize: '0.875rem',
-                color: '#4b5563',
-                margin: 0
-              }}>View and manage database tables and records</p>
-            </div>
-            
-            {/* Database Security Card */}
-             <div style={{
-              backgroundColor: 'white',
-              borderRadius: '0.5rem',
-              padding: '1.5rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              cursor: 'pointer'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <h2 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: '600',
-                  color: '#111827',
-                  margin: 0
-                }}>Security</h2>
-                <Lock size={20} style={{ color: '#0F3460' }} />
-              </div>
-              <p style={{
-                fontSize: '0.875rem',
-                color: '#4b5563',
-                margin: 0
-              }}>Manage database access permissions and security settings</p>
-            </div>
-          </div> {/* End Static Cards Grid */}
-          
-          {/* Connection Status */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '0.5rem',
-            padding: '1.5rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            marginBottom: '2rem'
-          }}>
-            <h2 style={{
-              fontSize: '1.25rem',
-              fontWeight: '600',
-              color: '#111827',
-              marginTop: 0,
-              marginBottom: '1rem'
-            }}>Connection Status</h2>
-            
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{
-                width: '0.75rem',
-                height: '0.75rem',
-                borderRadius: '50%',
-                backgroundColor: '#10b981',
-                boxShadow: '0 0 5px #10b981'
-              }}></div>
-              <span style={{ fontSize: '0.875rem', color: '#111827' }}>Connected to SQLite database</span>
-            </div>
-            
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '1rem'
-            }}>
-              <div>
-                <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '0 0 0.25rem 0' }}>Database File</p>
-                <p style={{ fontSize: '0.875rem', color: '#111827', margin: 0 }}>reconnect.db</p>
-              </div>
-              
-              <div>
-                <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '0 0 0.25rem 0' }}>Tables</p>
-                <p style={{ fontSize: '0.875rem', color: '#111827', margin: 0 }}>12</p>
-              </div>
-              
-              <div>
-                <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '0 0 0.25rem 0' }}>Records</p>
-                <p style={{ fontSize: '0.875rem', color: '#111827', margin: 0 }}>Multiple</p>
-              </div>
-            </div>
-          </div> {/* End Connection Status */}
-          
-          {/* Display all database tables using imported components */}
-          <TestBenchList />
-          <PcOverviewList />
-          <ProjectsList />
-          <UsersList />
-          <SoftwareList />
-          <ModelStandsList />
-          <VmInstancesList />
-          <LicensesList />
-          <WetbenchesList />
-          <HilTechnologyList />
-          <HilOperationList />
-          <HardwareInstallationList />
-          <ProjectOverviewList />
-        </div> {/* End Inner Wrapper */}
-      </div> {/* End Content Wrapper */}
+            <nav>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {tableConfig.map((item) => {
+                        const isActive = item.key === selectedTable;
+                        return (
+                            <li key={item.key} style={{ marginBottom: '0.5rem' }}>
+                                <button
+                                    onClick={() => setSelectedTable(item.key)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '0.75rem 1rem',
+                                        borderRadius: '0.375rem',
+                                        width: '100%', // Make button full width
+                                        textAlign: 'left', // Align text left
+                                        border: 'none', // Remove button default border
+                                        cursor: 'pointer',
+                                        backgroundColor: isActive ? '#dbeafe' : 'transparent', // Light blue active
+                                        color: isActive ? '#0F3460' : '#4b5563', // Dark blue text active
+                                        fontWeight: isActive ? '600' : 'normal',
+                                        transition: 'background-color 0.2s ease, color 0.2s ease'
+                                    }}
+                                    onMouseOver={(e) => {
+                                        if (!isActive) {
+                                            e.currentTarget.style.backgroundColor = '#f3f4f6'; // Light gray hover
+                                            e.currentTarget.style.color = '#111827'; // Darker text on hover
+                                        }
+                                    }}
+                                    onMouseOut={(e) => {
+                                        if (!isActive) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.color = '#4b5563';
+                                        }
+                                    }}
+                                >
+                                    <item.icon size={18} style={{ marginRight: '0.75rem' }} />
+                                    {item.name}
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            </nav>
+        </aside>
+
+        {/* Main Content Area Wrapper - This should scroll */}
+        <div style={{ 
+          flex: 1, 
+          padding: '2rem', 
+          backgroundColor: '#f8fafc',
+          overflowY: 'auto', // Allow content scrolling
+          height: 'calc(100vh - 64px)' // Explicit height (adjust 64px if header height differs)
+        }}>
+            <Suspense fallback={
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                    <Loader2 size={24} className="animate-spin" style={{ marginRight: '0.5rem' }} />
+                    Loading...
+                </div>
+            }>
+                {ActiveComponent ? <ActiveComponent /> : <div>Select a table</div>} 
+            </Suspense>
+        </div> {/* End Content Wrapper */}
+      </div> {/* End Flex Container */}
     </main>
   );
 } 
