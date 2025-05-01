@@ -4,12 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Header from '@/components/layout/Header';
-import { LayoutDashboard, Users, UsersRound } from 'lucide-react'; // Using UsersRound for Groups for now
+import { Users, ShieldCheck } from 'lucide-react';
 
 const adminNavItems = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Groups', href: '/admin/groups', icon: UsersRound }, // Placeholder
+  { name: 'Groups', href: '/admin/groups', icon: ShieldCheck },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

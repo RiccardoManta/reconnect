@@ -174,6 +174,37 @@ export default function AdminGroupsPage() {
     return allUsers.filter(user => user.userGroupId === groupId);
   };
 
+  // --- Helper functions for badge styles ---
+  // Define consistent styles for all badges
+  const baseBadgeStyle: React.CSSProperties = {
+      display: 'inline-block',
+      padding: '2px 8px',
+      borderRadius: '12px', // Pill shape
+      fontSize: '0.75rem',
+      fontWeight: 500,
+      lineHeight: '1.5'
+  };
+
+  // Function to get style based on permission name
+  const getPermissionBadgeStyle = (permissionName: string | undefined | null): React.CSSProperties => {
+      switch (permissionName?.toLowerCase()) {
+          case 'admin':
+              return { ...baseBadgeStyle, backgroundColor: '#FEE2E2', color: '#B91C1C' }; // Red
+          case 'edit':
+              return { ...baseBadgeStyle, backgroundColor: '#FEF3C7', color: '#B45309' }; // Yellow
+          case 'read':
+          case 'default':
+          default:
+              return { ...baseBadgeStyle, backgroundColor: '#E5E7EB', color: '#374151' }; // Gray
+      }
+  };
+
+  // Function to get style for platform badges (consistent style for now)
+  const getPlatformBadgeStyle = (): React.CSSProperties => {
+      return { ...baseBadgeStyle, backgroundColor: '#DBEAFE', color: '#1E40AF' }; // Blue
+  };
+  // --- End Helper functions ---
+
   return (
     <div>
       {/* Page Header */}
@@ -182,10 +213,11 @@ export default function AdminGroupsPage() {
            <ShieldCheck size={28} style={styles.headerIcon} />
            <h1 style={styles.headerTitle}>Group Management</h1>
          </div>
-         {/* Add Group Button */}
+         {/* Add Group Button - REVERT TO DARK BLUE */}
          <button 
            onClick={handleOpenAddModal} 
-           style={styles.addButton}
+           // Reverted to dark blue background, white text
+           style={{ ...styles.addButton, backgroundColor: '#0F3460', color: 'white' }} 
            title="Add new group"
          >
            <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
@@ -221,28 +253,49 @@ export default function AdminGroupsPage() {
                         <div key={group.userGroupId} style={styles.groupSection}>
                             <div style={styles.groupHeader}>
                                 <h2 style={styles.groupHeadingNoBorder}>{group.userGroupName}</h2>
+                                {/* Edit Group Button - UPDATED STYLE */}
                                 <button 
-                                   onClick={() => handleOpenEditPlatformsModal(group)} // Pass the full group object
-                                   style={styles.editButton}
+                                   onClick={() => handleOpenEditPlatformsModal(group)}
+                                   // White background, dark blue border/text
+                                   style={{ 
+                                     ...styles.editButton, 
+                                     backgroundColor: 'white', 
+                                     color: '#0F3460', // Dark blue text
+                                     borderColor: '#0F3460', // Dark blue border
+                                     borderWidth: '1px',
+                                     borderStyle: 'solid',
+                                     padding: '4px 8px', 
+                                     fontSize: '0.8rem' 
+                                   }}
                                    title="Edit Group Permissions & Platforms"
                                 >
-                                    <Settings size={16} style={{ marginRight: '0.25rem' }} />
+                                    <Settings size={14} style={{ marginRight: '0.25rem' }} />
                                     Edit Group
                                 </button> 
                             </div>
                             
-                            {/* Display Permission Name */}
+                            {/* Display Permission Name - STYLE CHANGE */}
                             <div style={{marginBottom: '0.5rem'}}>
                                 <strong style={styles.subHeading}>Permission:</strong> 
-                                <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151' }}>
-                                    {group.permissionName || 'N/A'} {/* Display fetched name */}
+                                {/* Apply styles based on permissionName */}
+                                <span style={getPermissionBadgeStyle(group.permissionName)}>
+                                    {group.permissionName || 'N/A'}
                                 </span>
                             </div>
 
+                            {/* Display Accessible Platforms - STYLE CHANGE */}
                             <div style={{marginBottom: '1rem'}}>
                                 <strong style={styles.subHeading}>Accessible Platforms:</strong> 
-                                <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151' }}>
-                                    {group.accessiblePlatformNames || 'None'}
+                                <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.2rem' }}>
+                                    {(group.accessiblePlatformNames && group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name)) ? (
+                                      group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name).map((platformName, index) => (
+                                         <span key={index} style={getPlatformBadgeStyle()}>
+                                             {platformName}
+                                         </span>
+                                      ))
+                                     ) : (
+                                      <span style={{color: '#6b7280'}}>None</span>
+                                     )}
                                 </span>
                             </div>
 

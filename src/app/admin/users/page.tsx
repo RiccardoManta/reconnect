@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Users as UsersIcon, RefreshCw, UserPlus } from 'lucide-react';
+import { Users as UsersIcon, RefreshCw, UserPlus, PlusCircle } from 'lucide-react';
 // Import User type (contains basic fields)
 import { User } from '@/types/database'; 
 import { keysToCamel } from '@/utils/caseConverter'; // Removed unused keysToSnake
@@ -144,43 +144,56 @@ export default function AdminUsersPage() {
     setIsAddModalOpen(true);
   };
 
+  const styles = {
+    headerContainer: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: '2rem'
+    },
+    headerTitleContainer: {
+      display: 'flex',
+      alignItems: 'center'
+    },
+    headerIcon: {
+      color: '#0F3460',
+      marginRight: '1rem'
+    },
+    headerTitle: {
+      fontSize: '1.75rem',
+      fontWeight: 'bold',
+      color: '#0F3460',
+      margin: 0
+    },
+    addButton: {
+      border: 'none',
+      borderRadius: '0.375rem',
+      padding: '0.5rem 0.75rem',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '0.875rem',
+      fontWeight: 500,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+    }
+  };
+
   return (
     <div>
-      {/* Page Header - Replaced Refresh with Add Button */}
-       <div style={{
-         display: 'flex',
-         alignItems: 'center',
-         justifyContent: 'space-between',
-         marginBottom: '2rem'
-       }}>
-         <div style={{ display: 'flex', alignItems: 'center' }}>
-           <UsersIcon size={28} style={{ color: '#0F3460', marginRight: '1rem' }} />
-           <h1 style={{
-             fontSize: '1.75rem',
-             fontWeight: 'bold',
-             color: '#0F3460',
-             margin: 0
-           }}>User Management</h1>
+      {/* Page Header */}
+       <div style={styles.headerContainer}>
+         <div style={styles.headerTitleContainer}>
+           <UsersIcon size={28} style={styles.headerIcon} /> 
+           <h1 style={styles.headerTitle}>User Management</h1>
          </div>
-         {/* Add User Button */}
+         {/* Add User Button - REVERT TO DARK BLUE */}
          <button 
            onClick={handleOpenAddModal} 
-           style={{
-             backgroundColor: '#10b981', // Green color for add
-             color: 'white',
-             border: 'none', 
-             borderRadius: '0.375rem',
-             padding: '0.5rem 0.75rem', 
-             cursor: 'pointer',
-             display: 'flex', 
-             alignItems: 'center',
-             fontSize: '0.875rem',
-             fontWeight: 500,
-             boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-           }}
+           // Reverted to dark blue background, white text
+           style={{ ...styles.addButton, backgroundColor: '#0F3460', color: 'white' }} 
            title="Add new user"
          >
-           <UserPlus size={18} style={{ marginRight: '0.5rem' }} />
+           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
            Add User
          </button>
        </div>

@@ -103,7 +103,7 @@ export default function ServerCard({
       pc_info_text: pcInfoText || '',
       status: status as any,
       user_name: activeUser || ''
-    };
+      };
     onOpenEditModal(serverDataForModal);
     setIsMenuOpen(false);
   };

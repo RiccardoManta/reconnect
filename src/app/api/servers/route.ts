@@ -76,7 +76,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     let servers: ServerInfoResult[];
     const baseQuery = `
-        SELECT
+      SELECT 
             pc.pc_id AS pcId, 
             tb.hil_name AS hilName,
             pc.casual_name AS casualName,
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   } catch (e) {
     return NextResponse.json({ message: 'Invalid JSON payload' }, { status: 400 });
-  }
+    }
 
   console.log(`[API][POST][/api/servers] User ${userId} attempting to add server:`, JSON.stringify(payload));
 
@@ -271,7 +271,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Use the same query structure as GET to return consistent data
     const finalNewServer = await dbUtils.queryOne<ServerInfoResult>(
-         `SELECT 
+            `SELECT 
             pc.pc_id AS pcId, pc.casual_name AS casualName, p.platform_name AS platformName,
             tb.bench_type AS benchType, pc.pc_info_text AS pcInfoText,
             pc.status AS status, pc.active_user AS activeUser, tbo.platform_id AS platformId
@@ -349,7 +349,7 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
   // --- Payload Validation ---
   if (!payload.casual_name || !payload.platform || payload.pc_info_text === undefined) { // Check essential fields
     return NextResponse.json({ message: 'Missing required fields: casual_name, platform, pc_info_text' }, { status: 400 });
-  }
+    }
 
   console.log(`[API][PUT][/api/servers] User ${userId} attempting to update PC ${pcId}`);
 
@@ -374,12 +374,12 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
              LEFT JOIN test_bench_project_overview tbo ON tb.bench_id = tbo.bench_id 
              WHERE pc.pc_id = ?`,
             [pcId]
-        );
+      );
 
         // Check if PC exists by checking if the query returned any rows
         if (currentPcInfoRows.length === 0) {
             throw new Error('PC not found'); // Throw inside transaction to trigger rollback
-        }
+      }
         const currentPcInfo = currentPcInfoRows[0]; // Now safe to access the first row
 
         const currentBenchId = currentPcInfo.bench_id; // Access properties from the row object
@@ -409,7 +409,7 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
         // 1. Update pc_overview 
         const newStatus = payload.user_name && payload.user_name.trim() !== '' ? 'in_use' : 'online'; 
         console.log(`[API][PUT][/api/servers] Updating pc_overview for PC ${pcId}...`);
-        await connection.query(
+      await connection.query(
             `UPDATE pc_overview SET casual_name = ?, pc_info_text = ?, active_user = ?, status = ? WHERE pc_id = ?`,
             [payload.casual_name, payload.pc_info_text ?? null, payload.user_name?.trim() || null, newStatus, pcId]
         );
@@ -438,7 +438,7 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
         
         // Fetch and return the updated data structure matching GET response
         const [finalDataRows] = await connection.query<ServerInfoResult[]>(
-             `SELECT
+        `SELECT 
                 pc.pc_id AS pcId, pc.casual_name AS casualName, p.platform_name AS platformName,
                 tb.bench_type AS benchType, pc.pc_info_text AS pcInfoText,
                 pc.status AS status, pc.active_user AS activeUser, tbo.platform_id AS platformId
@@ -448,11 +448,11 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
               LEFT JOIN platforms p ON tbo.platform_id = p.platform_id
               WHERE pc.pc_id = ?`,
             [pcId]
-        );
+    );
         if (finalDataRows.length === 0) {
              // This shouldn't happen if the initial check passed and updates succeeded
              throw new Error ('Failed to retrieve updated PC data after update.');
-        }
+    }
         return finalDataRows[0]; // Return the first (and only) row
 
     }); // End transaction
@@ -463,7 +463,7 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
     }
     console.log(`[API][PUT][/api/servers] Successfully updated PC ${pcId}. Returning data.`);
     return NextResponse.json(updatedPcData); 
-
+      
   } catch (error: any) {
     console.error(`[API][PUT][/api/servers] Error updating PC ${pcId}:`, error);
     // Handle specific errors thrown from transaction

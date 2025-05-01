@@ -182,8 +182,8 @@ export default function Header() {
             )}
           </span>
         </Link>
-        {/* Admin Panel Link */}
-        <Link href="/admin" style={{ textDecoration: 'none' }}>
+        {/* Admin Panel Link - UPDATE HREF */}
+        <Link href="/admin/users" style={{ textDecoration: 'none' }}>
           <span style={{
             background: 'none',
             border: 'none',
