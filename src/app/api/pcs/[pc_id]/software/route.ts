@@ -22,12 +22,10 @@ interface AssignSoftwareBody {
 // GET assigned software for a specific PC
 export async function GET(
     request: NextRequest,
-    // Using 'any' because the specific type { params: { ... } } 
-    // caused persistent build errors in the Docker environment (Next.js 15.3.0).
-    context: any 
+    { params }: { params: { pc_id: string } } // Destructure params directly
 ): Promise<NextResponse> {
     try {
-        const pcId = parseInt(context.params.pc_id, 10);
+        const pcId = parseInt(params.pc_id, 10); // Use destructured params
         if (isNaN(pcId)) {
             return NextResponse.json({ error: 'Invalid PC ID' }, { status: 400 });
         }
@@ -56,12 +54,10 @@ export async function GET(
 // POST: Assign software to a PC
 export async function POST(
     request: NextRequest,
-    // Using 'any' because the specific type { params: { ... } } 
-    // caused persistent build errors in the Docker environment (Next.js 15.3.0).
-    context: any 
+    { params }: { params: { pc_id: string } } // Destructure params directly
 ): Promise<NextResponse> {
     try {
-        const pcId = parseInt(context.params.pc_id, 10);
+        const pcId = parseInt(params.pc_id, 10); // Use destructured params
         if (isNaN(pcId)) {
             return NextResponse.json({ error: 'Invalid PC ID' }, { status: 400 });
         }

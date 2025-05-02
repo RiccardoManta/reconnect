@@ -249,7 +249,7 @@ export default function PcOverviewList() {
       const response = await fetch(`/api/pcs/${selectedPc.pcId}/software`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ softwareId }),
+        body: JSON.stringify({ software_id: softwareId }),
       });
 
       if (!response.ok) {

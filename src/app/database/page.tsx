@@ -119,7 +119,6 @@ export default function DatabasePage() {
       borderRight: '1px solid #d1d5db',
       padding: '1.5rem 1rem',
       overflowY: 'auto',
-      height: 'calc(100vh - 64px)', // Match admin layout sidebar height
     },
     navList: {
       listStyle: 'none', 
@@ -154,7 +153,6 @@ export default function DatabasePage() {
       padding: '2rem', 
       backgroundColor: '#f8fafc',
       overflowY: 'auto',
-      height: 'calc(100vh - 64px)' // Explicit height to enable scrolling
     },
     loadingFallback: {
       display: 'flex', 
@@ -167,7 +165,7 @@ export default function DatabasePage() {
 
   // --- Render Logic ---
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
       {/* Loading Permissions State */}
