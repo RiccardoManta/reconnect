@@ -12,15 +12,20 @@ services:
       MYSQL_USER: ${MYSQL_USER} # Read from .env
       MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Read from .env
     # ports:
-      # We don't need to expose the MySQL port to the host anymore,
-      # as the webapp will connect via the Docker network.
-      # Remove or comment out:
-      # - "3306:3306"
+    # We don't need to expose the MySQL port to the host anymore,
+    # as the webapp will connect via the Docker network.
+    # Remove or comment out:
+    # - "3306:3306"
+    ports:
+      # Expose the MySQL port to the host for local development connection.
+      - "3306:3306"
     volumes:
       # Persist database data outside the container
       - mysql_data:/var/lib/mysql
       # Copy schema file to initialization directory (runs on first start with empty volume)
       - ./src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro # Read-only recommended
+    # Add command to increase max connections
+    command: ['--max_connections=200']
     networks:
       - app-network # Define a network for services
     healthcheck:

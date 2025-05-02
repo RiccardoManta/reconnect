@@ -43,6 +43,8 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setLoadingGroups(true);
+      setError(null); // Clear errors on open
+      setSaving(false); // Clear saving on open
       fetch('/api/admin/groups')
         .then(res => {
             if (!res.ok) {
@@ -65,13 +67,21 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
     }
   }, [isOpen]);
 
-  // Update local state when userData changes
+  // Update local state when userData changes, ONLY if it actually changed
   useEffect(() => {
     if (userData) {
-      // Initialize with current groupId, converting null/number to string for select
-      setSelectedGroupId(userData.groupId !== null ? String(userData.groupId) : ''); 
+      const currentGroupIdString = userData.groupId !== null ? String(userData.groupId) : '';
+      if (currentGroupIdString !== selectedGroupId) {
+          setSelectedGroupId(currentGroupIdString); 
+          setError(null);
+          setSaving(false);
+      }
+    } else {
+      setSelectedGroupId('');
+      setError(null);
+      setSaving(false);
     }
-  }, [userData]);
+  }, [userData, selectedGroupId]); // Removed saveSuccess dependency
 
   if (!isOpen || !userData) return null;
 
@@ -79,16 +89,13 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
     setSaving(true);
     setError(null);
     try {
-      // Pass back userId and the selected groupId (converted back to number/null)
-      // This matches the onSave prop expectation
       await onSave({ 
           userId: userData.userId, 
           groupId: selectedGroupId === '' ? null : parseInt(selectedGroupId, 10) 
       });
-      // Parent component should handle closing on success
+      setSaving(false);
     } catch (err) {
       setError(`Failed to save: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
       setSaving(false);
     }
   };
@@ -185,15 +192,16 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
               backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db',
               cursor: 'pointer', fontWeight: 500
             }}
+            disabled={saving} // Disable cancel while saving
           >
             Cancel
           </button>
           <button
             onClick={handleSaveClick}
-            disabled={saving || loadingGroups}
+            disabled={saving || loadingGroups} // Disable if saving or loading groups
             style={{
               padding: '0.5rem 1rem', borderRadius: '0.375rem', fontSize: '0.875rem',
-              backgroundColor: saving ? '#93c5fd' : '#2563eb',
+              backgroundColor: saving ? '#9ca3af' : '#39A2DB', 
               color: 'white', border: 'none',
               cursor: (saving || loadingGroups) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: '0.5rem',

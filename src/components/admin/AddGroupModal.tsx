@@ -170,7 +170,7 @@ const styles = {
     padding: '0.5rem 1rem', 
     borderRadius: '0.375rem', 
     fontSize: '0.875rem',
-    backgroundColor: '#10b981', // Green for add
+    backgroundColor: '#39A2DB', // Changed color
     color: 'white', 
     border: 'none',
     cursor: 'pointer',

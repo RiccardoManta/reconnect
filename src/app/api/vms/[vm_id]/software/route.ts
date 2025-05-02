@@ -19,8 +19,7 @@ interface AssignSoftwareBody {
 // GET assigned software for a specific VM
 export async function GET(
     request: NextRequest,
-    // Using 'any' due to persistent build errors with specific context type
-    context: any 
+    context: { params: { vm_id: string } }
 ): Promise<NextResponse> {
     try {
         const vmId = parseInt(context.params.vm_id, 10);
@@ -52,8 +51,7 @@ export async function GET(
 // POST: Assign software to a VM
 export async function POST(
     request: NextRequest,
-    // Using 'any' due to persistent build errors with specific context type
-    context: any 
+    context: { params: { vm_id: string } }
 ): Promise<NextResponse> {
     try {
         const vmId = parseInt(context.params.vm_id, 10);

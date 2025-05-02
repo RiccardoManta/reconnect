@@ -28,17 +28,19 @@ async function checkAdminPermission(request: NextRequest): Promise<{ isAdmin: bo
     return { isAdmin: true };
 }
 
-// Workaround: Use context: any as per important_Information.md
-export async function PUT(request: NextRequest, context: any): Promise<NextResponse> {
+// Update function signature to correctly get params for App Router
+export async function PUT(
+    request: NextRequest, 
+    { params }: { params: { groupId: string } }
+): Promise<NextResponse> {
     // Check permissions first
     const permissionCheck = await checkAdminPermission(request);
     if (!permissionCheck.isAdmin) {
         return permissionCheck.errorResponse!;
     }
 
-    // Access params using optional chaining and type casting
-    const groupIdString = (context?.params?.groupId as string) || '';
-    const groupId = parseInt(groupIdString, 10); 
+    // Access groupId directly from destructured params
+    const groupId = parseInt(params.groupId, 10); 
 
     if (isNaN(groupId)) {
         return NextResponse.json({ error: 'Invalid Group ID in URL.' }, { status: 400 });

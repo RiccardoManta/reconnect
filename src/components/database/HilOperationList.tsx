@@ -51,7 +51,7 @@ const styles: { [key: string]: CSSProperties } = {
     fontSize: '0.875rem',
     fontWeight: 500,
     boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-    backgroundColor: '#0F3460', // Example color, adjust if needed
+    backgroundColor: '#39A2DB',
     color: 'white',
   },
   tableContainer: {

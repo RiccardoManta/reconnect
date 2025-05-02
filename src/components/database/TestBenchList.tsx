@@ -316,14 +316,14 @@ export default function TestBenchList() {
       fontSize: '0.875rem',
       fontWeight: 500,
       boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-      backgroundColor: '#0F3460',
+      backgroundColor: '#39A2DB',
       color: 'white',
     },
     tableContainer: {
       backgroundColor: 'white',
       borderRadius: '0.5rem',
       boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-      overflowX: 'auto', // Type compatibility ensured by CSSProperties
+      overflowX: 'auto' as 'auto',
     },
      loadingContainer: {
         display: 'flex',

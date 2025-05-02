@@ -120,8 +120,11 @@ export default function AdminGroupsPage() {
     
     console.log(`Saving changes for group ${groupId}: Platforms=`, platformIds, `PermissionId=`, permissionId);
     
+    // --- Start optimistic update or indicate saving --- 
+    // (Optional: Could show a saving indicator on the specific group)
+
     try {
-      // 1. Update Platforms
+      // 1. Update Platforms API Call
        const platformResponse = await fetch(`/api/admin/groups/${groupId}/platforms`, { 
            method: 'PUT', 
            headers: { 'Content-Type': 'application/json' },
@@ -131,25 +134,39 @@ export default function AdminGroupsPage() {
            const errorData = await platformResponse.json();
            throw new Error(`Platform Update Failed: ${errorData.error || 'Unknown error'}`);
        }
-       platformUpdateOk = true; // Mark platform update as successful
+       platformUpdateOk = true;
        console.log(`Group ${groupId} platform access updated successfully.`);
 
-       // 2. Update Permission ID
-       const permissionResponse = await fetch(`/api/admin/groups/${groupId}`, { // Use the endpoint for group details
+       // 2. Update Permission ID API Call
+       const permissionResponse = await fetch(`/api/admin/groups/${groupId}`, {
            method: 'PUT',
            headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ permissionId: permissionId }), // Send only the permission ID
+           body: JSON.stringify({ permissionId: permissionId }),
        });
        if (!permissionResponse.ok) {
             const errorData = await permissionResponse.json();
             throw new Error(`Permission Update Failed: ${errorData.error || 'Unknown error'}`);
         }
-        permissionUpdateOk = true; // Mark permission update as successful
+        const updatedGroupData = await permissionResponse.json(); // Get updated group data
+        permissionUpdateOk = true;
         console.log(`Group ${groupId} permission updated successfully.`);
 
-       // Both updates successful
-       setEditingGroupPlatforms(null); // Close modal
-       await fetchData(); // Refresh data
+        // 3. Update Local State Directly using the comprehensive data from the API response
+        const updatedGroup = keysToCamel<UserGroup>(updatedGroupData.group); 
+        if (updatedGroup) {
+            // The API now returns permissionName and accessiblePlatformNames/Ids
+            setGroups(prevGroups => 
+                prevGroups.map(group => 
+                    group.userGroupId === groupId ? updatedGroup : group // Directly use the updated group object
+                )
+            );
+        } else {
+            // Fallback remains the same
+             console.warn("API did not return updated group data, falling back to refetch.");
+             await fetchData(); 
+        }
+
+       setEditingGroupPlatforms(null); // Close modal AFTER state update
        
     } catch (err) {
        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -213,11 +230,14 @@ export default function AdminGroupsPage() {
            <ShieldCheck size={28} style={styles.headerIcon} />
            <h1 style={styles.headerTitle}>Group Management</h1>
          </div>
-         {/* Add Group Button - REVERT TO DARK BLUE */}
+         {/* Add Group Button */}
          <button 
            onClick={handleOpenAddModal} 
-           // Reverted to dark blue background, white text
-           style={{ ...styles.addButton, backgroundColor: '#0F3460', color: 'white' }} 
+           style={{ 
+               ...styles.addButton, // Keep existing base styles
+               backgroundColor: '#39A2DB', // Override background color
+               color: 'white' // Ensure text remains white
+            }} 
            title="Add new group"
          >
            <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
@@ -253,15 +273,15 @@ export default function AdminGroupsPage() {
                         <div key={group.userGroupId} style={styles.groupSection}>
                             <div style={styles.groupHeader}>
                                 <h2 style={styles.groupHeadingNoBorder}>{group.userGroupName}</h2>
-                                {/* Edit Group Button - UPDATED STYLE */}
+                                {/* Edit Group Button */}
                                 <button 
                                    onClick={() => handleOpenEditPlatformsModal(group)}
-                                   // White background, dark blue border/text
+                                   // Updated border/text color to light blue
                                    style={{ 
-                                     ...styles.editButton, 
-                                     backgroundColor: 'white', 
-                                     color: '#0F3460', // Dark blue text
-                                     borderColor: '#0F3460', // Dark blue border
+                                     ...styles.editButton, // Keep base styles
+                                     backgroundColor: 'white', // Keep white background
+                                     color: '#39A2DB', // Light blue text
+                                     borderColor: '#39A2DB', // Light blue border
                                      borderWidth: '1px',
                                      borderStyle: 'solid',
                                      padding: '4px 8px', 
@@ -274,7 +294,7 @@ export default function AdminGroupsPage() {
                                 </button> 
                             </div>
                             
-                            {/* Display Permission Name - STYLE CHANGE */}
+                            {/* Display Permission Name */}
                             <div style={{marginBottom: '0.5rem'}}>
                                 <strong style={styles.subHeading}>Permission:</strong> 
                                 {/* Apply styles based on permissionName */}
@@ -283,7 +303,7 @@ export default function AdminGroupsPage() {
                                 </span>
                             </div>
 
-                            {/* Display Accessible Platforms - STYLE CHANGE */}
+                            {/* Display Accessible Platforms */}
                             <div style={{marginBottom: '1rem'}}>
                                 <strong style={styles.subHeading}>Accessible Platforms:</strong> 
                                 <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.2rem' }}>

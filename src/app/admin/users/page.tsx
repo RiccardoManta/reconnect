@@ -60,29 +60,20 @@ export default function AdminUsersPage() {
   // Update signature to match modal's onSave expectation (userId, groupId)
   // Note: Modal still uses `groupId` internally for simplicity, but API expects `userGroupId`
   const handleSaveChanges = async (data: { userId: number; groupId: number | null }) => {
-    const originalUser = users.find(u => u.userId === data.userId);
-    if (!originalUser) return; 
-    
-    const originalUsers = [...users]; 
-    
-    // Optimistic update using the new field names
-    setUsers(prevUsers => 
-        prevUsers.map(u => 
-            u.userId === data.userId 
-                ? { ...u, userGroupId: data.groupId, userGroupName: 'Updating...' } // Update userGroupId/Name
-                : u
-        )
-    );
-    setSelectedUser(null); 
+    // Find the user being edited
+    const userToUpdate = users.find(u => u.userId === data.userId);
+    if (!userToUpdate) return;
+
+    console.log(`Saving changes for user ${data.userId}: GroupId=`, data.groupId);
+    setError(null); // Clear previous errors
 
     try {
         const response = await fetch('/api/admin/users', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            // API expects userId and userGroupId (camelCase)
             body: JSON.stringify({ 
                 userId: data.userId, 
-                userGroupId: data.groupId // Send userGroupId to API
+                userGroupId: data.groupId // API expects userGroupId
             }),
         });
 
@@ -91,20 +82,37 @@ export default function AdminUsersPage() {
             throw new Error(errorData.error || 'Failed to update user group');
         }
         const result = await response.json();
+        
         // API returns updated user with user_group_id and user_group_name
-        const savedUser = keysToCamel<AdminUserDisplay>(result.user);
-        setUsers(prevUsers => 
-            prevUsers.map(u => 
-                u.userId === savedUser.userId ? savedUser : u
-            )
-        );
+        const updatedUser = keysToCamel<AdminUserDisplay>(result.user);
+        
+        // Update local state directly
+        if (updatedUser) {
+            setUsers(prevUsers => 
+                prevUsers.map(u => 
+                    u.userId === updatedUser.userId ? updatedUser : u
+                )
+            );
+            console.log(`User ${data.userId} group updated locally.`);
+        } else {
+            // Fallback if API doesn't return updated user
+            console.warn("API did not return updated user data, falling back to refetch.");
+            await fetchData(); 
+        }
+        
+        // Important: Close the modal AFTER successful state update
+        setSelectedUser(null); 
 
     } catch (err) {
         console.error("Failed to save user group:", err);
-        setError('Failed to save group: ' + (err instanceof Error ? err.message : 'Unknown error'));
-        setUsers(originalUsers);
-        setSelectedUser(null);
+        const errorMsg = 'Failed to save group: ' + (err instanceof Error ? err.message : 'Unknown error');
+        setError(errorMsg);
+        // Don't rollback optimistic update here, let modal show error and user retry/cancel
+        // setUsers(originalUsers); // Avoid rollback on error
+        // Keep modal open by not setting selectedUser to null
+        // setSelectedUser(null); 
     }
+    // Note: We don't set saving state here as the modal handles its own saving state
   };
 
   // Update function signature to use imported type
@@ -186,11 +194,14 @@ export default function AdminUsersPage() {
            <UsersIcon size={28} style={styles.headerIcon} /> 
            <h1 style={styles.headerTitle}>User Management</h1>
          </div>
-         {/* Add User Button - REVERT TO DARK BLUE */}
+         {/* Add User Button */}
          <button 
            onClick={handleOpenAddModal} 
-           // Reverted to dark blue background, white text
-           style={{ ...styles.addButton, backgroundColor: '#0F3460', color: 'white' }} 
+           style={{ 
+               ...styles.addButton, // Keep existing base styles
+               backgroundColor: '#39A2DB', // Override background color
+               color: 'white' // Ensure text remains white
+            }} 
            title="Add new user"
          >
            <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />

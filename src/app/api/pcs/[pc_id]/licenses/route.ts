@@ -12,20 +12,30 @@ interface AssignedLicenseInfo extends RowDataPacket {
     assignedOn: string | null; // Assuming DATE is returned as string
 }
 
+// Interface for the combined data returned by the query
+interface AssignedLicenseInfoRaw extends RowDataPacket {
+    license_id: number;
+    license_name: string | null;
+    license_type: string | null;
+    software_name: string;
+    major_version: string | null;
+    assigned_on: string | null; 
+}
+
 // Explicitly define the type for the route parameters
 // interface RouteParams {
 //   pc_id: string;
 // }
 
+// GET assigned licenses for a specific PC
 export async function GET(
     request: NextRequest,
-    // Use 'any' as a workaround for persistent build errors
-    context: any 
+    // Use standard { params } destructuring
+    { params }: { params: { pc_id: string } }
 ): Promise<NextResponse> {
     try {
-        // Need to cast params now that context is any
-        const pcIdStr = (context?.params?.pc_id as string) || ''; 
-        const pcId = parseInt(pcIdStr, 10);
+        // Access directly via params
+        const pcId = parseInt(params.pc_id, 10);
         if (isNaN(pcId)) {
             return NextResponse.json({ error: 'Invalid PC ID' }, { status: 400 });
         }

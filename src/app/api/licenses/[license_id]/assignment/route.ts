@@ -11,11 +11,22 @@ interface LicenseAssignment extends RowDataPacket {
     assigned_on: string | null; // Assuming DATE is string
 }
 
-// Interface for POST request body
-interface AssignLicenseBody {
-    pc_id?: number | null; 
+// Interface for POST/PUT request body
+interface AssignmentBody {
+    pc_id?: number | null;
     vm_id?: number | null;
-    assigned_on?: string | null; // Optional assign date
+}
+
+// Helper to check if at least one target is provided
+function isValidTarget(body: AssignmentBody): boolean {
+    return (body.pc_id !== undefined && body.pc_id !== null) || 
+           (body.vm_id !== undefined && body.vm_id !== null);
+}
+
+// Helper to check if BOTH targets are provided (which is invalid)
+function isAmbiguousTarget(body: AssignmentBody): boolean {
+    return (body.pc_id !== undefined && body.pc_id !== null) && 
+           (body.vm_id !== undefined && body.vm_id !== null);
 }
 
 // Helper to get the current assignment for a license
@@ -56,19 +67,20 @@ export async function GET(
     }
 }
 
-// POST: Create or replace the assignment for a license
+// POST: Create a new assignment (or potentially update if logic allows)
 export async function POST(
     request: NextRequest,
-    // Using 'any' due to persistent build errors with specific context type
-    context: any 
+    // Use standard { params } destructuring
+    { params }: { params: { license_id: string } }
 ): Promise<NextResponse> {
     try {
-        const licenseId = parseInt(context.params.license_id, 10);
+        // Access directly via params
+        const licenseId = parseInt(params.license_id, 10);
         if (isNaN(licenseId)) {
             return NextResponse.json({ error: 'Invalid License ID' }, { status: 400 });
         }
 
-        const body: AssignLicenseBody = await request.json();
+        const body: AssignmentBody = await request.json();
 
         // Validate: Must have pc_id OR vm_id, but not both
         const hasPcId = body.pc_id !== null && body.pc_id !== undefined;
@@ -85,7 +97,7 @@ export async function POST(
              return NextResponse.json({ error: 'Invalid pc_id or vm_id provided.' }, { status: 400 });
         }
 
-        const assignedOn = body.assigned_on || new Date().toISOString().slice(0, 10);
+        const assignedOn = new Date().toISOString().slice(0, 10);
 
         // --- Execute DELETE and INSERT within an explicit transaction --- 
         const assignmentId = await dbUtils.transaction<number | bigint>(async (connection) => {
@@ -138,11 +150,12 @@ export async function POST(
 // DELETE: Remove the assignment for a specific license
 export async function DELETE(
     request: NextRequest,
-    // Using 'any' due to persistent build errors with specific context type
-    context: any 
+     // Use standard { params } destructuring
+    { params }: { params: { license_id: string } }
 ): Promise<NextResponse> {
     try {
-        const licenseId = parseInt(context.params.license_id, 10);
+        // Access directly via params
+        const licenseId = parseInt(params.license_id, 10);
         if (isNaN(licenseId)) {
             return NextResponse.json({ error: 'Invalid License ID' }, { status: 400 });
         }

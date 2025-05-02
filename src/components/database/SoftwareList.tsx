@@ -190,7 +190,19 @@ export default function SoftwareList() {
     headerTitleContainer: { display: 'flex', alignItems: 'center' },
     headerIcon: { color: '#0F3460', marginRight: '1rem' },
     headerTitle: { fontSize: '1.75rem', fontWeight: 'bold', color: '#0F3460', margin: 0 },
-    addButton: { border: 'none', borderRadius: '0.375rem', padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', backgroundColor: '#0F3460', color: 'white' },
+    addButton: { 
+        border: 'none', 
+        borderRadius: '0.375rem', 
+        padding: '0.5rem 0.75rem', 
+        cursor: 'pointer', 
+        display: 'flex', 
+        alignItems: 'center', 
+        fontSize: '0.875rem', 
+        fontWeight: 500, 
+        boxShadow: '0 1px 2px rgba(0,0,0,0.05)', 
+        backgroundColor: '#39A2DB',
+        color: 'white' 
+    },
     tableContainer: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto' },
     loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' },
     loadingSpinner: { animation: 'spin 1s linear infinite', marginBottom: '0.5rem' },
@@ -200,21 +212,6 @@ export default function SoftwareList() {
     tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
     tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
     tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
-    deleteButton: { // Style for delete button in modal if needed
-        backgroundColor: '#ef4444', // Red background
-        color: 'white',
-        border: 'none',
-        borderRadius: '0.375rem',
-        padding: '0.5rem 1rem',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
-        fontWeight: 500,
-        marginTop: '1rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        float: 'right' as const, // Position to the right within modal footer
-    }
   };
 
   return (
@@ -291,15 +288,6 @@ export default function SoftwareList() {
           fields={detailsFields}
           onSave={handleUpdateSoftware}
         >
-           {/* Add Delete Button inside the modal */}
-           <button 
-             onClick={() => handleDeleteSoftware(selectedSoftware?.softwareId)}
-             style={styles.deleteButton} 
-             title="Delete Software"
-           >
-               <Trash2 size={16}/>
-               Delete
-           </button>
         </EditableDetailsModal>
       )}
 

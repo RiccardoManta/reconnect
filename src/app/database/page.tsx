@@ -7,7 +7,7 @@ import Header from '@/components/layout/Header';
 import { 
     Database as DatabaseIcon, 
     Server, // TestBenches
-    Users, // Users
+    Users, // Users - Keep icon for now, or remove if not used elsewhere
     ClipboardList, // Projects, ProjectOverview
     Package, // Software
     Cpu, // PcOverview
@@ -31,7 +31,8 @@ import {
 const TestBenchList = lazy(() => import('@/components/database/TestBenchList'));
 const PcOverviewList = lazy(() => import('@/components/database/PcOverviewList'));
 const ProjectsList = lazy(() => import('@/components/database/ProjectsList'));
-const UsersList = lazy(() => import('@/components/database/UsersList'));
+// Removed UsersList import
+// const UsersList = lazy(() => import('@/components/database/UsersList')); 
 const SoftwareList = lazy(() => import('@/components/database/SoftwareList'));
 const ModelStandsList = lazy(() => import('@/components/database/ModelStandsList'));
 const VmInstancesList = lazy(() => import('@/components/database/VmInstancesList'));
@@ -55,7 +56,8 @@ const tableConfig: TableConfig[] = [
     { key: 'TestBenches', name: 'Test Benches', icon: Server, component: TestBenchList },
     { key: 'PcOverview', name: 'PC Overview', icon: Settings, component: PcOverviewList },
     { key: 'Projects', name: 'Projects', icon: FileText, component: ProjectsList },
-    { key: 'Users', name: 'Users', icon: Users, component: UsersList },
+    // Removed Users entry
+    // { key: 'Users', name: 'Users', icon: Users, component: UsersList },
     { key: 'Software', name: 'Software', icon: CheckSquare, component: SoftwareList },
     { key: 'ModelStands', name: 'Model Stands', icon: DatabaseIcon, component: ModelStandsList },
     { key: 'VmInstances', name: 'VM Instances', icon: Server, component: VmInstancesList },

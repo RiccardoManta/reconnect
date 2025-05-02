@@ -134,21 +134,31 @@ export default function VmInstancesList() {
   };
 
   const handleUpdateVmInstance = async (formData: Record<string, any>) => {
+    console.log("Attempting to update VM instance. Form data:", formData);
     try {
       if (!formData.vmId) {
         throw new Error('VM ID is required');
       }
 
       const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/vminstances', {
+      console.log("Sending snake_case data to API:", snakeCaseData);
+      
+      const response = await fetch(`/api/vminstances/${formData.vmId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snakeCaseData),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update VM instance');
+        let errorMsg = 'Failed to update VM instance';
+        try {
+            const errorData = await response.json();
+            console.error("API Error Response:", errorData);
+            errorMsg = errorData.error || errorMsg;
+        } catch (jsonError) {
+            console.error("Could not parse API error response as JSON");
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
@@ -241,7 +251,19 @@ export default function VmInstancesList() {
     headerTitleContainer: { display: 'flex', alignItems: 'center' },
     headerIcon: { color: '#0F3460', marginRight: '1rem' },
     headerTitle: { fontSize: '1.75rem', fontWeight: 'bold', color: '#0F3460', margin: 0 },
-    addButton: { border: 'none', borderRadius: '0.375rem', padding: '0.5rem 0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', backgroundColor: '#0F3460', color: 'white' },
+    addButton: { 
+        border: 'none', 
+        borderRadius: '0.375rem', 
+        padding: '0.5rem 0.75rem', 
+        cursor: 'pointer', 
+        display: 'flex', 
+        alignItems: 'center', 
+        fontSize: '0.875rem', 
+        fontWeight: 500, 
+        boxShadow: '0 1px 2px rgba(0,0,0,0.05)', 
+        backgroundColor: '#39A2DB',
+        color: 'white' 
+    },
     tableContainer: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflowX: 'auto' },
     loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', color: '#6b7280' },
     loadingSpinner: { animation: 'spin 1s linear infinite', marginBottom: '0.5rem' },

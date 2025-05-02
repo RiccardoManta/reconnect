@@ -80,7 +80,7 @@ export default function ManageLicenseAssignment({
       {/* Assignment Controls */}
       {!currentAssignment ? (
         // Show controls to assign
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           {/* PC Dropdown */}
           <select
             value={selectedPc}

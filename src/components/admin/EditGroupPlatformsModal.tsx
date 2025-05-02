@@ -54,21 +54,36 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
 
   // Initialize selected IDs and permission when groupData changes
   useEffect(() => {
-      if (groupData) {
-          // Platforms
-          if (groupData.accessiblePlatformIds) {
-              const ids = groupData.accessiblePlatformIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
-              setSelectedPlatformIds(new Set(ids));
-          } else {
-              setSelectedPlatformIds(new Set());
-          }
-          // Permission
-          setSelectedPermissionId(groupData.permissionId ?? '');
-      } else {
-          // Reset if groupData becomes null
-          setSelectedPlatformIds(new Set());
-          setSelectedPermissionId('');
-      }
+    if (groupData) {
+        // Current state representation
+        const currentPlatformIdsString = Array.from(selectedPlatformIds).sort().join(',');
+        const currentPermissionId = selectedPermissionId === '' ? null : Number(selectedPermissionId);
+        
+        // Incoming prop representation
+        const incomingPlatformIds = groupData.accessiblePlatformIds 
+            ? groupData.accessiblePlatformIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id)).sort().join(',')
+            : '';
+        const incomingPermissionId = groupData.permissionId;
+
+        // Only update state and reset flags if incoming data is different
+        if (incomingPlatformIds !== currentPlatformIdsString || incomingPermissionId !== currentPermissionId) {
+            if (groupData.accessiblePlatformIds) {
+                const ids = groupData.accessiblePlatformIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+                setSelectedPlatformIds(new Set(ids));
+            } else {
+                setSelectedPlatformIds(new Set());
+            }
+            setSelectedPermissionId(groupData.permissionId ?? '');
+            setError(null);
+            setSaving(false);
+        }
+    } else {
+        // Reset if groupData becomes null
+        setSelectedPlatformIds(new Set());
+        setSelectedPermissionId('');
+        setError(null);
+        setSaving(false);
+    }
   }, [groupData]);
 
   // Fetch all available platforms AND permissions when the modal opens
@@ -133,9 +148,7 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
     setError(null);
     try {
       const platformIdsArray = Array.from(selectedPlatformIds);
-      // Call updated onSave with permission ID
       await onSave(groupData.userGroupId, platformIdsArray, permissionIdToSave);
-      // Parent component should handle closing
     } catch (err) {
       setError(`Failed to save changes: ${err instanceof Error ? err.message : 'Unknown error'}`);
       console.error('Error in EditGroupPlatformsModal save:', err);
@@ -351,12 +364,12 @@ const styles = {
     display: 'inline-flex', // To align icon and text
     alignItems: 'center', 
     gap: '0.5rem',
-    padding: '0.6rem 1.2rem', 
-    borderRadius: '0.375rem', 
+    padding: '0.5rem 1rem',
+    borderRadius: '0.375rem',
     fontSize: '0.875rem',
     fontWeight: 500,
     color: 'white',
-    backgroundColor: '#2563eb', // Blue
+    backgroundColor: '#39A2DB',
     border: 'none',
     cursor: 'pointer',
     transition: 'background-color 0.2s ease-in-out',
