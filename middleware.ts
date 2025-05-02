@@ -15,9 +15,10 @@ export const config = {
      * - signup (if you had a custom signup page at /signup)
      * You might want to exclude other public pages here too.
      */
-    // Protect the root route and the database route
+    // Protect the root route, database route, and admin route
     '/', 
     '/database/:path*', // Protect /database and any sub-paths
+    '/admin/:path*',    // Protect /admin and any sub-paths
     // Add other routes to protect here, e.g.: 
     // '/dashboard/:path*',
     // '/profile',

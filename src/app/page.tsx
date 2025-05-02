@@ -11,6 +11,9 @@ import AddServerModal, { ServerData as AddModalServerData } from '@/components/s
 // Fallback categories in case API fails
 const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
 
+// Permission levels (adjust if needed)
+type PermissionLevel = 'Admin' | 'Edit' | 'Read';
+
 // NEW Interface for server data stored in state, matching API response and ServerCardProps
 // (excluding functions)
 interface DisplayServerData extends Omit<ServerCardProps, 'onOpenDeleteDialog' | 'onOpenEditModal'> {
@@ -35,6 +38,7 @@ export default function Home() {
   const [serverToDeleteName, setServerToDeleteName] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [userPermissionLevel, setUserPermissionLevel] = useState<PermissionLevel>('Read'); // Default to Read
 
   // Fetching logic
   useEffect(() => {
@@ -109,6 +113,29 @@ export default function Home() {
 
     fetchData();
   }, []);
+
+  // NEW Effect to fetch user permissions when authenticated
+  useEffect(() => {
+    async function fetchPermissions() {
+      if (status === 'authenticated') {
+        try {
+          const response = await fetch('/api/user/permissions');
+          if (!response.ok) {
+            console.error("Failed to fetch user permissions, status:", response.status);
+            throw new Error('Could not load user permissions');
+          }
+          const data = await response.json();
+          setUserPermissionLevel(data.permissionName || 'Read'); // Update state, default to Read
+          console.log("User Permission Level:", data.permissionName || 'Read');
+        } catch (permError) {
+          console.error("Error fetching permissions:", permError);
+          setUserPermissionLevel('Read'); // Default to Read on error
+        }
+      }
+    }
+
+    fetchPermissions();
+  }, [status]); // Re-run when authentication status changes
 
   // Group servers by category (same as before)
   const serversByCategory = categories.reduce((acc, category) => {
@@ -341,11 +368,12 @@ export default function Home() {
             platformId={server.platformId}
             onOpenEditModal={() => openEditModal(server)}
             onOpenDeleteDialog={() => openDeleteDialog(server.pcId, server.casualName || 'Unknown')}
+            userPermissionLevel={userPermissionLevel}
           />
         ))}
 
-        {/* AddServerCard only in the first category */}
-        {category === categories[0] && (
+        {/* Conditionally render AddServerCard only in the first category AND if user has edit/admin rights */}
+        {category === categories[0] && (userPermissionLevel === 'Admin' || userPermissionLevel === 'Edit') && (
           <AddServerCard onClick={() => setIsModalOpen(true)} />
         )}
       </div>

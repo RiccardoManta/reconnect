@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, User, Info, Settings, Wrench, PowerOff, Edit3, Users, Trash2 } from 'lucide-react';
 import { ServerData } from './AddServerModal';
 
+// Re-import PermissionLevel type or define it here
+type PermissionLevel = 'Admin' | 'Edit' | 'Read';
+
 export interface ServerCardProps {
   pcId: number;
   casualName: string | null;
@@ -13,6 +16,7 @@ export interface ServerCardProps {
   platformId?: number | null;
   onOpenDeleteDialog: (pcId: number, serverName: string) => void;
   onOpenEditModal: (server: any) => void;
+  userPermissionLevel: PermissionLevel; // Added prop
 }
 
 export default function ServerCard({
@@ -25,6 +29,7 @@ export default function ServerCard({
   activeUser,
   onOpenDeleteDialog,
   onOpenEditModal,
+  userPermissionLevel, // Destructure prop
 }: ServerCardProps) {
 
   const getStatusDetails = () => {
@@ -92,6 +97,10 @@ export default function ServerCard({
     };
   }, [isMenuOpen]);
 
+  // --- Define edit+ permissions check ---
+  const canPerformEditActions = userPermissionLevel === 'Admin' || userPermissionLevel === 'Edit';
+
+  // --- Menu Actions (Keep handlers, disable button rendering) ---
   const handleMaintenance = () => { console.log(`Maintenance clicked for ${casualName}`); setIsMenuOpen(false); };
   const handleDeactivate = () => { console.log(`Deactivate clicked for ${casualName}`); setIsMenuOpen(false); };
   const handleEdit = () => {
@@ -113,7 +122,8 @@ export default function ServerCard({
     setIsMenuOpen(false);
   };
 
-  const renderMenuItem = (icon: React.ReactNode, text: string, action: () => void) => (
+  // Updated to accept disabled state
+  const renderMenuItem = (icon: React.ReactNode, text: string, action: () => void, disabled: boolean = false) => (
     <button
       style={{
         display: 'flex',
@@ -123,15 +133,16 @@ export default function ServerCard({
         padding: '0.75rem 1rem',
         border: 'none',
         backgroundColor: 'transparent',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: '0.875rem',
         width: '100%',
-        color: '#374151',
-        transition: 'background-color 0.2s'
+        opacity: disabled ? 0.5 : 1,
+        color: disabled ? '#9ca3af' : '#374151', // Grey out text when disabled
       }}
-      onClick={action}
-      onMouseOver={(e) => { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f3f4f6'}}
-      onMouseOut={(e) => { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = 'transparent'}}
+      onClick={!disabled ? action : undefined} // Only attach onClick if not disabled
+      disabled={disabled} // Add disabled attribute
+      onMouseOver={(e) => { if (!disabled) { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f3f4f6' }}}
+      onMouseOut={(e) => { if (!disabled) { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = 'transparent' }}}
     >
       {icon}
       {text}
@@ -221,23 +232,25 @@ export default function ServerCard({
               style={{
                 background: 'none',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: userPermissionLevel === 'Read' ? 'not-allowed' : 'pointer',
                 padding: '5px',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'background-color 0.2s'
+                transition: 'background-color 0.2s',
+                opacity: userPermissionLevel === 'Read' ? 0.5 : 1,
               }}
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              onMouseOver={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f2f2f2'}}
-              onMouseOut={(e) => {const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = 'transparent'}}
-              title="Settings"
+              disabled={userPermissionLevel === 'Read'}
+              onClick={userPermissionLevel !== 'Read' ? () => setIsMenuOpen(!isMenuOpen) : undefined}
+              onMouseOver={(e) => { if (userPermissionLevel !== 'Read') { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = '#f2f2f2' }}}
+              onMouseOut={(e) => { if (userPermissionLevel !== 'Read') { const target = e.currentTarget as HTMLButtonElement; target.style.backgroundColor = 'transparent' }}}
+              title={userPermissionLevel === 'Read' ? "Settings (Requires Edit/Admin)" : "Settings"}
             >
               <Settings className="h-4 w-4" style={{ color: '#0F3460' }} />
             </button>
 
-            {isMenuOpen && (
+            {userPermissionLevel !== 'Read' && isMenuOpen && (
               <div
                 ref={menuRef}
                 style={{
@@ -266,12 +279,13 @@ export default function ServerCard({
                   zIndex: 49
                 }} />
 
-                {renderMenuItem(<Wrench size={16} />, 'Maintenance Mode', handleMaintenance)}
-                {renderMenuItem(<PowerOff size={16} />, 'Deactivate', handleDeactivate)}
-                {renderMenuItem(<Edit3 size={16} />, 'Edit Server', handleEdit)}
+                {/* Conditionally disable items */}
+                {renderMenuItem(<Wrench size={16} />, 'Maintenance Mode', handleMaintenance, !canPerformEditActions)}
+                {renderMenuItem(<PowerOff size={16} />, 'Deactivate', handleDeactivate, !canPerformEditActions)}
+                {renderMenuItem(<Edit3 size={16} />, 'Edit Server', handleEdit, !canPerformEditActions)}
                 {renderMenuItem(<Users size={16} />, 'Manage User', handleManageUser)}
                 <div style={{ borderTop: '1px solid #e5e7eb', margin: '0.25rem 0' }}></div>
-                {renderMenuItem(<Trash2 size={16} style={{color: '#dc2626'}} />, 'Delete Server', handleDelete)}
+                {renderMenuItem(<Trash2 size={16} style={{color: canPerformEditActions ? '#dc2626' : '#fca5a5' /* Lighter red when disabled */}} />, 'Delete Server', handleDelete, !canPerformEditActions)}
               </div>
             )}
           </div>
