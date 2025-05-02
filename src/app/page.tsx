@@ -358,6 +358,7 @@ export default function Home() {
         {serversList.map((server) => (
           <ServerCard
             key={server.pcId} 
+            id={`server-card-${server.pcId}`}
             pcId={server.pcId}
             casualName={server.casualName}
             platformName={server.platformName}
@@ -385,7 +386,8 @@ export default function Home() {
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header />
 
-      <div style={{ display: 'flex', flex: 1 }}>
+      {/* Parent flex container: Set explicit height, remove flex: 1 */}
+      <div style={{ display: 'flex', height: 'calc(100vh - 73px)' }}> 
         {/* Remove the problematic console.log call from JSX */}
         {/* {console.log('[page.tsx] Rendering Sidebar with categories:', categories)} */}
         <Sidebar
@@ -395,11 +397,10 @@ export default function Home() {
           onServerClick={handleServerClick}
         />
 
-        {/* Main content area with inline styles */}
+        {/* Main content area: Keep flex: 1 and overflowY: 'auto' */}
         <div className="content" style={{
           flex: 1,
           paddingTop: '1.5rem',
-          height: 'calc(100vh - 73px)',
           overflowY: 'auto'
         }}>
           <div style={{

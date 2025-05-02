@@ -51,7 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-      <div style={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)' }}>
         
         {/* Loading State */}
         {loadingPermission && (

@@ -186,7 +186,7 @@ export default function DatabasePage() {
 
       {/* Authorized State: Show Sidebar and Content */}
       {!loadingPermission && userPermission !== 'Read' && (
-          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flex: 1 }}>
             {/* Sidebar */}
             <div style={styles.sidebar}>
               {/* Sidebar Title Removed */}

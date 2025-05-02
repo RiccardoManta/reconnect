@@ -41,7 +41,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     navLinkActive: { // Replaced navButtonActive
       backgroundColor: '#dbeafe', // Light blue active
       color: '#0F3460', // Dark blue text active
-      fontWeight: '600'
+      fontWeight: '600',
+      borderRadius: 0 // Attempt to fix Firefox rendering glitch
     },
     navIcon: {
       marginRight: '0.75rem'

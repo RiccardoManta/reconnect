@@ -6,6 +6,7 @@ import { ServerData } from './AddServerModal';
 type PermissionLevel = 'Admin' | 'Edit' | 'Read';
 
 export interface ServerCardProps {
+  id?: string;
   pcId: number;
   casualName: string | null;
   platformName?: string | null;
@@ -20,6 +21,7 @@ export interface ServerCardProps {
 }
 
 export default function ServerCard({
+  id,
   pcId,
   casualName,
   platformName,
@@ -150,7 +152,7 @@ export default function ServerCard({
   );
 
   return (
-    <div className="server-card" id={`server-${pcId}`} style={{
+    <div className="server-card" id={id} style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100%'

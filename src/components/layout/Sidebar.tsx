@@ -80,7 +80,7 @@ export default function Sidebar({
 
   return (
     <div style={{
-      width: '380px',
+      width: '450px',
       borderRight: '1px solid #e2e8f0',
       backgroundColor: '#f8fafc',
       height: 'calc(100vh - 73px)', // Subtract header height

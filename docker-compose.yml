@@ -40,11 +40,10 @@ services:
       context: . # Build from the current directory where Dockerfile is
       dockerfile: Dockerfile
     restart: always
-    ports:
-      - "3000:3000" # Map host port 3000 to container port 3000
+    # ports:
+    #   - "3000:3000"
     environment:
       # Pass database credentials to the webapp container
-      # IMPORTANT: Use the service name 'mysql' as the host!
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306 # Default MySQL port
       MYSQL_DATABASE: ${MYSQL_DATABASE} # Read from .env
@@ -53,13 +52,33 @@ services:
       # Add next-auth variables
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      # NEXT_PUBLIC_ variables can be added here if needed
-      # NODE_ENV is set to production in the Dockerfile
+      NODE_ENV: production # Set in Dockerfile too, but explicit here is fine
+      PORT: 3000 # Port inside the container (matches Dockerfile EXPOSE)
     depends_on:
       mysql: # Ensure mysql is healthy before starting webapp
         condition: service_healthy
     networks:
       - app-network # Connect to the same network as mysql
+
+  proxy:
+    image: nginx:1.25-alpine # Use a specific version
+    container_name: reconnect-proxy
+    restart: always
+    depends_on:
+      - webapp # Start after the webapp
+    ports:
+      # Map host port 443 to container port 443 for HTTPS
+      - "443:443"
+      # Optional: Map host port 80 to container port 80 for HTTP redirect
+      - "80:80"
+    volumes:
+      # Mount the nginx config (read-only)
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Mount your PRODUCTION certificates (read-only)
+      # Assumes certs are in a 'certs' dir ON THE HOST laptop
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - app-network
 
 volumes:
   mysql_data:
