@@ -28,10 +28,10 @@ async function checkAdminPermission(request: NextRequest): Promise<{ isAdmin: bo
     return { isAdmin: true };
 }
 
-// Update function signature to correctly get params for App Router
+// Update function signature to use context: any and access params via context
 export async function PUT(
     request: NextRequest, 
-    { params }: { params: { groupId: string } }
+    context: any // Apply workaround: Use context: any
 ): Promise<NextResponse> {
     // Check permissions first
     const permissionCheck = await checkAdminPermission(request);
@@ -39,8 +39,9 @@ export async function PUT(
         return permissionCheck.errorResponse!;
     }
 
-    // Access groupId directly from destructured params
-    const groupId = parseInt(params.groupId, 10); 
+    // Access groupId via context using optional chaining and casting
+    const groupIdStr = (context?.params?.groupId as string) || ''; 
+    const groupId = parseInt(groupIdStr, 10); 
 
     if (isNaN(groupId)) {
         return NextResponse.json({ error: 'Invalid Group ID in URL.' }, { status: 400 });
@@ -48,46 +49,30 @@ export async function PUT(
 
     try {
         const body: UpdatePlatformsRequest = await request.json();
-        const { platformIds } = body;
-
-        if (!Array.isArray(platformIds) || !platformIds.every(id => typeof id === 'number')) {
-            return NextResponse.json({ error: 'Invalid format: platformIds must be an array of numbers.' }, { status: 400 });
+        // Validate platformIds
+        if (!Array.isArray(body.platformIds) || body.platformIds.some(id => typeof id !== 'number')) {
+             return NextResponse.json({ error: 'platformIds must be an array of numbers.' }, { status: 400 });
         }
+        
+        const platformIds = body.platformIds;
 
-        await transaction(async (connection: PoolConnection) => {
-            await connection.query(
-                'DELETE FROM group_platform_access WHERE user_group_id = ?',
-                [groupId]
-            );
+        // Use transaction for reliability
+        await transaction(async (connection) => {
+            // Delete existing entries for the group
+            await connection.query('DELETE FROM group_platform_access WHERE user_group_id = ?', [groupId]);
 
+            // Insert new entries if any platforms were provided
             if (platformIds.length > 0) {
-                const values = platformIds.map(platformId => [groupId, platformId]);
-                await connection.query(
-                    'INSERT INTO group_platform_access (user_group_id, platform_id) VALUES ?',
-                    [values] 
-                );
+                const insertValues = platformIds.map(platformId => [groupId, platformId]);
+                await connection.query('INSERT INTO group_platform_access (user_group_id, platform_id) VALUES ?', [insertValues]);
             }
         });
-
-        return NextResponse.json({
-            success: true,
-            message: `Platform access for group ${groupId} updated successfully.`
-        });
+        
+        return NextResponse.json({ success: true, message: 'Group platform access updated successfully.' });
 
     } catch (error: unknown) {
-        console.error(`API Error updating platform access for group ${groupId}:`, error);
+        console.error(`Error updating platform access for group ${groupId}:`, error);
         const message = error instanceof Error ? error.message : 'Unknown error';
-        
-        if (message.includes('foreign key constraint fails')) {
-             return NextResponse.json({ error: 'Invalid Platform ID provided.', details: message }, { status: 400 });
-        }
-        if (message.includes('group not found')) { 
-             return NextResponse.json({ error: 'Group not found.', details: message }, { status: 404 });
-        }
-
-        return NextResponse.json(
-            { error: 'Failed to update platform access.', details: message },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to update group platform access', details: message }, { status: 500 });
     }
 } 

@@ -30,12 +30,13 @@ interface AssignedLicenseInfoRaw extends RowDataPacket {
 // GET assigned licenses for a specific PC
 export async function GET(
     request: NextRequest,
-    // Use standard { params } destructuring
-    { params }: { params: { pc_id: string } }
+    // Apply workaround: Use context: any
+    context: any 
 ): Promise<NextResponse> {
     try {
-        // Access directly via params
-        const pcId = parseInt(params.pc_id, 10);
+        // Access pc_id via context using optional chaining and casting
+        const pcIdStr = (context?.params?.pc_id as string) || ''; 
+        const pcId = parseInt(pcIdStr, 10);
         if (isNaN(pcId)) {
             return NextResponse.json({ error: 'Invalid PC ID' }, { status: 400 });
         }

@@ -19,10 +19,11 @@ interface AssignSoftwareBody {
 // GET assigned software for a specific VM
 export async function GET(
     request: NextRequest,
-    context: { params: { vm_id: string } }
+    context: any
 ): Promise<NextResponse> {
     try {
-        const vmId = parseInt(context.params.vm_id, 10);
+        const vmIdStr = (context?.params?.vm_id as string) || '';
+        const vmId = parseInt(vmIdStr, 10);
         if (isNaN(vmId)) {
             return NextResponse.json({ error: 'Invalid VM ID' }, { status: 400 });
         }
@@ -51,10 +52,11 @@ export async function GET(
 // POST: Assign software to a VM
 export async function POST(
     request: NextRequest,
-    context: { params: { vm_id: string } }
+    context: any
 ): Promise<NextResponse> {
     try {
-        const vmId = parseInt(context.params.vm_id, 10);
+        const vmIdStr = (context?.params?.vm_id as string) || '';
+        const vmId = parseInt(vmIdStr, 10);
         if (isNaN(vmId)) {
             return NextResponse.json({ error: 'Invalid VM ID' }, { status: 400 });
         }

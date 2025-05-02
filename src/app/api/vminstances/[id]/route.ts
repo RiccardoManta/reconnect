@@ -20,10 +20,10 @@ interface VmInstancePutRequestBody {
 // GET method to fetch a single VM instance by ID
 export async function GET(
     request: NextRequest, 
-    context: { params: { id: string } }
+    context: any
 ): Promise<NextResponse> {
-    const id = context.params.id;
-    if (typeof id !== 'string') {
+    const id = (context?.params?.id as string) || '';
+    if (!id) {
         return NextResponse.json({ error: 'Invalid or missing VM ID in params' }, { status: 400 });
     }
     const vmId = parseInt(id, 10);
@@ -57,10 +57,10 @@ export async function GET(
 // DELETE method to remove a VM instance by ID
 export async function DELETE(
     request: NextRequest, 
-    context: { params: { id: string } }
+    context: any
 ): Promise<NextResponse> {
-    const id = context.params.id;
-    if (typeof id !== 'string') {
+    const id = (context?.params?.id as string) || '';
+    if (!id) {
         return NextResponse.json({ error: 'Invalid or missing VM ID in params' }, { status: 400 });
     }
     const vmId = parseInt(id, 10);
@@ -102,10 +102,10 @@ export async function DELETE(
 // PUT method to update an existing VM instance
 export async function PUT(
     request: NextRequest, 
-    context: { params: { id: string } }
+    context: any
 ): Promise<NextResponse> {
-    const id = context.params.id;
-    if (typeof id !== 'string') {
+    const id = (context?.params?.id as string) || '';
+    if (!id) {
         return NextResponse.json({ error: 'Invalid or missing VM ID in params' }, { status: 400 });
     }
     const vmId = parseInt(id, 10);

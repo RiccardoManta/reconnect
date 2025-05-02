@@ -36,7 +36,7 @@ async function checkAdminPermission(request: NextRequest): Promise<{ isAdmin: bo
 // PUT method to update group details (permissionId)
 export async function PUT(
     request: NextRequest, 
-    { params }: { params: { groupId: string } }
+    context: any // Apply workaround: Use context: any
 ): Promise<NextResponse> {
     // Check permissions first
     const permissionCheck = await checkAdminPermission(request);
@@ -44,8 +44,9 @@ export async function PUT(
         return permissionCheck.errorResponse!;
     }
 
-    // Get groupId directly from destructured params
-    const groupId = parseInt(params.groupId, 10);
+    // Access groupId via context using optional chaining and casting
+    const groupIdStr = (context?.params?.groupId as string) || ''; 
+    const groupId = parseInt(groupIdStr, 10);
     if (isNaN(groupId)) {
         return NextResponse.json({ error: 'Invalid Group ID in URL.' }, { status: 400 });
     }

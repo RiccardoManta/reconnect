@@ -70,12 +70,13 @@ export async function GET(
 // POST: Create a new assignment (or potentially update if logic allows)
 export async function POST(
     request: NextRequest,
-    // Use standard { params } destructuring
-    { params }: { params: { license_id: string } }
+    // Apply workaround: Use context: any
+    context: any 
 ): Promise<NextResponse> {
     try {
-        // Access directly via params
-        const licenseId = parseInt(params.license_id, 10);
+        // Access licenseId via context using optional chaining and casting
+        const licenseIdStr = (context?.params?.license_id as string) || ''; 
+        const licenseId = parseInt(licenseIdStr, 10);
         if (isNaN(licenseId)) {
             return NextResponse.json({ error: 'Invalid License ID' }, { status: 400 });
         }
@@ -150,12 +151,13 @@ export async function POST(
 // DELETE: Remove the assignment for a specific license
 export async function DELETE(
     request: NextRequest,
-     // Use standard { params } destructuring
-    { params }: { params: { license_id: string } }
+    // Apply workaround: Use context: any
+    context: any 
 ): Promise<NextResponse> {
     try {
-        // Access directly via params
-        const licenseId = parseInt(params.license_id, 10);
+        // Access licenseId via context using optional chaining and casting
+        const licenseIdStr = (context?.params?.license_id as string) || '';
+        const licenseId = parseInt(licenseIdStr, 10);
         if (isNaN(licenseId)) {
             return NextResponse.json({ error: 'Invalid License ID' }, { status: 400 });
         }
