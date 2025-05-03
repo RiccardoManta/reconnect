@@ -14,7 +14,6 @@ const styles: { [key: string]: React.CSSProperties } = {
       padding: '1.5rem 1rem',
       display: 'flex',
       flexDirection: 'column',
-      height: '100%',
       overflowY: 'auto'
     },
     navList: {

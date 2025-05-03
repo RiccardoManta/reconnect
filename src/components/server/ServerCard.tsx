@@ -216,10 +216,7 @@ export default function ServerCard({
           </button>
 
           <button
-              className={`connect-button ${status ? status.toLowerCase() : 'unknown'}`}
-              style={{
-                  ...(statusDetails.text === 'In Use' && { backgroundColor: '#ef4444' /* Tailwind red-500 */ }),
-              }}
+              className={`connect-button ${statusDetails.text.toLowerCase().replace(' ', '-')}`}
               title={statusDetails.text === 'Offline' ? "Server Offline" : "Connect"}
             >
             <Link className="h-4 w-4" style={{ color: statusDetails.text !== 'Offline' ? 'white' : '#4b5563' }} />

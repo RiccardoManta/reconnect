@@ -65,8 +65,7 @@ export default function Header() {
 
   return (
     <header style={{ 
-      backgroundColor: '#0F3460',
-      backgroundImage: 'linear-gradient(to right, #0F3460, #1A4D7C)',
+      backgroundColor: 'var(--primary, #0F3460)',
       padding: '0.875rem 2rem',
       display: 'flex',
       justifyContent: 'space-between',
@@ -87,7 +86,7 @@ export default function Header() {
             textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
             cursor: 'pointer'
           }}>
-            <span style={{ color: '#39A2DB' }}>Chassis</span> ReConnect
+            <span style={{ color: 'var(--primary-light, #39A2DB)' }}>Chassis</span> ReConnect
           </h1>
         </Link>
       </div>
