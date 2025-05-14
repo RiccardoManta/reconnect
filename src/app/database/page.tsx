@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import Header from '@/components/layout/Header';
 import PermissionDeniedBanner from '@/components/layout/PermissionDeniedBanner'; // Import the banner
+import { getBaseUrl } from '@/utils/urlUtils';
 // Import necessary icons for sidebar and loading/error states
 import { 
     Database as DatabaseIcon, 
@@ -88,9 +89,18 @@ export default function DatabasePage() {
         setLoadingPermission(true);
         try {
           const response = await fetch('/api/user/permissions');
+          
+          if (response.status === 401) {
+            // User is not authenticated according to the server
+            console.log("Server reports user is not authenticated in database page, signing out...");
+            await signOut({ redirect: true, callbackUrl: `${getBaseUrl()}/auth/login-signup` });
+            return;
+          }
+          
           if (!response.ok) {
             throw new Error('Failed to fetch permissions');
           }
+          
           const data = await response.json();
           setUserPermission(data.permissionName || 'Read');
         } catch (error) {
@@ -163,68 +173,74 @@ export default function DatabasePage() {
     }
   };
 
-  // --- Render Logic ---
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header />
-
-      {/* Loading Permissions State */}
-      {loadingPermission && (
+  // Loading state
+  if (loadingPermission) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <Header />
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           Loading Access Permissions...
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Permission Denied State - Added wrapper div for positioning */}
-      {!loadingPermission && userPermission === 'Read' && (
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '2rem' }}>
-              <PermissionDeniedBanner />
-          </div>
-      )}
+  // Permission denied state - only show header and error message
+  // Only allow Admin or Edit users to access the database
+  if (userPermission !== 'Admin' && userPermission !== 'Edit') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <Header />
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <PermissionDeniedBanner />
+        </div>
+      </div>
+    );
+  }
 
-      {/* Authorized State: Show Sidebar and Content */}
-      {!loadingPermission && userPermission !== 'Read' && (
-          <div style={{ display: 'flex', flex: 1 }}>
-            {/* Sidebar */}
-            <div style={styles.sidebar}>
-              {/* Sidebar Title Removed */}
-              <ul style={styles.navList}>
-                {tableConfig.map((table) => {
-                    const isActive = activeTable === table.key;
-                    return (
-                      <li key={table.key}>
-                        <button
-                          onClick={() => setActiveTable(table.key)}
-                          style={{
-                            ...styles.navButton, 
-                            ...(isActive ? styles.navButtonActive : {}),
-                          }}
-                          // Add hover effects directly here for simplicity
-                          onMouseOver={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
-                          onMouseOut={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                        >
-                          <table.icon size={18} style={styles.navIcon} />
-                          {table.name}
-                        </button>
-                      </li>
-                    );
-                 }
-                )}
-              </ul>
-            </div>
-            
-            {/* Main Content Area */}
-            <div style={styles.mainContent}>
-               {CurrentTableComponent ? (
-                 <Suspense fallback={<div style={styles.loadingFallback}>Loading Table...</div>}>
-                   <CurrentTableComponent />
-                 </Suspense>
-               ) : (
-                 <div style={styles.loadingFallback}>Select a table</div>
-               )}
-            </div>
-          </div>
-      )}
+  // Authorized state - show entire database interface with sidebar and content
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Header />
+      <div style={{ display: 'flex', flex: 1 }}>
+        {/* Sidebar */}
+        <div style={styles.sidebar}>
+          <ul style={styles.navList}>
+            {tableConfig.map((table) => {
+                const isActive = activeTable === table.key;
+                return (
+                  <li key={table.key}>
+                    <button
+                      onClick={() => setActiveTable(table.key)}
+                      style={{
+                        ...styles.navButton, 
+                        ...(isActive ? styles.navButtonActive : {}),
+                      }}
+                      // Add hover effects directly here for simplicity
+                      onMouseOver={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+                      onMouseOut={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <table.icon size={18} style={styles.navIcon} />
+                      {table.name}
+                    </button>
+                  </li>
+                );
+             }
+            )}
+          </ul>
+        </div>
+        
+        {/* Main Content Area */}
+        <div style={styles.mainContent}>
+           {CurrentTableComponent ? (
+             <Suspense fallback={<div style={styles.loadingFallback}>Loading Table...</div>}>
+               <CurrentTableComponent />
+             </Suspense>
+           ) : (
+             <div style={styles.loadingFallback}>Select a table</div>
+           )}
+        </div>
+      </div>
     </div>
   );
 }

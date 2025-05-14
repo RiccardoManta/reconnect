@@ -159,7 +159,7 @@ export default function LoginSignupPage() {
     try {
       // --- THIS IS WHERE YOU CALL YOUR CUSTOM SIGNUP API ---
       // Example:
-      const response = await fetch('/api/auth/register', { // Replace with your actual signup endpoint
+      const response = await fetch('/api/signup', { // Replace with your actual signup endpoint
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ email, password }),

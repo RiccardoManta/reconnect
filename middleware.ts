@@ -1,5 +1,22 @@
 // Export the middleware function provided by next-auth
-export { default } from "next-auth/middleware"
+import { NextResponse } from 'next/server';
+import { withAuth } from 'next-auth/middleware';
+
+// Use withAuth for better customization
+export default withAuth(
+  // `withAuth` augments your `Request` with the user's token.
+  function middleware(req) {
+    return NextResponse.next();
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => !!token, // Returns true if the user is authenticated
+    },
+    pages: {
+      signIn: '/auth/login-signup', // Use a relative path that works with any base URL
+    },
+  }
+);
 
 // Define which routes should be protected by the middleware
 // See https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
@@ -11,16 +28,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - login (if you had a custom login page at /login)
-     * - signup (if you had a custom signup page at /signup)
-     * You might want to exclude other public pages here too.
+     * - auth (login/signup pages)
+     * - public assets
      */
-    // Protect the root route, database route, and admin route
-    '/', 
-    '/database/:path*', // Protect /database and any sub-paths
-    '/admin/:path*',    // Protect /admin and any sub-paths
-    // Add other routes to protect here, e.g.: 
-    // '/dashboard/:path*',
-    // '/profile',
+    '/((?!api|_next/static|_next/image|favicon.ico|auth|logo.png|manifest.json).*)',
   ],
 }; 

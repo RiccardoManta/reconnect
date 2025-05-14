@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import { getBaseUrl } from '@/utils/urlUtils';
 
 export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -86,7 +87,7 @@ export default function Header() {
             textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
             cursor: 'pointer'
           }}>
-            <span style={{ color: 'var(--primary-light, #39A2DB)' }}>Chassis</span> ReConnect
+            <span style={{ color: '#39A2DB' }}>Chassis</span> ReConnect
           </h1>
         </Link>
       </div>
@@ -284,7 +285,7 @@ export default function Header() {
                   </button>
                   <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '0.5rem 0.25rem' }}></div>
                   <button
-                     onClick={() => signOut()}
+                     onClick={() => signOut({ callbackUrl: `${getBaseUrl()}/auth/login-signup` })}
                      style={{
                        display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'left',
                        padding: '0.875rem 1.25rem', border: 'none', backgroundColor: 'transparent',

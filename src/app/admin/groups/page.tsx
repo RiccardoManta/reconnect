@@ -9,6 +9,8 @@ import { User } from '@/types/database';
 import AddGroupModal from '@/components/admin/AddGroupModal'; 
 // Import the new EditGroupPlatformsModal
 import EditGroupPlatformsModal from '@/components/admin/EditGroupPlatformsModal';
+// Import the PermissionGuard component
+import PermissionGuard from '@/components/layout/PermissionGuard';
 
 // Interface for Group data fetched from API - Added permissionId AND permissionName
 interface UserGroup {
@@ -223,151 +225,153 @@ export default function AdminGroupsPage() {
   // --- End Helper functions ---
 
   return (
-    <div>
-      {/* Page Header */}
-       <div style={styles.headerContainer}>
-         <div style={styles.headerTitleContainer}>
-           <ShieldCheck size={28} style={styles.headerIcon} />
-           <h1 style={styles.headerTitle}>Group Management</h1>
+    <PermissionGuard requiredPermission="Admin">
+      <div>
+        {/* Page Header */}
+         <div style={styles.headerContainer}>
+           <div style={styles.headerTitleContainer}>
+             <ShieldCheck size={28} style={styles.headerIcon} />
+             <h1 style={styles.headerTitle}>Group Management</h1>
+           </div>
+           {/* Add Group Button */}
+           <button 
+             onClick={handleOpenAddModal} 
+             style={{ 
+                 ...styles.addButton, // Keep existing base styles
+                 backgroundColor: '#39A2DB', // Override background color
+                 color: 'white' // Ensure text remains white
+              }} 
+             title="Add new group"
+           >
+             <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+             Add Group
+           </button>
          </div>
-         {/* Add Group Button */}
-         <button 
-           onClick={handleOpenAddModal} 
-           style={{ 
-               ...styles.addButton, // Keep existing base styles
-               backgroundColor: '#39A2DB', // Override background color
-               color: 'white' // Ensure text remains white
-            }} 
-           title="Add new group"
-         >
-           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
-           Add Group
-         </button>
-       </div>
 
-        {/* Loading State */}
-        {loading && (
-            <div style={styles.loadingContainer}>
-               <RefreshCw size={24} style={styles.loadingIcon} />
-               <p>Loading groups and users...</p>
-               <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-            </div>
+          {/* Loading State */}
+          {loading && (
+              <div style={styles.loadingContainer}>
+                 <RefreshCw size={24} style={styles.loadingIcon} />
+                 <p>Loading groups and users...</p>
+                 <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+              </div>
+          )}
+
+          {/* Error State */}
+          {!loading && error && (
+              <div style={styles.errorContainer}>
+                 <p>{error}</p>
+              </div>
+          )}
+
+          {/* Group Sections - Use flex wrap */}
+          {!loading && !error && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
+                  {groups.length === 0 && (
+                      <p style={{ textAlign: 'center', color: '#6b7280', width: '100%' }}>No groups found.</p>
+                  )}
+                  {groups.map((group) => {
+                      const usersInGroup = getUsersInGroup(group.userGroupId);
+                      return (
+                          <div key={group.userGroupId} style={styles.groupSection}>
+                              <div style={styles.groupHeader}>
+                                  <h2 style={styles.groupHeadingNoBorder}>{group.userGroupName}</h2>
+                                  {/* Edit Group Button */}
+                                  <button 
+                                     onClick={() => handleOpenEditPlatformsModal(group)}
+                                     // Updated border/text color to light blue
+                                     style={{ 
+                                       ...styles.editButton, // Keep base styles
+                                       backgroundColor: 'white', // Keep white background
+                                       color: '#39A2DB', // Light blue text
+                                       borderColor: '#39A2DB', // Light blue border
+                                       borderWidth: '1px',
+                                       borderStyle: 'solid',
+                                       padding: '4px 8px', 
+                                       fontSize: '0.8rem' 
+                                     }}
+                                     title="Edit Group Permissions & Platforms"
+                                  >
+                                      <Settings size={14} style={{ marginRight: '0.25rem' }} />
+                                      Edit Group
+                                  </button> 
+                              </div>
+                              
+                              {/* Display Permission Name */}
+                              <div style={{marginBottom: '0.5rem'}}>
+                                  <strong style={styles.subHeading}>Permission:</strong> 
+                                  {/* Apply styles based on permissionName */}
+                                  <span style={getPermissionBadgeStyle(group.permissionName)}>
+                                      {group.permissionName || 'N/A'}
+                                  </span>
+                              </div>
+
+                              {/* Display Accessible Platforms */}
+                              <div style={{marginBottom: '1rem'}}>
+                                  <strong style={styles.subHeading}>Accessible Platforms:</strong> 
+                                  <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.2rem' }}>
+                                      {(group.accessiblePlatformNames && group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name)) ? (
+                                        group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name).map((platformName, index) => (
+                                           <span key={index} style={getPlatformBadgeStyle()}>
+                                               {platformName}
+                                           </span>
+                                        ))
+                                       ) : (
+                                        <span style={{color: '#6b7280'}}>None</span>
+                                       )}
+                                  </span>
+                              </div>
+
+                              <h3 style={styles.subHeading}>Users in this Group ({usersInGroup.length})</h3>
+                              {usersInGroup.length > 0 ? (
+                                  <div style={styles.tableContainer}>
+                                      <table style={styles.table}>
+                                          <thead>
+                                              <tr style={styles.tableHeaderRow}>
+                                                  <th style={styles.tableHeaderCell}>User Name</th>
+                                                  <th style={styles.tableHeaderCell}>Email</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody>
+                                              {usersInGroup.map((user) => (
+                                                  <tr key={user.userId} style={styles.tableBodyRow}>
+                                                      <td style={styles.tableBodyCell}>{user.userName}</td>
+                                                      <td style={styles.tableBodyCell}>{user.email}</td>
+                                                  </tr>
+                                              ))}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                               ) : (
+                                  <p style={styles.noUsersText}>No users currently assigned to this group.</p>
+                               )}
+                          </div>
+                      );
+                  })}
+              </div>
+          )}
+
+        {/* Render Add Group Modal */}
+        {isAddGroupModalOpen && (
+          <AddGroupModal
+            isOpen={isAddGroupModalOpen}
+            onClose={() => setIsAddGroupModalOpen(false)}
+            onSave={handleSaveNewGroup} 
+          />
         )}
 
-        {/* Error State */}
-        {!loading && error && (
-            <div style={styles.errorContainer}>
-               <p>{error}</p>
-            </div>
+        {/* Render Edit Group Modal - Pass the updated handler */}
+        {editingGroupPlatforms && (
+          <EditGroupPlatformsModal
+            isOpen={editingGroupPlatforms !== null}
+            groupData={editingGroupPlatforms} // Pass group data including permissionId
+            onClose={() => setEditingGroupPlatforms(null)}
+            onSave={handleSaveGroupChanges} // Use the new handler
+          />
         )}
 
-        {/* Group Sections - Use flex wrap */}
-        {!loading && !error && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
-                {groups.length === 0 && (
-                    <p style={{ textAlign: 'center', color: '#6b7280', width: '100%' }}>No groups found.</p>
-                )}
-                {groups.map((group) => {
-                    const usersInGroup = getUsersInGroup(group.userGroupId);
-                    return (
-                        <div key={group.userGroupId} style={styles.groupSection}>
-                            <div style={styles.groupHeader}>
-                                <h2 style={styles.groupHeadingNoBorder}>{group.userGroupName}</h2>
-                                {/* Edit Group Button */}
-                                <button 
-                                   onClick={() => handleOpenEditPlatformsModal(group)}
-                                   // Updated border/text color to light blue
-                                   style={{ 
-                                     ...styles.editButton, // Keep base styles
-                                     backgroundColor: 'white', // Keep white background
-                                     color: '#39A2DB', // Light blue text
-                                     borderColor: '#39A2DB', // Light blue border
-                                     borderWidth: '1px',
-                                     borderStyle: 'solid',
-                                     padding: '4px 8px', 
-                                     fontSize: '0.8rem' 
-                                   }}
-                                   title="Edit Group Permissions & Platforms"
-                                >
-                                    <Settings size={14} style={{ marginRight: '0.25rem' }} />
-                                    Edit Group
-                                </button> 
-                            </div>
-                            
-                            {/* Display Permission Name */}
-                            <div style={{marginBottom: '0.5rem'}}>
-                                <strong style={styles.subHeading}>Permission:</strong> 
-                                {/* Apply styles based on permissionName */}
-                                <span style={getPermissionBadgeStyle(group.permissionName)}>
-                                    {group.permissionName || 'N/A'}
-                                </span>
-                            </div>
-
-                            {/* Display Accessible Platforms */}
-                            <div style={{marginBottom: '1rem'}}>
-                                <strong style={styles.subHeading}>Accessible Platforms:</strong> 
-                                <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.2rem' }}>
-                                    {(group.accessiblePlatformNames && group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name)) ? (
-                                      group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name).map((platformName, index) => (
-                                         <span key={index} style={getPlatformBadgeStyle()}>
-                                             {platformName}
-                                         </span>
-                                      ))
-                                     ) : (
-                                      <span style={{color: '#6b7280'}}>None</span>
-                                     )}
-                                </span>
-                            </div>
-
-                            <h3 style={styles.subHeading}>Users in this Group ({usersInGroup.length})</h3>
-                            {usersInGroup.length > 0 ? (
-                                <div style={styles.tableContainer}>
-                                    <table style={styles.table}>
-                                        <thead>
-                                            <tr style={styles.tableHeaderRow}>
-                                                <th style={styles.tableHeaderCell}>User Name</th>
-                                                <th style={styles.tableHeaderCell}>Email</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {usersInGroup.map((user) => (
-                                                <tr key={user.userId} style={styles.tableBodyRow}>
-                                                    <td style={styles.tableBodyCell}>{user.userName}</td>
-                                                    <td style={styles.tableBodyCell}>{user.email}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                             ) : (
-                                <p style={styles.noUsersText}>No users currently assigned to this group.</p>
-                             )}
-                        </div>
-                    );
-                })}
-            </div>
-        )}
-
-      {/* Render Add Group Modal */}
-      {isAddGroupModalOpen && (
-        <AddGroupModal
-          isOpen={isAddGroupModalOpen}
-          onClose={() => setIsAddGroupModalOpen(false)}
-          onSave={handleSaveNewGroup} 
-        />
-      )}
-
-      {/* Render Edit Group Modal - Pass the updated handler */}
-      {editingGroupPlatforms && (
-        <EditGroupPlatformsModal
-          isOpen={editingGroupPlatforms !== null}
-          groupData={editingGroupPlatforms} // Pass group data including permissionId
-          onClose={() => setEditingGroupPlatforms(null)}
-          onSave={handleSaveGroupChanges} // Use the new handler
-        />
-      )}
-
-    </div>
+      </div>
+    </PermissionGuard>
   );
 }
 

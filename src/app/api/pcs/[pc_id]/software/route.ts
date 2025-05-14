@@ -22,10 +22,11 @@ interface AssignSoftwareBody {
 // GET assigned software for a specific PC
 export async function GET(
     request: NextRequest,
-    { params }: { params: { pc_id: string } } // Destructure params directly
+    context: any // Use 'any' as per Important_Information.md workaround
 ): Promise<NextResponse> {
     try {
-        const pcId = parseInt(params.pc_id, 10); // Use destructured params
+        const pcIdStr = (context?.params?.pc_id as string) || '';
+        const pcId = parseInt(pcIdStr, 10);
         if (isNaN(pcId)) {
             return NextResponse.json({ error: 'Invalid PC ID' }, { status: 400 });
         }
@@ -54,10 +55,11 @@ export async function GET(
 // POST: Assign software to a PC
 export async function POST(
     request: NextRequest,
-    { params }: { params: { pc_id: string } } // Destructure params directly
+    context: any // Use 'any' as per Important_Information.md workaround
 ): Promise<NextResponse> {
     try {
-        const pcId = parseInt(params.pc_id, 10); // Use destructured params
+        const pcIdStr = (context?.params?.pc_id as string) || '';
+        const pcId = parseInt(pcIdStr, 10);
         if (isNaN(pcId)) {
             return NextResponse.json({ error: 'Invalid PC ID' }, { status: 400 });
         }

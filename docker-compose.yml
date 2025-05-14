@@ -11,20 +11,11 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE} # Read from .env
       MYSQL_USER: ${MYSQL_USER} # Read from .env
       MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Read from .env
-    # ports:
-    # We don't need to expose the MySQL port to the host anymore,
-    # as the webapp will connect via the Docker network.
-    # Remove or comment out:
-    # - "3306:3306"
     ports:
-      # Expose the MySQL port to the host for local development connection.
       - "3306:3306"
     volumes:
-      # Persist database data outside the container
       - mysql_data:/var/lib/mysql
-      # Copy schema file to initialization directory (runs on first start with empty volume)
       - ./src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro # Read-only recommended
-    # Add command to increase max connections
     command: ['--max_connections=200']
     networks:
       - app-network # Define a network for services
@@ -40,45 +31,23 @@ services:
       context: . # Build from the current directory where Dockerfile is
       dockerfile: Dockerfile
     restart: always
-    # ports:
-    #   - "3000:3000"
+    ports:
+      - "3000:3000"
     environment:
-      # Pass database credentials to the webapp container
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306 # Default MySQL port
       MYSQL_DATABASE: ${MYSQL_DATABASE} # Read from .env
       MYSQL_USER: ${MYSQL_USER} # Read from .env
       MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Read from .env
-      # Add next-auth variables
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NODE_ENV: production # Set in Dockerfile too, but explicit here is fine
       PORT: 3000 # Port inside the container (matches Dockerfile EXPOSE)
     depends_on:
-      mysql: # Ensure mysql is healthy before starting webapp
+      mysql:
         condition: service_healthy
     networks:
       - app-network # Connect to the same network as mysql
-
-  proxy:
-    image: nginx:1.25-alpine # Use a specific version
-    container_name: reconnect-proxy
-    restart: always
-    depends_on:
-      - webapp # Start after the webapp
-    ports:
-      # Map host port 443 to container port 443 for HTTPS
-      - "443:443"
-      # Optional: Map host port 80 to container port 80 for HTTP redirect
-      - "80:80"
-    volumes:
-      # Mount the nginx config (read-only)
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      # Mount your PRODUCTION certificates (read-only)
-      # Assumes certs are in a 'certs' dir ON THE HOST laptop
-      - ./certs:/etc/nginx/certs:ro
-    networks:
-      - app-network
 
 volumes:
   mysql_data:

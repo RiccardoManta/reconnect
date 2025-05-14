@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar'; // Current Sidebar (now uses 
 import ServerCard, { ServerCardProps } from '@/components/server/ServerCard'; // Current ServerCard, import ServerCardProps
 import AddServerCard from '@/components/server/AddServerCard'; // Current AddServerCard
 import AddServerModal, { ServerData as AddModalServerData } from '@/components/server/AddServerModal'; // Current AddServerModal
+import { getBaseUrl } from '@/utils/urlUtils';
 
 // Fallback categories in case API fails
 const fallbackCategories = ["Servers", "Databases", "Applications", "Networks", "Cloud"];
@@ -120,10 +121,19 @@ export default function Home() {
       if (status === 'authenticated') {
         try {
           const response = await fetch('/api/user/permissions');
+          if (response.status === 401) {
+            // User is not authenticated according to the server
+            // This handles stale client-side sessions
+            console.log("Server reports user is not authenticated, signing out...");
+            await signOut({ redirect: true, callbackUrl: `${getBaseUrl()}/auth/login-signup` });
+            return;
+          }
+          
           if (!response.ok) {
             console.error("Failed to fetch user permissions, status:", response.status);
             throw new Error('Could not load user permissions');
           }
+          
           const data = await response.json();
           setUserPermissionLevel(data.permissionName || 'Read'); // Update state, default to Read
           console.log("User Permission Level:", data.permissionName || 'Read');
