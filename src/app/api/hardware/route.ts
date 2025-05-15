@@ -1,43 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
-import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { ResultSetHeader, RowDataPacket } from 'mysql2/promise'; // ResultSetHeader is used by dbUtils.insert
+import { HardwareInstallation } from '@/types/database';
 
-// Interface for hardware data returned by API
-interface HardwareInstallation extends RowDataPacket {
-    install_id: number;
-    bench_id: number;
-    hil_name: string; // Joined from test_benches
-    ecu_info: string | null;
-    sensors: string | null;
-    additional_periphery: string | null;
+// Interface for POST request body (snake_case)
+interface HardwareInstallationRequestBody {
+  hardware_group_id: number;
+  bench_id: number;
+  description?: string | null;
+  hardware_number?: string | null;
+  part_number?: string | null;
+  software_version?: string | null;
+  manufacturer?: string | null;
+  installation_date?: string | null; // Expecting YYYY-MM-DD string
 }
 
-// Interface for POST/PUT request body
-interface HardwareRequestBody {
-    install_id?: number; // Only for PUT
-    bench_id: number;
-    ecu_info?: string;
-    sensors?: string;
-    additional_periphery?: string;
-}
+// GET method to fetch hardware installation data
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const bench_id_param = request.nextUrl.searchParams.get('bench_id'); // Assuming query param is snake_case
+  let sql = `
+    SELECT 
+      hi.install_id AS install_id,
+      hi.hardware_group_id AS hardware_group_id,
+      hgt.group_name AS group_name,
+      hi.bench_id AS bench_id,
+      tb.hil_name AS hil_name,
+      hi.description,
+      hi.hardware_number AS hardware_number,
+      hi.part_number AS part_number,
+      hi.software_version AS software_version,
+      hi.manufacturer,
+      DATE_FORMAT(hi.installation_date, '%Y-%m-%d') AS installation_date
+    FROM hardware_installations hi
+    JOIN hardware_group_types hgt ON hi.hardware_group_id = hgt.hardware_group_id
+    JOIN test_benches tb ON hi.bench_id = tb.bench_id
+  `;
+  const params: any[] = [];
 
-// GET method to fetch all hardware installation data
-export async function GET(): Promise<NextResponse> {
+  if (bench_id_param) {
+    sql += ' WHERE hi.bench_id = ?';
+    params.push(bench_id_param);
+  }
+  sql += ' ORDER BY hi.install_id';
+
   try {
-    const hardware = await dbUtils.query<HardwareInstallation[]>(`
-      SELECT h.*, t.hil_name
-      FROM hardware_installation h
-      LEFT JOIN test_benches t ON h.bench_id = t.bench_id
-      ORDER BY h.install_id
-    `);
-    
-    return NextResponse.json({ hardware });
-
+    const hardware_installations = await dbUtils.query<HardwareInstallation[]>(sql, params);
+    return NextResponse.json({ hardware_installations: hardware_installations || [] });
   } catch (error: unknown) {
-    console.error('Error fetching hardware installation data:', error);
+    console.error('Error fetching hardware installations:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to fetch hardware installation data', details: message },
+      { error: 'Failed to fetch hardware installations', details: message },
       { status: 500 }
     );
   }
@@ -46,142 +59,123 @@ export async function GET(): Promise<NextResponse> {
 // POST method to add a new hardware installation record
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body: HardwareRequestBody = await request.json();
-    
+    const body: HardwareInstallationRequestBody = await request.json();
+
     // Validate required fields
-    if (!body.bench_id) {
-      return NextResponse.json(
-        { error: 'Test bench ID (bench_id) is required' },
-        { status: 400 }
-      );
+    if (body.hardware_group_id === undefined || body.hardware_group_id === null) {
+      return NextResponse.json({ error: 'Hardware Group ID (hardware_group_id) is required' }, { status: 400 });
     }
-    
-    // Check if the referenced test bench exists
-    const testBench = await dbUtils.queryOne(
-        `SELECT bench_id, hil_name FROM test_benches WHERE bench_id = ?`, 
-        [body.bench_id]
-    );
-    
-    if (!testBench) {
-      return NextResponse.json(
-        { error: 'Test bench with the specified bench_id not found' },
-        { status: 404 }
-      );
-    }
-    
-    // Insert the new hardware installation record using dbUtils.insert
-    const installId = await dbUtils.insert(
-      `INSERT INTO hardware_installation (bench_id, ecu_info, sensors, additional_periphery) VALUES (?, ?, ?, ?)`, 
-      [
-        body.bench_id,
-        body.ecu_info || null, // Use null for empty strings if desired
-        body.sensors || null,
-        body.additional_periphery || null
-      ]
-    );
-    
-    if (!installId) {
-        throw new Error("Failed to get install_id after insert.")
+    if (body.bench_id === undefined || body.bench_id === null) {
+      return NextResponse.json({ error: 'Test Bench ID (bench_id) is required' }, { status: 400 });
     }
 
-    // Get the newly inserted record
-    const newHardware = await dbUtils.queryOne<HardwareInstallation>(
-      `SELECT h.*, t.hil_name
-       FROM hardware_installation h
-       LEFT JOIN test_benches t ON h.bench_id = t.bench_id
-       WHERE h.install_id = ?`,
-      [installId]
+    // Ensure IDs are numbers
+    const hardwareGroupIdNum = Number(body.hardware_group_id);
+    const benchIdNum = Number(body.bench_id);
+
+    if (isNaN(hardwareGroupIdNum)) {
+      return NextResponse.json({ error: 'Hardware Group ID must be a valid number.' }, { status: 400 });
+    }
+    if (isNaN(benchIdNum)) {
+      return NextResponse.json({ error: 'Test Bench ID must be a valid number.' }, { status: 400 });
+    }
+
+    // --- Transaction for FK checks and Insert ---
+    const install_id = await dbUtils.transaction<number | bigint>(async (connection) => {
+      // Check if the referenced hardware group type exists
+      const [groupTypeRows] = await connection.query<RowDataPacket[]>(
+        'SELECT hardware_group_id FROM hardware_group_types WHERE hardware_group_id = ?',
+        [hardwareGroupIdNum]
+      );
+      if (groupTypeRows.length === 0) {
+        const err = new Error('Hardware Group Type with the specified hardware_group_id not found');
+        (err as any).statusCode = 404;
+        throw err;
+      }
+
+      // Check if the referenced test bench exists
+      const [testBenchRows] = await connection.query<RowDataPacket[]>(
+        'SELECT bench_id FROM test_benches WHERE bench_id = ?',
+        [benchIdNum]
+      );
+      if (testBenchRows.length === 0) {
+        const err = new Error('Test Bench with the specified bench_id not found');
+        (err as any).statusCode = 404;
+        throw err;
+      }
+      
+      // Insert the new hardware installation record
+      const insertQuery = `
+        INSERT INTO hardware_installations 
+          (hardware_group_id, bench_id, description, hardware_number, part_number, software_version, manufacturer, installation_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const insertValues = [
+        hardwareGroupIdNum,
+        benchIdNum,
+        body.description || null,
+        body.hardware_number || null,
+        body.part_number || null,
+        body.software_version || null,
+        body.manufacturer || null,
+        body.installation_date || null,
+      ];
+
+      const [insertResult] = await connection.query<ResultSetHeader>(insertQuery, insertValues);
+      
+      if (!insertResult.insertId) {
+        throw new Error('Failed to insert hardware installation: no insertId returned.');
+      }
+      return insertResult.insertId;
+    });
+    // --- Transaction End ---
+    
+    if (!install_id) {
+        throw new Error("Failed to get install_id after transaction.");
+    }
+
+    // Get the newly inserted record with joined names
+    const new_hardware_installation = await dbUtils.queryOne<HardwareInstallation>(
+      `SELECT 
+         hi.install_id AS install_id,
+         hi.hardware_group_id AS hardware_group_id,
+         hgt.group_name AS group_name,
+         hi.bench_id AS bench_id,
+         tb.hil_name AS hil_name,
+         hi.description,
+         hi.hardware_number AS hardware_number,
+         hi.part_number AS part_number,
+         hi.software_version AS software_version,
+         hi.manufacturer,
+         DATE_FORMAT(hi.installation_date, '%Y-%m-%d') AS installation_date
+       FROM hardware_installations hi
+       JOIN hardware_group_types hgt ON hi.hardware_group_id = hgt.hardware_group_id
+       JOIN test_benches tb ON hi.bench_id = tb.bench_id
+       WHERE hi.install_id = ?`,
+      [install_id]
     );
         
     return NextResponse.json({ 
       message: 'Hardware installation added successfully',
-      hardware: newHardware
-    }, { status: 201 }); // 201 Created status
+      hardware_installation: new_hardware_installation 
+    }, { status: 201 });
     
   } catch (error: unknown) {
     console.error('Error adding hardware installation:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: 'Failed to add hardware installation', details: message },
-      { status: 500 }
-    );
+    const err = error as Error & { statusCode?: number };
+    const message = err.message || 'Unknown error';
+    const statusCode = err.statusCode || 500;
+
+    // Check if it's one of our custom errors from the transaction
+    if (message.includes('not found') && (statusCode === 404 || statusCode === 400) ){
+      return NextResponse.json({ error: message }, { status: statusCode });
+    }
+    // Generic FK constraint error (less likely now with explicit checks)
+    if (message.includes('foreign key constraint fails')) {
+        return NextResponse.json({ error: 'Failed to add hardware installation due to an invalid foreign key.', details: message }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Failed to add hardware installation: ' + message, details: message }, { status: statusCode });
   }
 }
 
-// PUT method to update an existing hardware installation record
-export async function PUT(request: NextRequest): Promise<NextResponse> {
-  try {
-    const body: HardwareRequestBody = await request.json();
-    
-    // Validate required fields for PUT
-    if (!body.install_id) {
-      return NextResponse.json(
-        { error: 'Installation ID (install_id) is required for update' },
-        { status: 400 }
-      );
-    }
-    // Bench ID is also required if we allow changing it, or just for validation
-    if (!body.bench_id) {
-      return NextResponse.json(
-        { error: 'Test bench ID (bench_id) is required' },
-        { status: 400 }
-      );
-    }
-    
-    // Check if the referenced test bench exists
-    const testBench = await dbUtils.queryOne(
-        `SELECT bench_id FROM test_benches WHERE bench_id = ?`, 
-        [body.bench_id]
-    );
-    if (!testBench) {
-      return NextResponse.json(
-        { error: 'Referenced Test bench with the specified bench_id not found' },
-        { status: 404 }
-      );
-    }
-
-    // Update the hardware installation record using dbUtils.update
-    const affectedRows = await dbUtils.update(
-      `UPDATE hardware_installation
-       SET bench_id = ?, ecu_info = ?, sensors = ?, additional_periphery = ?
-       WHERE install_id = ?`, 
-      [
-        body.bench_id,
-        body.ecu_info || null,
-        body.sensors || null,
-        body.additional_periphery || null,
-        body.install_id
-      ]
-    );
-    
-    // Check if any row was actually updated
-    if (affectedRows === 0) {
-      return NextResponse.json(
-        { error: 'Hardware installation record not found or no changes made' },
-        { status: 404 } // Or 304 Not Modified if no data changed but record exists
-      );
-    }
-
-    // Get the updated record
-    const updatedHardware = await dbUtils.queryOne<HardwareInstallation>(
-        `SELECT h.*, t.hil_name
-         FROM hardware_installation h
-         LEFT JOIN test_benches t ON h.bench_id = t.bench_id
-         WHERE h.install_id = ?`,
-        [body.install_id]
-    );
-        
-    return NextResponse.json({ 
-      message: 'Hardware installation updated successfully',
-      hardware: updatedHardware
-    });
-    
-  } catch (error: unknown) {
-    console.error('Error updating hardware installation:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: 'Failed to update hardware installation', details: message },
-      { status: 500 }
-    );
-  }
-} 
+// PUT handler removed, to be implemented in [id]/route.ts 

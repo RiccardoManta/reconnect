@@ -4,16 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { Users as UsersIcon, RefreshCw, UserPlus, PlusCircle } from 'lucide-react';
 // Import User type (contains basic fields)
 import { User } from '@/types/database'; 
-import { keysToCamel } from '@/utils/caseConverter'; // Removed unused keysToSnake
+// import { keysToCamel } from '@/utils/caseConverter'; // Removed unused keysToSnake
 // Import the modal component and its exported UserData type correctly
 import EditUserGroupModal, { ModalUserData } from '@/components/admin/EditUserGroupModal';
 // Import the new AddUserModal
 import AddUserModal, { NewUserData as AddUserModalData } from '@/components/admin/AddUserModal'; // Renamed import type
 
-// Updated interface to match API response (after camelCase conversion)
-interface AdminUserDisplay extends Pick<User, 'userId' | 'userName' | 'companyUsername' | 'email'> {
-  userGroupId: number | null; // Renamed from groupId
-  userGroupName: string | null; // Renamed from groupName
+// Updated interface to match API response (now snake_case)
+interface AdminUserDisplay extends Pick<User, 'user_id' | 'user_name' | 'company_username' | 'email'> {
+  user_group_id: number | null; 
+  user_group_name: string | null; 
 }
 
 // Placeholder for the AddUserModal props if needed for handleSaveNewUser
@@ -29,7 +29,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUserDisplay[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<AdminUserDisplay | null>(null);
+  const [selected_user, setSelectedUser] = useState<AdminUserDisplay | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false); // State for Add User modal
 
   const fetchData = async () => {
@@ -43,8 +43,7 @@ export default function AdminUsersPage() {
       }
       const data = await response.json();
       // API returns user_group_id and user_group_name (snake_case)
-      // keysToCamel converts them to userGroupId and userGroupName
-      setUsers(keysToCamel<AdminUserDisplay[]>(data.users || []));
+      setUsers(data.users || []); // API returns snake_case, AdminUserDisplay is snake_case
     } catch (err) {
       setError('Error loading users: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching users:', err);
@@ -57,14 +56,14 @@ export default function AdminUsersPage() {
     fetchData();
   }, []);
 
-  // Update signature to match modal's onSave expectation (userId, groupId)
-  // Note: Modal still uses `groupId` internally for simplicity, but API expects `userGroupId`
-  const handleSaveChanges = async (data: { userId: number; groupId: number | null }) => {
+  // Update signature to match modal's onSave expectation (user_id, group_id)
+  // Modal now should also use snake_case: user_id, user_group_id
+  const handleSaveChanges = async (data: { user_id: number; user_group_id: number | null }) => {
     // Find the user being edited
-    const userToUpdate = users.find(u => u.userId === data.userId);
+    const userToUpdate = users.find(u => u.user_id === data.user_id);
     if (!userToUpdate) return;
 
-    console.log(`Saving changes for user ${data.userId}: GroupId=`, data.groupId);
+    console.log(`Saving changes for user ${data.user_id}: GroupId=`, data.user_group_id);
     setError(null); // Clear previous errors
 
     try {
@@ -72,8 +71,8 @@ export default function AdminUsersPage() {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                userId: data.userId, 
-                userGroupId: data.groupId // API expects userGroupId
+                user_id: data.user_id, 
+                user_group_id: data.user_group_id // API expects user_group_id
             }),
         });
 
@@ -83,17 +82,17 @@ export default function AdminUsersPage() {
         }
         const result = await response.json();
         
-        // API returns updated user with user_group_id and user_group_name
-        const updatedUser = keysToCamel<AdminUserDisplay>(result.user);
+        // API returns updated user with user_group_id and user_group_name (snake_case)
+        const updated_user = result.user as AdminUserDisplay;
         
         // Update local state directly
-        if (updatedUser) {
+        if (updated_user) {
             setUsers(prevUsers => 
                 prevUsers.map(u => 
-                    u.userId === updatedUser.userId ? updatedUser : u
+                    u.user_id === updated_user.user_id ? updated_user : u
                 )
             );
-            console.log(`User ${data.userId} group updated locally.`);
+            console.log(`User ${data.user_id} group updated locally.`);
         } else {
             // Fallback if API doesn't return updated user
             console.warn("API did not return updated user data, falling back to refetch.");
@@ -183,6 +182,27 @@ export default function AdminUsersPage() {
       fontSize: '0.875rem',
       fontWeight: 500,
       boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse' as 'collapse',
+    },
+    tableHeaderCell: {
+      padding: '0.75rem 1rem',
+      textAlign: 'left' as 'left',
+      fontSize: '0.875rem',
+      fontWeight: 600,
+      color: '#4b5563'
+    },
+    tableBodyRow: {
+      borderBottom: '1px solid #e5e7eb',
+      transition: 'background-color 0.2s',
+      cursor: 'pointer'
+    },
+    tableBodyCell: {
+      padding: '0.75rem 1rem',
+      fontSize: '0.875rem',
+      color: '#111827'
     }
   };
 
@@ -192,7 +212,7 @@ export default function AdminUsersPage() {
        <div style={styles.headerContainer}>
          <div style={styles.headerTitleContainer}>
            <UsersIcon size={28} style={styles.headerIcon} /> 
-           <h1 style={styles.headerTitle}>User Management</h1>
+           <h1 style={styles.headerTitle}>User Management {users.length > 0 ? `(${users.length})` : ''}</h1>
          </div>
          {/* Add User Button */}
          <button 
@@ -225,14 +245,15 @@ export default function AdminUsersPage() {
                <p>{error}</p>
              </div>
          ) : (
-           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+           <table style={styles.table}>
              <thead>
-               <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>ID</th>
-                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>User Name</th>
-                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Company Username</th>
-                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Email</th>
-                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563' }}>Group</th>{/* Added Group column */}
+               <tr>
+                 <th style={{...styles.tableHeaderCell, width: '10%'}}>ID</th>
+                 <th style={{...styles.tableHeaderCell, width: '20%'}}>User Name</th>
+                 <th style={{...styles.tableHeaderCell, width: '20%'}}>Company Username</th>
+                 <th style={{...styles.tableHeaderCell, width: '25%'}}>Email</th>
+                 <th style={{...styles.tableHeaderCell, width: '15%'}}>Group</th>
+                 <th style={{...styles.tableHeaderCell, width: '10%'}}>Actions</th>
                </tr>
              </thead>
              <tbody>
@@ -240,16 +261,28 @@ export default function AdminUsersPage() {
                  <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No users found</td></tr> // Increased colspan
                ) : (
                  users.map((user) => (
-                   <tr key={user.userId} style={{ borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                       onClick={() => setSelectedUser(user)} 
-                       onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                       onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.userId}</td>
-                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.userName}</td>
-                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.companyUsername ?? 'N/A'}</td>
-                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.email}</td>
-                     {/* Display userGroupName */}
-                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>{user.userGroupName ?? '-'}</td> 
+                   <tr key={user.user_id} style={styles.tableBodyRow}>
+                     <td style={styles.tableBodyCell}>{user.user_id}</td>
+                     <td style={styles.tableBodyCell}>{user.user_name}</td>
+                     <td style={styles.tableBodyCell}>{user.company_username || '-'}</td>
+                     <td style={styles.tableBodyCell}>{user.email}</td>
+                     <td style={styles.tableBodyCell}>{user.user_group_name || 'N/A'}</td>
+                     <td style={styles.tableBodyCell}>
+                       <button 
+                         onClick={() => setSelectedUser(user)} 
+                         style={{
+                           border: 'none',
+                           borderRadius: '0.375rem',
+                           padding: '0.25rem 0.5rem',
+                           cursor: 'pointer',
+                           fontSize: '0.875rem',
+                           fontWeight: 500,
+                           boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                         }}
+                       >
+                         Edit
+                       </button>
+                     </td>
                    </tr>
                  ))
                )}
@@ -258,20 +291,14 @@ export default function AdminUsersPage() {
          )}
        </div>
 
-      {/* Pass necessary props to modal */}
-      {selectedUser && (
+      {/* Edit User Group Modal */}
+      {selected_user && (
         <EditUserGroupModal
-          isOpen={selectedUser !== null}
+          user={selected_user} // Pass the selected user (now AdminUserDisplay in snake_case)
+          isOpen={!!selected_user}
           onClose={() => setSelectedUser(null)}
-          // Pass props matching the modal's expected ModalUserData type
-          userData={{
-              userId: selectedUser.userId,
-              userName: selectedUser.userName,
-              email: selectedUser.email,
-              // Pass the actual userGroupId from the user state as groupId (modal expects groupId)
-              groupId: selectedUser.userGroupId 
-          }}
           onSave={handleSaveChanges}
+          // fetchUserGroups is passed to EditUserGroupModal if it needs to fetch groups itself
         />
       )}
 

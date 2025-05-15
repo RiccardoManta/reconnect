@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { TestBench } from '@/types/database';
 
 // Interface for Model Stand data returned by API
 interface ModelStand extends RowDataPacket {
@@ -8,6 +9,7 @@ interface ModelStand extends RowDataPacket {
     model_name: string;
     svn_link: string | null;
     features: string | null;
+    associated_hil_names?: string | null;
 }
 
 // Interface for POST/PUT request body
@@ -21,11 +23,22 @@ interface ModelStandRequestBody {
 // GET method to fetch all model stands
 export async function GET(): Promise<NextResponse> {
   try {
-    const modelStands = await dbUtils.query<ModelStand[]>(
-      `SELECT * FROM model_stands ORDER BY model_id`
-    );
+    const modelStands = await dbUtils.query<ModelStand[]>('SELECT * FROM model_stands ORDER BY model_id');
+    const testBenches = await dbUtils.query<TestBench[]>('SELECT model_id, hil_name FROM test_benches WHERE model_id IS NOT NULL');
+
+    const modelStandsWithHilNames = modelStands.map(ms => {
+      const associatedBenches = testBenches.filter(tb => tb.model_id === ms.model_id);
+      let hilNamesString: string | null = null;
+      if (associatedBenches.length === 1) {
+        hilNamesString = associatedBenches[0].hil_name;
+      } else if (associatedBenches.length > 1) {
+        // hilNamesString = associatedBenches.map(tb => tb.hil_name).join(', '); // Option for list
+        hilNamesString = 'Multiple HILs';
+      }
+      return { ...ms, associated_hil_names: hilNamesString };
+    });
     
-    return NextResponse.json({ modelStands });
+    return NextResponse.json({ model_stands: modelStandsWithHilNames });
 
   } catch (error: unknown) {
     console.error('Error fetching model stands:', error);
@@ -65,15 +78,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Get the newly inserted record
-    const newModelStand = await dbUtils.queryOne<ModelStand>(
+    let newModelStand = await dbUtils.queryOne<ModelStand>(
       `SELECT * FROM model_stands WHERE model_id = ?`,
       [modelId]
     );
+
+    if (newModelStand) {
+      const associatedBenches = await dbUtils.query<TestBench[]>(
+        'SELECT model_id, hil_name FROM test_benches WHERE model_id = ?',
+        [newModelStand.model_id]
+      );
+      let hilNamesString: string | null = null;
+      if (associatedBenches.length === 1) {
+        hilNamesString = associatedBenches[0].hil_name;
+      } else if (associatedBenches.length > 1) {
+        hilNamesString = 'Multiple HILs';
+      }
+      newModelStand = { ...newModelStand, associated_hil_names: hilNamesString };
+    }
         
     return NextResponse.json({ 
       success: true, 
       message: 'Model stand added successfully',
-      modelStand: newModelStand
+      model_stand: newModelStand
     }, { status: 201 });
     
   } catch (error: unknown) {
@@ -128,15 +155,29 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     // Get the updated record
-    const updatedModelStand = await dbUtils.queryOne<ModelStand>(
+    let updatedModelStand = await dbUtils.queryOne<ModelStand>(
         `SELECT * FROM model_stands WHERE model_id = ?`,
         [body.model_id]
     );
+
+    if (updatedModelStand) {
+      const associatedBenches = await dbUtils.query<TestBench[]>(
+        'SELECT model_id, hil_name FROM test_benches WHERE model_id = ?',
+        [updatedModelStand.model_id]
+      );
+      let hilNamesString: string | null = null;
+      if (associatedBenches.length === 1) {
+        hilNamesString = associatedBenches[0].hil_name;
+      } else if (associatedBenches.length > 1) {
+        hilNamesString = 'Multiple HILs';
+      }
+      updatedModelStand = { ...updatedModelStand, associated_hil_names: hilNamesString };
+    }
         
     return NextResponse.json({ 
       success: true, 
       message: 'Model stand updated successfully',
-      modelStand: updatedModelStand
+      model_stand: updatedModelStand
     });
     
   } catch (error: unknown) {

@@ -2,21 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, UserPlus, RefreshCw } from 'lucide-react';
-import { keysToCamel } from '@/utils/caseConverter';
 
-// Interface for Group data fetched from API (matches Edit modal)
+// Interface for Group data fetched from API (matches Edit modal - already snake_case from there)
 interface Group {
-  userGroupId: number;
-  userGroupName: string;
+  user_group_id: number;
+  user_group_name: string;
 }
 
-// Interface for the data passed back on save
+// Interface for the data passed back on save - now snake_case
 export interface NewUserData {
-  userName: string;
-  companyUsername?: string | null;
+  user_name: string;
+  company_username?: string | null;
   email: string;
   password?: string; // Password is required for new user
-  userGroupId: number | null;
+  user_group_id: number | null;
 }
 
 interface AddUserModalProps {
@@ -30,16 +29,16 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
   onClose,
   onSave,
 }) => {
-  // Form state
-  const [userName, setUserName] = useState('');
-  const [companyUsername, setCompanyUsername] = useState('');
+  // Form state - now snake_case
+  const [user_name, setUserName] = useState('');
+  const [company_username, setCompanyUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedGroupId, setSelectedGroupId] = useState<string>(''); // Store as string for select value
+  const [selected_group_id, setSelectedGroupId] = useState<string>(''); // Store as string for select value
 
   // Group fetching state
-  const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
-  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [available_groups, setAvailableGroups] = useState<Group[]>([]);
+  const [loading_groups, setLoadingGroups] = useState(false);
 
   // General modal state
   const [saving, setSaving] = useState(false);
@@ -66,7 +65,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
           return res.json();
         })
         .then(data => {
-          setAvailableGroups(keysToCamel<Group[]>(data.groups || []));
+          setAvailableGroups(data.groups || []); // API returns snake_case groups
         })
         .catch(err => {
           console.error("Error fetching groups:", err);
@@ -81,7 +80,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
   if (!isOpen) return null;
 
   const handleSaveClick = async () => {
-    if (!userName || !email || !password) {
+    if (!user_name || !email || !password) {
         setError('User Name, Email, and Password are required.');
         return;
     }
@@ -90,11 +89,11 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
     setError(null);
     try {
       await onSave({ 
-          userName,
-          companyUsername: companyUsername || null, // Send null if empty
+          user_name,
+          company_username: company_username || null, // Send null if empty
           email,
           password,
-          userGroupId: selectedGroupId === '' ? null : parseInt(selectedGroupId, 10)
+          user_group_id: selected_group_id === '' ? null : parseInt(selected_group_id, 10)
       });
       // Parent component (AdminUsersPage) should handle closing the modal on success via its own logic
     } catch (err) {
@@ -149,12 +148,12 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
         {/* Form Fields */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div>
-            <label htmlFor="userName" style={styles.label}>User Name <span style={{color: 'red'}}>*</span></label>
-            <input type="text" id="userName" value={userName} onChange={(e) => setUserName(e.target.value)} style={styles.input} required />
+            <label htmlFor="user_name" style={styles.label}>User Name <span style={{color: 'red'}}>*</span></label>
+            <input type="text" id="user_name" value={user_name} onChange={(e) => setUserName(e.target.value)} style={styles.input} required />
           </div>
           <div>
-            <label htmlFor="companyUsername" style={styles.label}>Company Username</label>
-            <input type="text" id="companyUsername" value={companyUsername} onChange={(e) => setCompanyUsername(e.target.value)} style={styles.input} />
+            <label htmlFor="company_username" style={styles.label}>Company Username</label>
+            <input type="text" id="company_username" value={company_username} onChange={(e) => setCompanyUsername(e.target.value)} style={styles.input} />
           </div>
           <div>
             <label htmlFor="email" style={styles.label}>Email <span style={{color: 'red'}}>*</span></label>
@@ -167,20 +166,20 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
           </div>
           <div>
              <label htmlFor="userGroupAdd" style={styles.label}>Assign Group</label>
-             {loadingGroups ? (
+             {loading_groups ? (
                 <div style={{color: '#6b7280'}}>Loading groups...</div>
              ) : (
                 <select
                   id="userGroupAdd"
-                  value={selectedGroupId}
+                  value={selected_group_id}
                   onChange={(e) => setSelectedGroupId(e.target.value)}
-                  disabled={loadingGroups}
+                  disabled={loading_groups}
                   style={styles.input} // Reuse input style for select
                 >
                   <option value="">-- No Group --</option> 
-                  {availableGroups.map((group) => (
-                    <option key={group.userGroupId} value={String(group.userGroupId)}>
-                      {group.userGroupName}
+                  {available_groups.map((group) => (
+                    <option key={group.user_group_id} value={String(group.user_group_id)}>
+                      {group.user_group_name}
                     </option>
                   ))}
                 </select>
@@ -202,8 +201,8 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
           </button>
           <button
             onClick={handleSaveClick}
-            disabled={saving || loadingGroups}
-            style={saving || loadingGroups ? {...styles.buttonPrimary, ...styles.buttonDisabled} : styles.buttonPrimary}
+            disabled={saving || loading_groups}
+            style={saving || loading_groups ? {...styles.buttonPrimary, ...styles.buttonDisabled} : styles.buttonPrimary}
           >
             {saving ? (
               <>

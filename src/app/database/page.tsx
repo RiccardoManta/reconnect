@@ -44,6 +44,8 @@ const HilTechnologyList = lazy(() => import('@/components/database/HilTechnology
 const HilOperationList = lazy(() => import('@/components/database/HilOperationList'));
 const HardwareInstallationList = lazy(() => import('@/components/database/HardwareInstallationList'));
 const ProjectOverviewList = lazy(() => import('@/components/database/ProjectOverviewList'));
+const HardwareMoveEventList = lazy(() => import('@/components/database/HardwareMoveEventList'));
+const LicenseMoveEventList = lazy(() => import('@/components/database/LicenseMoveEventList'));
 
 // Type definition for table configuration
 interface TableConfig {
@@ -69,6 +71,8 @@ const tableConfig: TableConfig[] = [
     { key: 'HilOperation', name: 'HIL Operation', icon: Activity, component: HilOperationList },
     { key: 'HardwareInstallation', name: 'Hardware Installation', icon: Wrench, component: HardwareInstallationList },
     { key: 'ProjectOverview', name: 'Project Overview', icon: Gauge, component: ProjectOverviewList },
+    { key: 'HardwareHistory', name: 'Hardware History', icon: Wrench, component: HardwareMoveEventList },
+    { key: 'LicenseHistory', name: 'License History', icon: FileText, component: LicenseMoveEventList },
 ];
 
 // Permission levels (copied from page.tsx for typing)

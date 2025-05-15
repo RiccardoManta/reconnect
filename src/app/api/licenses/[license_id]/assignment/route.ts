@@ -67,14 +67,12 @@ export async function GET(
     }
 }
 
-// POST: Create a new assignment (or potentially update if logic allows)
+// POST: Create or Update an assignment
 export async function POST(
     request: NextRequest,
-    // Apply workaround: Use context: any
     context: any 
 ): Promise<NextResponse> {
     try {
-        // Access licenseId via context using optional chaining and casting
         const licenseIdStr = (context?.params?.license_id as string) || ''; 
         const licenseId = parseInt(licenseIdStr, 10);
         if (isNaN(licenseId)) {
@@ -82,8 +80,6 @@ export async function POST(
         }
 
         const body: AssignmentBody = await request.json();
-
-        // Validate: Must have pc_id OR vm_id, but not both
         const hasPcId = body.pc_id !== null && body.pc_id !== undefined;
         const hasVmId = body.vm_id !== null && body.vm_id !== undefined;
 
@@ -91,44 +87,76 @@ export async function POST(
             return NextResponse.json({ error: 'Assignment must have either a pc_id OR a vm_id, but not both.' }, { status: 400 });
         }
 
-        // Ensure IDs are numbers if provided
-        const pcId = hasPcId ? Number(body.pc_id) : null;
-        const vmId = hasVmId ? Number(body.vm_id) : null;
-        if ((hasPcId && isNaN(pcId!)) || (hasVmId && isNaN(vmId!))) {
+        const newPcId = hasPcId ? Number(body.pc_id) : null;
+        const newVmId = hasVmId ? Number(body.vm_id) : null;
+
+        if ((hasPcId && isNaN(newPcId!)) || (hasVmId && isNaN(newVmId!))) {
              return NextResponse.json({ error: 'Invalid pc_id or vm_id provided.' }, { status: 400 });
         }
 
         const assignedOn = new Date().toISOString().slice(0, 10);
 
-        // --- Execute DELETE and INSERT within an explicit transaction --- 
-        const assignmentId = await dbUtils.transaction<number | bigint>(async (connection) => {
-            // Use connection.query directly within the transaction
-            await connection.query(`DELETE FROM license_assignments WHERE license_id = ?`, [licenseId]);
+        // --- Transaction: Check existing, then UPDATE or INSERT --- 
+        await dbUtils.transaction(async (connection) => {
+            const [existingAssignments] = await connection.query<LicenseAssignment[]>(
+                `SELECT assignment_id, pc_id, vm_id FROM license_assignments WHERE license_id = ?`,
+                [licenseId]
+            );
 
-            const insertQuery = `
-                INSERT INTO license_assignments (license_id, pc_id, vm_id, assigned_on)
-                VALUES (?, ?, ?, ?)
-            `;
-            const insertValues = [licenseId, pcId, vmId, assignedOn];
+            if (existingAssignments.length > 0) {
+                // Assignment exists, UPDATE it
+                const existingAssignment = existingAssignments[0];
+                
+                console.log(`[API POST /licenses/${licenseId}/assignment] (TX) Attempting to update assignment.`);
+                console.log(`[API POST /licenses/${licenseId}/assignment] (TX) Existing: pc_id=${existingAssignment.pc_id}, vm_id=${existingAssignment.vm_id}`);
+                console.log(`[API POST /licenses/${licenseId}/assignment] (TX) New: pc_id=${newPcId}, vm_id=${newVmId}`);
 
-            const [insertResult] = await connection.query<ResultSetHeader>(insertQuery, insertValues);
+                // Check if it's actually a change to avoid unnecessary update & trigger fire
+                if (existingAssignment.pc_id === newPcId && existingAssignment.vm_id === newVmId) {
+                    console.log(`[API POST /licenses/${licenseId}/assignment] (TX) Assignment target is the same. Update will refresh 'assigned_on'.`);
+                }
+                
+                const updateQuery = `
+                    UPDATE license_assignments 
+                    SET pc_id = ?, vm_id = ?, assigned_on = ?
+                    WHERE license_id = ?
+                `;
+                const updateValues = [newPcId, newVmId, assignedOn, licenseId];
+                const [updateResult] = await connection.query<ResultSetHeader>(updateQuery, updateValues);
 
-            if (!insertResult.insertId) {
-                 console.error(`[API ERROR POST /licenses/${licenseId}/assignment] (TX) Insert returned falsy insertId.`);
-                 throw new Error('Failed to get insertId within transaction.');
+                if (updateResult.affectedRows === 0 && !(existingAssignment.pc_id === newPcId && existingAssignment.vm_id === newVmId)) {
+                    // This case should ideally not happen if the record existed unless it was deleted concurrently
+                    // or if the values were actually the same and DB optimized it (though pc_id/vm_id check above should catch it)
+                    console.warn(`[API POST /licenses/${licenseId}/assignment] (TX WARN) Update affected 0 rows but changes were expected.`);
+                    // Potentially throw an error if this is critical, or just log.
+                }
+                 console.log(`[API POST /licenses/${licenseId}/assignment] (TX) Updated assignment. Affected: ${updateResult.affectedRows}`);
+
+            } else {
+                // No existing assignment, INSERT new one
+                const insertQuery = `
+                    INSERT INTO license_assignments (license_id, pc_id, vm_id, assigned_on)
+                    VALUES (?, ?, ?, ?)
+                `;
+                const insertValues = [licenseId, newPcId, newVmId, assignedOn];
+                const [insertResult] = await connection.query<ResultSetHeader>(insertQuery, insertValues);
+
+                if (!insertResult.insertId) {
+                    console.error(`[API POST /licenses/${licenseId}/assignment] (TX) Insert returned falsy insertId.`);
+                    throw new Error('Failed to get insertId for new assignment within transaction.');
+                }
+                 console.log(`[API POST /licenses/${licenseId}/assignment] (TX) Inserted new assignment. ID: ${insertResult.insertId}`);
             }
-            return insertResult.insertId;
         });
         // --- Transaction End --- 
 
-        // Query the newly created assignment (using the standard queryOne which uses the pool)
-        const newAssignment = await getCurrentAssignment(licenseId);
+        const newOrUpdatedAssignment = await getCurrentAssignment(licenseId);
 
         return NextResponse.json({ 
             success: true, 
             message: 'License assigned successfully',
-            assignment: newAssignment
-        }, { status: 201 });
+            assignment: newOrUpdatedAssignment // Return the state after operation
+        }, { status: 200 }); // 200 OK is generally better for idempotency if it can be an update
 
     } catch (error: unknown) {
         console.error('Error assigning license:', error);

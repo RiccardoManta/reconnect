@@ -18,17 +18,17 @@ interface AdminUserResponse extends RowDataPacket {
 
 // Interface for POST request body (New User)
 interface CreateUserRequest {
-  userName: string;
-  companyUsername?: string | null;
+  user_name: string;
+  company_username?: string | null;
   email: string;
   password?: string; // Make optional here, but validate presence in handler
-  userGroupId: number | null;
+  user_group_id: number | null;
 }
 
 // Interface for PUT request body
 interface UpdateUserGroupRequest {
-    userId: number;
-    userGroupId: number | null; // Renamed from groupId, can be null to remove group assignment
+    user_id: number;
+    user_group_id: number | null; 
 }
 
 // Helper function for admin check
@@ -92,10 +92,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     try {
         const body: CreateUserRequest = await request.json();
-        const { userName, companyUsername, email, password, userGroupId } = body;
+        const { user_name, company_username, email, password, user_group_id } = body;
 
         // --- Input Validation ---
-        if (!userName || !email || !password) {
+        if (!user_name || !email || !password) {
             return NextResponse.json({ error: 'User Name, Email, and Password are required.' }, { status: 400 });
         }
         // Basic email format check (consider a more robust library for production)
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
         }
         // Validate userGroupId if provided
-        if (userGroupId !== null && typeof userGroupId !== 'number') {
+        if (user_group_id !== null && typeof user_group_id !== 'number') {
             return NextResponse.json({ error: 'User Group ID must be a number or null' }, { status: 400 });
         }
 
@@ -117,10 +117,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
 
         // --- Check if group exists (if userGroupId is provided) ---
-        if (userGroupId !== null) {
+        if (user_group_id !== null) {
             const groupExists = await query(
                 'SELECT user_group_id FROM user_groups WHERE user_group_id = ?',
-                [userGroupId]
+                [user_group_id]
             );
             if (!Array.isArray(groupExists) || groupExists.length === 0) {
                 return NextResponse.json({ error: 'Selected Group not found.' }, { status: 404 });
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // --- Database Insertion ---
         const newUserId = await insert(
             'INSERT INTO users (user_name, company_username, email, password_hash, salt, user_group_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [userName, companyUsername || null, email, passwordHash, salt, userGroupId]
+            [user_name, company_username || null, email, passwordHash, salt, user_group_id]
         );
 
         if (newUserId) {
@@ -184,65 +184,82 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     try {
         const body: UpdateUserGroupRequest = await request.json();
+        const { user_id, user_group_id } = body; // Destructure snake_case
 
         // Validate input
-        if (body.userId === undefined || body.userId === null) {
-            return NextResponse.json({ error: 'User ID (userId) is required' }, { status: 400 });
+        if (user_id === undefined || user_id === null) {
+            return NextResponse.json({ error: 'User ID (user_id) is required' }, { status: 400 });
         }
-        // userGroupId can be null, so only check type if not null
-        if (body.userGroupId !== null && typeof body.userGroupId !== 'number') {
-             return NextResponse.json({ error: 'User Group ID (userGroupId) must be a number or null' }, { status: 400 });
+        // user_group_id can be null, so only check type if not null
+        if (user_group_id !== null && typeof user_group_id !== 'number') {
+             return NextResponse.json({ error: 'User Group ID (user_group_id) must be a number or null' }, { status: 400 });
         }
 
         // Check if user exists
         const userExists = await query(
             'SELECT user_id FROM users WHERE user_id = ?',
-            [body.userId]
+            [user_id]
         );
         if (!Array.isArray(userExists) || userExists.length === 0) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            return NextResponse.json({ error: 'User not found.' }, { status: 404 });
         }
 
-        // Check if group exists (if userGroupId is not null)
-        if (body.userGroupId !== null) {
+        // Check if group exists (if user_group_id is not null)
+        if (user_group_id !== null) {
             const groupExists = await query(
-                'SELECT user_group_id FROM user_groups WHERE user_group_id = ?', // Use new table/column name
-                [body.userGroupId]
+                'SELECT user_group_id FROM user_groups WHERE user_group_id = ?',
+                [user_group_id]
             );
             if (!Array.isArray(groupExists) || groupExists.length === 0) {
-                return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+                return NextResponse.json({ error: 'Selected Group not found.' }, { status: 404 });
             }
         }
 
-        // Perform the update
+        // --- Database Update ---
         const affectedRows = await update(
-            'UPDATE users SET user_group_id = ? WHERE user_id = ?', // Use new column name
-            [body.userGroupId, body.userId]
+            'UPDATE users SET user_group_id = ? WHERE user_id = ?',
+            [user_group_id, user_id]
         );
 
-        if (affectedRows === 0) {
-            // This might happen if the user exists but wasn't updated (e.g., already had that user_group_id)
-            // Or potentially a race condition where the user was deleted between check and update.
-            // For simplicity, we can treat it as success if the user exists, but log a warning.
-            console.warn(`User ${body.userId} group update affected 0 rows, but user exists.`);
+        if (affectedRows > 0) {
+            // Fetch the updated user data to return
+            const updatedUser = await query<AdminUserResponse[]>(`
+                SELECT
+                    u.user_id, u.user_name, u.company_username, u.email,
+                    u.user_group_id, ug.user_group_name
+                FROM users u
+                LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
+                WHERE u.user_id = ?
+            `, [user_id]);
+
+            return NextResponse.json({
+                success: true,
+                message: 'User group updated successfully',
+                user: updatedUser[0] || null // Return the updated user data
+            });
+        } else {
+            // This case could mean user_id not found, or group was already set to this value
+            // For simplicity, returning a generic message. Could check if user existed before update for more specific error.
+            const userStillExists = await query('SELECT user_id FROM users WHERE user_id = ?', [user_id]);
+            if (!Array.isArray(userStillExists) || userStillExists.length === 0) {
+                 return NextResponse.json({ error: 'User not found during update attempt.' }, { status: 404 });
+            }
+            // If user exists but affectedRows is 0, it means the value was already the same.
+            // Fetch current state to return.
+            const currentUserData = await query<AdminUserResponse[]>(`
+                SELECT
+                    u.user_id, u.user_name, u.company_username, u.email,
+                    u.user_group_id, ug.user_group_name
+                FROM users u
+                LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
+                WHERE u.user_id = ?
+            `, [user_id]);
+            return NextResponse.json({
+                success: true,
+                message: 'User group unchanged or update failed to modify rows.',
+                user: currentUserData[0] || null
+            });
         }
-
-        // Fetch the updated user data to return
-        const updatedUser = await query<AdminUserResponse[]>(`
-            SELECT
-                u.user_id, u.user_name, u.company_username, u.email,
-                u.user_group_id, ug.user_group_name  -- Use new names
-            FROM users u
-            LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id -- Use new names
-            WHERE u.user_id = ?
-        `, [body.userId]);
-
-        return NextResponse.json({
-            success: true,
-            message: 'User group updated successfully',
-            user: updatedUser[0] || null // Return the updated user data
-        });
-
     } catch (error: unknown) {
         console.error('API Error updating user group:', error);
         const message = error instanceof Error ? error.message : 'Unknown error';

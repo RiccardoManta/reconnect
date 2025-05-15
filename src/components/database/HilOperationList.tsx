@@ -5,7 +5,6 @@ import { Activity, RefreshCw, Plus } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { HilOperation, TestBench } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 
 // --- Reusable Modal Field Type Definitions ---
 // ... (ModalField types definition) ...
@@ -128,7 +127,7 @@ export default function HilOperationList() {
       const response = await fetch('/api/testbenches');
       if (response.ok) {
         const data = await response.json();
-        setTestBenches(keysToCamel<TestBench[]>(data.testBenches || []));
+        setTestBenches(data.test_benches || []);
       } else {
         console.error('Failed to fetch test benches for dropdown');
         setTestBenches([]);
@@ -148,7 +147,7 @@ export default function HilOperationList() {
         throw new Error('Failed to fetch HIL operations');
       }
       const data = await response.json();
-      setHilOperations(keysToCamel<HilOperation[]>(data.operations || []));
+      setHilOperations(data.operations || []);
     } catch (err) {
       setError('Error loading HIL operations: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching HIL operations:', err);
@@ -176,11 +175,10 @@ export default function HilOperationList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/hiloperation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -189,7 +187,7 @@ export default function HilOperationList() {
       }
 
       const savedData = await response.json();
-      const newOperation = keysToCamel<HilOperation>(savedData.operation);
+      const newOperation = savedData.operation as HilOperation;
       setHilOperations(prev => [...prev, newOperation]);
       setIsAddModalOpen(false);
 
@@ -201,15 +199,14 @@ export default function HilOperationList() {
 
   const handleUpdateOperation = async (formData: Record<string, any>) => {
     try {
-      if (!formData.operationId) {
-        throw new Error('HIL Operation ID is required');
+      if (!formData.operation_id) {
+        throw new Error('HIL Operation ID (operation_id) is required');
       }
 
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/hiloperation', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -218,11 +215,11 @@ export default function HilOperationList() {
       }
 
       const data = await response.json();
-      const updatedOperation = keysToCamel<HilOperation>(data.operation);
+      const updatedOperation = data.operation as HilOperation;
 
       setHilOperations(prev =>
         prev.map(op =>
-          op.operationId === updatedOperation.operationId ? updatedOperation : op
+          op.operation_id === updatedOperation.operation_id ? updatedOperation : op
         )
       );
       setSelectedOperation(updatedOperation);
@@ -233,35 +230,36 @@ export default function HilOperationList() {
     }
   };
 
-  // Define fields using camelCase names
+  // Define fields using snake_case names
   const addEntryFields: ModalField[] = [
     {
-      name: 'benchId',
+      name: 'bench_id',
       label: 'Test Bench',
       type: 'select',
       required: true,
-      options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      options: testBenches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
     },
-    { name: 'possibleTests', label: 'Possible Tests', type: 'text' },
-    { name: 'vehicleDatasets', label: 'Vehicle Datasets', type: 'text' },
+    { name: 'possible_tests', label: 'Possible Tests', type: 'text' },
+    { name: 'vehicle_datasets', label: 'Vehicle Datasets', type: 'text' },
     { name: 'scenarios', label: 'Scenarios', type: 'text' },
-    { name: 'controldeskProjects', label: 'Controldesk Projects', type: 'text' },
+    { name: 'controldesk_projects', label: 'Controldesk Projects', type: 'text' },
   ];
 
   const detailsFields: ModalField[] = [
-    { name: 'operationId', label: 'Operation ID', type: 'number', editable: false },
+    { name: 'operation_id', label: 'Operation ID', type: 'number', editable: false },
     {
-      name: 'benchId',
+      name: 'bench_id',
       label: 'Test Bench',
       type: 'select',
       required: true,
       editable: true,
-      options: testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+      options: testBenches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
     },
-    { name: 'possibleTests', label: 'Possible Tests', type: 'text', editable: true },
-    { name: 'vehicleDatasets', label: 'Vehicle Datasets', type: 'text', editable: true },
+    { name: 'hil_name', label: 'HIL Name', type: 'text', editable: false },
+    { name: 'possible_tests', label: 'Possible Tests', type: 'text', editable: true },
+    { name: 'vehicle_datasets', label: 'Vehicle Datasets', type: 'text', editable: true },
     { name: 'scenarios', label: 'Scenarios', type: 'text', editable: true },
-    { name: 'controldeskProjects', label: 'Controldesk Projects', type: 'text', editable: true },
+    { name: 'controldesk_projects', label: 'Controldesk Projects', type: 'text', editable: true },
   ];
 
   return (
@@ -299,8 +297,7 @@ export default function HilOperationList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>ID</th>
-                <th style={styles.tableHeaderCell}>HIL Name</th>
+                <th style={styles.tableHeaderCell}>Test Bench</th>
                 <th style={styles.tableHeaderCell}>Possible Tests</th>
                 <th style={styles.tableHeaderCell}>Vehicle Datasets</th>
                 <th style={styles.tableHeaderCell}>Scenarios</th>
@@ -308,28 +305,35 @@ export default function HilOperationList() {
               </tr>
             </thead>
             <tbody>
-              {hilOperations.length === 0 ? (
-                <tr><td colSpan={6} style={styles.noDataCell}>No HIL operations found</td></tr>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} style={styles.noDataCell}>
+                    <div style={styles.loadingContainer}>
+                      <RefreshCw size={24} style={styles.loadingIcon} />
+                      <span>Loading HIL operations...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : hilOperations.length === 0 && !error ? (
+                <tr>
+                  <td colSpan={5} style={styles.noDataCell}>No HIL operations found.</td>
+                </tr>
               ) : (
-                hilOperations.map((op) => {
-                  const hilName = testBenches.find(tb => tb.benchId === op.benchId)?.hilName || 'N/A';
-                  return (
-                    <tr
-                      key={op.operationId}
-                      style={styles.tableBodyRow}
-                      onClick={() => handleRowClick(op)}
-                      onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    >
-                      <td style={styles.tableBodyCell}>{op.operationId}</td>
-                      <td style={styles.tableBodyCell}>{hilName}</td>
-                      <td style={styles.tableBodyCell}>{op.possibleTests || '-'}</td>
-                      <td style={styles.tableBodyCell}>{op.vehicleDatasets || '-'}</td>
-                      <td style={styles.tableBodyCell}>{op.scenarios || '-'}</td>
-                      <td style={styles.tableBodyCell}>{op.controldeskProjects || '-'}</td>
-                    </tr>
-                  );
-                })
+                hilOperations.map((op) => (
+                  <tr 
+                    key={op.operation_id} 
+                    onClick={() => handleRowClick(op)} 
+                    style={styles.tableBodyRow}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f4f8'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <td style={styles.tableBodyCell}>{op.hil_name ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{op.possible_tests ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{op.vehicle_datasets ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{op.scenarios ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{op.controldesk_projects ?? 'N/A'}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -350,10 +354,10 @@ export default function HilOperationList() {
         <EditableDetailsModal
           isOpen={!!selectedOperation}
           onClose={() => setSelectedOperation(null)}
-          onSave={handleUpdateOperation}
-          fields={detailsFields}
           data={selectedOperation}
-          title="Edit HIL Operation Details"
+          fields={detailsFields}
+          onSave={handleUpdateOperation}
+          title={`Edit HIL Operation (ID: ${selectedOperation.operation_id})`}
         />
       )}
 

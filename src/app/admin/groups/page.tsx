@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, PlusCircle, RefreshCw, Settings } from 'lucide-react';
-import { keysToCamel } from '@/utils/caseConverter';
+// import { keysToCamel } from '@/utils/caseConverter';
 // We need the User type definition
 import { User } from '@/types/database'; 
 // Import the new AddGroupModal
@@ -12,25 +12,25 @@ import EditGroupPlatformsModal from '@/components/admin/EditGroupPlatformsModal'
 // Import the PermissionGuard component
 import PermissionGuard from '@/components/layout/PermissionGuard';
 
-// Interface for Group data fetched from API - Added permissionId AND permissionName
+// Interface for Group data fetched from API - now snake_case
 interface UserGroup {
-  userGroupId: number;
-  userGroupName: string;
-  accessiblePlatformNames: string | null;
-  accessiblePlatformIds: string | null; // Need IDs for editing
-  permissionId: number; 
-  permissionName: string; // Added
+  user_group_id: number;
+  user_group_name: string;
+  accessible_platform_names: string | null;
+  accessible_platform_ids: string | null; 
+  permission_id: number; 
+  permission_name: string; 
 }
 
-// Interface for User data relevant to this page (matches AdminUsersPage for now)
-interface AdminUserDisplay extends Pick<User, 'userId' | 'userName' | 'companyUsername' | 'email'> {
-  userGroupId: number | null;
-  userGroupName: string | null;
+// Interface for User data relevant to this page - now snake_case
+interface AdminUserDisplay extends Pick<User, 'user_id' | 'user_name' | 'company_username' | 'email'> {
+  user_group_id: number | null;
+  user_group_name: string | null;
 }
 
 export default function AdminGroupsPage() {
   const [groups, setGroups] = useState<UserGroup[]>([]);
-  const [allUsers, setAllUsers] = useState<AdminUserDisplay[]>([]);
+  const [all_users, setAllUsers] = useState<AdminUserDisplay[]>([]); // snake_case state name
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
@@ -59,9 +59,9 @@ export default function AdminGroupsPage() {
       const groupsData = await groupsResponse.json();
       const usersData = await usersResponse.json();
 
-      // keysToCamel should handle permission_id -> permissionId and permission_name -> permissionName
-      setGroups(keysToCamel<UserGroup[]>(groupsData.groups || []));
-      setAllUsers(keysToCamel<AdminUserDisplay[]>(usersData.users || []));
+      // APIs now return snake_case
+      setGroups(groupsData.groups || []);
+      setAllUsers(usersData.users || []);
 
     } catch (err) {
       const errorMsg = 'Error loading data: ' + (err instanceof Error ? err.message : String(err));
@@ -77,14 +77,14 @@ export default function AdminGroupsPage() {
   }, []);
 
   // Function to handle saving a new group
-  const handleSaveNewGroup = async (newGroupName: string) => {
+  const handleSaveNewGroup = async (new_group_name: string) => {
     setError(null);
     // Optional: Add specific loading state for saving group
     try {
         const response = await fetch('/api/admin/groups', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ groupName: newGroupName }),
+            body: JSON.stringify({ group_name: new_group_name }), // API expects group_name
         });
 
         if (!response.ok) {
@@ -115,35 +115,35 @@ export default function AdminGroupsPage() {
   };
 
   // Updated function to save both platform and permission changes
-  const handleSaveGroupChanges = async (groupId: number, platformIds: number[], permissionId: number) => {
+  const handleSaveGroupChanges = async (group_id: number, platform_ids: number[], permission_id: number) => {
     setError(null);
     let platformUpdateOk = false;
     let permissionUpdateOk = false;
     
-    console.log(`Saving changes for group ${groupId}: Platforms=`, platformIds, `PermissionId=`, permissionId);
+    console.log(`Saving changes for group ${group_id}: Platforms=`, platform_ids, `PermissionId=`, permission_id);
     
     // --- Start optimistic update or indicate saving --- 
     // (Optional: Could show a saving indicator on the specific group)
 
     try {
       // 1. Update Platforms API Call
-       const platformResponse = await fetch(`/api/admin/groups/${groupId}/platforms`, { 
+       const platformResponse = await fetch(`/api/admin/groups/${group_id}/platforms`, { 
            method: 'PUT', 
            headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ platformIds: platformIds }),
+           body: JSON.stringify({ platform_ids: platform_ids }), // API expects platform_ids
        });
        if (!platformResponse.ok) {
            const errorData = await platformResponse.json();
            throw new Error(`Platform Update Failed: ${errorData.error || 'Unknown error'}`);
        }
        platformUpdateOk = true;
-       console.log(`Group ${groupId} platform access updated successfully.`);
+       console.log(`Group ${group_id} platform access updated successfully.`);
 
        // 2. Update Permission ID API Call
-       const permissionResponse = await fetch(`/api/admin/groups/${groupId}`, {
+       const permissionResponse = await fetch(`/api/admin/groups/${group_id}`, {
            method: 'PUT',
            headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ permissionId: permissionId }),
+           body: JSON.stringify({ permission_id: permission_id }), // API expects permission_id
        });
        if (!permissionResponse.ok) {
             const errorData = await permissionResponse.json();
@@ -151,15 +151,15 @@ export default function AdminGroupsPage() {
         }
         const updatedGroupData = await permissionResponse.json(); // Get updated group data
         permissionUpdateOk = true;
-        console.log(`Group ${groupId} permission updated successfully.`);
+        console.log(`Group ${group_id} permission updated successfully.`);
 
         // 3. Update Local State Directly using the comprehensive data from the API response
-        const updatedGroup = keysToCamel<UserGroup>(updatedGroupData.group); 
-        if (updatedGroup) {
-            // The API now returns permissionName and accessiblePlatformNames/Ids
+        const updated_group = updatedGroupData.group as UserGroup; // API returns snake_case group 
+        if (updated_group) {
+            // The API now returns permission_name and accessible_platform_names/Ids
             setGroups(prevGroups => 
                 prevGroups.map(group => 
-                    group.userGroupId === groupId ? updatedGroup : group // Directly use the updated group object
+                    group.user_group_id === group_id ? updated_group : group // Directly use the updated group object
                 )
             );
         } else {
@@ -188,9 +188,9 @@ export default function AdminGroupsPage() {
   };
 
   // Helper to get users for a specific group ID
-  const getUsersInGroup = (groupId: number | null): AdminUserDisplay[] => {
-    if (groupId === null) return []; // Or handle users with no group separately if needed
-    return allUsers.filter(user => user.userGroupId === groupId);
+  const getUsersInGroup = (group_id: number | null): AdminUserDisplay[] => {
+    if (group_id === null) return []; // Or handle users with no group separately if needed
+    return all_users.filter(user => user.user_group_id === group_id); // Use snake_case for properties
   };
 
   // --- Helper functions for badge styles ---
@@ -205,8 +205,8 @@ export default function AdminGroupsPage() {
   };
 
   // Function to get style based on permission name
-  const getPermissionBadgeStyle = (permissionName: string | undefined | null): React.CSSProperties => {
-      switch (permissionName?.toLowerCase()) {
+  const getPermissionBadgeStyle = (permission_name: string | undefined | null): React.CSSProperties => {
+      switch (permission_name?.toLowerCase()) {
           case 'admin':
               return { ...baseBadgeStyle, backgroundColor: '#FEE2E2', color: '#B91C1C' }; // Red
           case 'edit':
@@ -231,7 +231,7 @@ export default function AdminGroupsPage() {
          <div style={styles.headerContainer}>
            <div style={styles.headerTitleContainer}>
              <ShieldCheck size={28} style={styles.headerIcon} />
-             <h1 style={styles.headerTitle}>Group Management</h1>
+             <h1 style={styles.headerTitle}>Group Management {groups.length > 0 ? `(${groups.length})` : ''}</h1>
            </div>
            {/* Add Group Button */}
            <button 
@@ -271,11 +271,11 @@ export default function AdminGroupsPage() {
                       <p style={{ textAlign: 'center', color: '#6b7280', width: '100%' }}>No groups found.</p>
                   )}
                   {groups.map((group) => {
-                      const usersInGroup = getUsersInGroup(group.userGroupId);
+                      const usersInGroup = getUsersInGroup(group.user_group_id);
                       return (
-                          <div key={group.userGroupId} style={styles.groupSection}>
+                          <div key={group.user_group_id} style={styles.groupSection}>
                               <div style={styles.groupHeader}>
-                                  <h2 style={styles.groupHeadingNoBorder}>{group.userGroupName}</h2>
+                                  <h2 style={styles.groupHeadingNoBorder}>{group.user_group_name}</h2>
                                   {/* Edit Group Button */}
                                   <button 
                                      onClick={() => handleOpenEditPlatformsModal(group)}
@@ -301,8 +301,8 @@ export default function AdminGroupsPage() {
                               <div style={{marginBottom: '0.5rem'}}>
                                   <strong style={styles.subHeading}>Permission:</strong> 
                                   {/* Apply styles based on permissionName */}
-                                  <span style={getPermissionBadgeStyle(group.permissionName)}>
-                                      {group.permissionName || 'N/A'}
+                                  <span style={getPermissionBadgeStyle(group.permission_name)}>
+                                      {group.permission_name || 'N/A'}
                                   </span>
                               </div>
 
@@ -310,8 +310,8 @@ export default function AdminGroupsPage() {
                               <div style={{marginBottom: '1rem'}}>
                                   <strong style={styles.subHeading}>Accessible Platforms:</strong> 
                                   <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', color: '#374151', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.2rem' }}>
-                                      {(group.accessiblePlatformNames && group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name)) ? (
-                                        group.accessiblePlatformNames.split(',').map(name => name.trim()).filter(name => name).map((platformName, index) => (
+                                      {(group.accessible_platform_names && group.accessible_platform_names.split(',').map(name => name.trim()).filter(name => name)) ? (
+                                        group.accessible_platform_names.split(',').map(name => name.trim()).filter(name => name).map((platformName, index) => (
                                            <span key={index} style={getPlatformBadgeStyle()}>
                                                {platformName}
                                            </span>
@@ -334,8 +334,8 @@ export default function AdminGroupsPage() {
                                           </thead>
                                           <tbody>
                                               {usersInGroup.map((user) => (
-                                                  <tr key={user.userId} style={styles.tableBodyRow}>
-                                                      <td style={styles.tableBodyCell}>{user.userName}</td>
+                                                  <tr key={user.user_id} style={styles.tableBodyRow}>
+                                                      <td style={styles.tableBodyCell}>{user.user_name}</td>
                                                       <td style={styles.tableBodyCell}>{user.email}</td>
                                                   </tr>
                                               ))}
@@ -363,10 +363,10 @@ export default function AdminGroupsPage() {
         {/* Render Edit Group Modal - Pass the updated handler */}
         {editingGroupPlatforms && (
           <EditGroupPlatformsModal
-            isOpen={editingGroupPlatforms !== null}
-            groupData={editingGroupPlatforms} // Pass group data including permissionId
+            group={editingGroupPlatforms} // Pass snake_case group data
+            isOpen={!!editingGroupPlatforms}
             onClose={() => setEditingGroupPlatforms(null)}
-            onSave={handleSaveGroupChanges} // Use the new handler
+            onSave={handleSaveGroupChanges}
           />
         )}
 

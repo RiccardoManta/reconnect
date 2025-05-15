@@ -100,114 +100,123 @@ export default function Sidebar({
 
       <div>
         {categories.map(category => (
-          <div key={category} style={{ marginBottom: '0.5rem' }}>
-            {/* Category header */}
-            <div
-              onClick={() => onCategoryClick(category)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0.5rem',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                backgroundColor: '#edf2f7',
-                color: '#0F3460',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseOver={(e) => {
-                const target = e.currentTarget as HTMLDivElement;
-                target.style.backgroundColor = '#e2e8f0';
-              }}
-              onMouseOut={(e) => {
-                const target = e.currentTarget as HTMLDivElement;
-                target.style.backgroundColor = '#edf2f7';
-              }}
-            >
-              <span
-                onClick={(e) => toggleCategory(category, e)}
+          <React.Fragment key={category}>
+            <div style={{ marginBottom: '0.5rem' }}>
+              {/* Category header */}
+              <div
+                onClick={() => onCategoryClick(category)}
                 style={{
-                  display: 'inline-flex',
-                  marginRight: '0.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0.5rem',
+                  borderRadius: '0.375rem',
                   cursor: 'pointer',
+                  backgroundColor: '#edf2f7',
+                  color: '#0F3460',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  const target = e.currentTarget as HTMLDivElement;
+                  target.style.backgroundColor = '#e2e8f0';
+                }}
+                onMouseOut={(e) => {
+                  const target = e.currentTarget as HTMLDivElement;
+                  target.style.backgroundColor = '#edf2f7';
                 }}
               >
-                {expandedCategories[category] ?
-                  <ChevronDown size={18} /> :
-                  <ChevronRight size={18} />
-                }
-              </span>
-              <span style={{ fontWeight: 'bold', flexGrow: 1, marginRight: '0.5rem' }}>{category}</span>
-              <span style={{
-                marginLeft: 'auto',
-                fontSize: '0.8rem',
-                color: '#64748b',
-                flexShrink: 0
-              }}>
-                {serversByCategory[category]?.length || 0}
-              </span>
-            </div>
-
-            {/* Servers list */}
-            {expandedCategories[category] && (
-              <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
-                {(serversByCategory[category]?.length || 0) > 0 ? (
-                    serversByCategory[category].map((server) => (
-                      // Use pcId as key and for click handler
-                      <div
-                        key={`${category}-${server.pcId}`}
-                        onClick={() => onServerClick(`server-card-${server.pcId}`)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '0.375rem 0.5rem',
-                            marginBottom: '0.25rem',
-                            borderRadius: '0.25rem',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            transition: 'background-color 0.2s'
-                        }}
-                        onMouseOver={(e) => {
-                            const target = e.currentTarget as HTMLDivElement;
-                            target.style.backgroundColor = '#f1f5f9';
-                        }}
-                        onMouseOut={(e) => {
-                            const target = e.currentTarget as HTMLDivElement;
-                            target.style.backgroundColor = 'transparent';
-                        }}
-                      >
-                        <Server size={14} style={{ marginRight: '0.5rem', color: '#64748b', flexShrink: 0 }} />
-                        <span style={{ fontWeight: 'normal', color: '#333' }}>
-                          {server.casualName} {/* Use casualName */}
-                        </span>
-                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                            <Circle
-                              size={8}
-                              fill={getStatusColor(server)}
-                              color={getStatusColor(server)}
-                              style={{ marginRight: '0.25rem' }}
-                            />
-                            {/* Use activeUser */} 
-                            {server.activeUser && server.activeUser.trim() !== '' && (
-                                <span style={{
-                                    fontSize: '0.75rem',
-                                    color: '#9ca3af',
-                                    fontStyle: 'italic',
-                                    marginLeft: '0.5rem'
-                                }}>
-                                    {server.activeUser}
-                                </span>
-                            )}
-                        </div>
-                      </div>
-                    ))
-                ) : (
-                    <div style={{ padding: '0.375rem 0.5rem', fontSize: '0.9rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                        No servers in this category
-                    </div>
-                )}
+                <span
+                  onClick={(e) => toggleCategory(category, e)}
+                  style={{
+                    display: 'inline-flex',
+                    marginRight: '0.5rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {expandedCategories[category] ?
+                    <ChevronDown size={18} /> :
+                    <ChevronRight size={18} />
+                  }
+                </span>
+                <span style={{ fontWeight: 'bold', flexGrow: 1, marginRight: '0.5rem' }}>{category}</span>
+                <span style={{
+                  marginLeft: 'auto',
+                  fontSize: '0.8rem',
+                  color: '#64748b',
+                  flexShrink: 0
+                }}>
+                  {serversByCategory[category]?.length || 0}
+                </span>
               </div>
+
+              {/* Servers list */}
+              {expandedCategories[category] && (
+                <div style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+                  {(serversByCategory[category]?.length || 0) > 0 ? (
+                      serversByCategory[category].map((server) => (
+                        // Use pcId as key and for click handler
+                        <div
+                          key={`${category}-${server.pcId}`}
+                          onClick={() => onServerClick(`server-card-${server.pcId}`)}
+                          style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0.375rem 0.5rem',
+                              marginBottom: '0.25rem',
+                              borderRadius: '0.25rem',
+                              cursor: 'pointer',
+                              fontSize: '0.9rem',
+                              transition: 'background-color 0.2s'
+                          }}
+                          onMouseOver={(e) => {
+                              const target = e.currentTarget as HTMLDivElement;
+                              target.style.backgroundColor = '#f1f5f9';
+                          }}
+                          onMouseOut={(e) => {
+                              const target = e.currentTarget as HTMLDivElement;
+                              target.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <Server size={14} style={{ marginRight: '0.5rem', color: '#64748b', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 'normal', color: '#333' }}>
+                            {server.casualName} {/* Use casualName */}
+                          </span>
+                          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                              <Circle
+                                size={8}
+                                fill={getStatusColor(server)}
+                                color={getStatusColor(server)}
+                                style={{ marginRight: '0.25rem' }}
+                              />
+                              {/* Use activeUser */} 
+                              {server.activeUser && server.activeUser.trim() !== '' && (
+                                  <span style={{
+                                      fontSize: '0.75rem',
+                                      color: '#9ca3af',
+                                      fontStyle: 'italic',
+                                      marginLeft: '0.5rem'
+                                  }}>
+                                      {server.activeUser}
+                                  </span>
+                              )}
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                      <div style={{ padding: '0.375rem 0.5rem', fontSize: '0.9rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                          No servers in this category
+                      </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {category === 'Project Overview' && (
+              <hr style={{ 
+                border: 'none', 
+                borderTop: '1px solid #cbd5e1', // A light grey color, adjust as needed (e.g., Tailwind's gray-300)
+                margin: '1rem 0' // Add some vertical spacing
+              }} />
             )}
-          </div>
+          </React.Fragment>
         ))}
       </div>
     </div>

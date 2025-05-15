@@ -7,8 +7,8 @@ import { getUserPermissions } from '@/utils/server/permissionUtils';
 
 // Interface for request body
 interface UpdateGroupRequest {
-    permissionId?: number;
-    groupName?: string; // Allow updating name too, if needed later
+    permission_id?: number;
+    group_name?: string; // Allow updating name too, if needed later
 }
 
 // Interface for checking if permission exists
@@ -54,16 +54,16 @@ export async function PUT(
     try {
         // Extract only the permissionId from the body
         const body = await request.json();
-        const permissionId = body.permissionId;
+        const permission_id = body.permission_id;
 
-        if (typeof permissionId !== 'number') {
-            return NextResponse.json({ error: 'Valid permissionId is required.' }, { status: 400 });
+        if (typeof permission_id !== 'number') {
+            return NextResponse.json({ error: 'Valid permission_id is required.' }, { status: 400 });
         }
 
         // Perform the update
         const affectedRows = await update(
             'UPDATE user_groups SET permission_id = ? WHERE user_group_id = ?',
-            [permissionId, groupId]
+            [permission_id, groupId]
         );
 
         if (affectedRows === 0) {

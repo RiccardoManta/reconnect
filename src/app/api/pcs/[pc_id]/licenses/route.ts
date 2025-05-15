@@ -2,24 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils'; // Assuming dbUtils is in src/db
 import { RowDataPacket } from 'mysql2/promise';
 
-// Define the structure of the data returned for each assigned license
+// Define the structure of the data returned for each assigned license (now snake_case)
 interface AssignedLicenseInfo extends RowDataPacket {
-    licenseId: number;
-    licenseName: string | null;
-    licenseType: string | null;
-    softwareName: string;
-    majorVersion: string | null;
-    assignedOn: string | null; // Assuming DATE is returned as string
-}
-
-// Interface for the combined data returned by the query
-interface AssignedLicenseInfoRaw extends RowDataPacket {
     license_id: number;
     license_name: string | null;
     license_type: string | null;
     software_name: string;
     major_version: string | null;
-    assigned_on: string | null; 
+    assigned_on: string | null; // Assuming DATE is returned as string
 }
 
 // Explicitly define the type for the route parameters
@@ -44,12 +34,12 @@ export async function GET(
         // Query to get licenses assigned to this PC, joining with license and software details
         const query = `
             SELECT 
-                l.license_id AS licenseId, 
-                l.license_name AS licenseName, 
-                l.license_type AS licenseType, 
-                s.software_name AS softwareName, 
-                s.major_version AS majorVersion,
-                la.assigned_on AS assignedOn 
+                l.license_id AS license_id, 
+                l.license_name AS license_name, 
+                l.license_type AS license_type, 
+                s.software_name AS software_name, 
+                s.major_version AS major_version,
+                la.assigned_on AS assigned_on 
             FROM license_assignments la
             JOIN licenses l ON la.license_id = l.license_id
             JOIN software s ON l.software_id = s.software_id

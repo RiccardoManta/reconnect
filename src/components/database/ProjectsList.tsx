@@ -5,7 +5,6 @@ import { ClipboardList, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '@/components/EditableDetailsModal';
 import AddEntryModal from '@/components/AddEntryModal';
 import { Project } from '@/types/database';
-import { keysToCamel, keysToSnake } from '@/utils/caseConverter';
 
 // --- Reusable Modal Field Type Definitions (Consider moving to a shared file) ---
 type FieldType = 'text' | 'number' | 'date' | 'select';
@@ -58,8 +57,8 @@ export default function ProjectsList() {
         throw new Error('Failed to fetch projects');
       }
       const data = await response.json();
-      // Convert incoming snake_case keys to camelCase
-      setProjects(keysToCamel<Project[]>(data.projects || []));
+      // API returns snake_case, Project type is snake_case
+      setProjects(data.projects || []);
     } catch (err) {
       setError('Error loading projects: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching projects:', err);
@@ -78,14 +77,13 @@ export default function ProjectsList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      // Convert outgoing camelCase keys to snake_case for the API
-      const snakeCaseData = keysToSnake(formData);
+      // formData from AddEntryModal is now snake_case
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData), // Send snake_case data
       });
 
       if (!response.ok) {
@@ -93,9 +91,9 @@ export default function ProjectsList() {
         throw new Error(errorData.error || 'Failed to add project');
       }
 
-      // Refresh data - API returns snake_case, convert to camelCase
+      // API returns snake_case { project: ... }
       const savedData = await response.json();
-      const newProject = keysToCamel<Project>(savedData.project);
+      const newProject = savedData.project as Project;
       setProjects(prev => [...prev, newProject]);
       setIsAddModalOpen(false); // Close modal on success
 
@@ -107,19 +105,18 @@ export default function ProjectsList() {
 
   const handleUpdateProject = async (formData: Record<string, any>) => {
     try {
-      // Ensure projectId is present (already camelCase from modal)
-      if (!formData.projectId) {
-        throw new Error('Project ID is required');
+      // Ensure project_id is present (now snake_case from modal)
+      if (!formData.project_id) {
+        throw new Error('Project ID (project_id) is required');
       }
 
-      // Convert outgoing camelCase keys to snake_case for the API
-      const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/projects', {
+      // formData from EditableDetailsModal is now snake_case
+      const response = await fetch('/api/projects', { // Assuming PUT to collection endpoint, ID in body
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData), // Send snake_case data
       });
 
       if (!response.ok) {
@@ -127,19 +124,19 @@ export default function ProjectsList() {
         throw new Error(errorData.error || 'Failed to update project');
       }
 
-      // API returns the updated record in snake_case, convert to camelCase
+      // API returns the updated record in snake_case { project: ... }
       const data = await response.json();
-      const updatedProject = keysToCamel<Project>(data.project);
+      const updatedProject = data.project as Project;
 
-      // Update local state with camelCase data
+      // Update local state with snake_case data
       setProjects(prev =>
         prev.map(project =>
-          project.projectId === updatedProject.projectId ? updatedProject : project
+          project.project_id === updatedProject.project_id ? updatedProject : project // Use snake_case
         )
       );
 
-      // Update selected project with camelCase data
-      if (selectedProject?.projectId === updatedProject.projectId) {
+      // Update selected project with snake_case data
+      if (selectedProject?.project_id === updatedProject.project_id) { // Use snake_case
           setSelectedProject(updatedProject);
       }
 
@@ -149,17 +146,17 @@ export default function ProjectsList() {
     }
   };
 
-  // Define fields for the add entry modal using camelCase names
+  // Define fields for the add entry modal using snake_case names
   const addEntryFields: ModalField[] = [
-    { name: 'projectNumber', label: 'Project Number', type: 'text', required: true },
-    { name: 'projectName', label: 'Project Name', type: 'text', required: true },
+    { name: 'project_number', label: 'Project Number', type: 'text', required: true },
+    { name: 'project_name', label: 'Project Name', type: 'text', required: true },
   ];
 
-  // Define fields for the editable details modal using camelCase names
+  // Define fields for the editable details modal using snake_case names
   const detailsFields: ModalField[] = [
-    { name: 'projectId', label: 'Project ID', type: 'number', editable: false },
-    { name: 'projectNumber', label: 'Project Number', type: 'text', required: true, editable: true },
-    { name: 'projectName', label: 'Project Name', type: 'text', required: true, editable: true },
+    { name: 'project_id', label: 'Project ID', type: 'number', editable: false },
+    { name: 'project_number', label: 'Project Number', type: 'text', required: true, editable: true },
+    { name: 'project_name', label: 'Project Name', type: 'text', required: true, editable: true },
   ];
 
   // --- Styles --- (Adapted from other lists)
@@ -224,25 +221,23 @@ export default function ProjectsList() {
             <table style={styles.table}>
               <thead>
                 <tr style={styles.tableHeaderRow}>
-                  <th style={styles.tableHeaderCell}>ID</th>
-                  <th style={styles.tableHeaderCell}>Project Number</th>
                   <th style={styles.tableHeaderCell}>Project Name</th>
+                  <th style={styles.tableHeaderCell}>Project Number</th>
                 </tr>
               </thead>
               <tbody>
                 {projects.length === 0 ? (
-                  <tr><td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No projects found</td></tr>
+                  <tr><td colSpan={2} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No projects found</td></tr>
                 ) : (
                   projects.map((project) => (
-                    <tr key={project.projectId}
+                    <tr key={project.project_id}
                       style={styles.tableBodyRow}
                       onClick={() => setSelectedProject(project)} // Set selected for modal
                       onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                       onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <td style={styles.tableBodyCell}>{project.projectId}</td>
-                      <td style={styles.tableBodyCell}>{project.projectNumber}</td>
-                      <td style={styles.tableBodyCell}>{project.projectName}</td>
+                      <td style={styles.tableBodyCell}>{project.project_name}</td>
+                      <td style={styles.tableBodyCell}>{project.project_number}</td>
                     </tr>
                   ))
                 )}
@@ -256,7 +251,7 @@ export default function ProjectsList() {
         <EditableDetailsModal
           isOpen={selectedProject !== null}
           onClose={() => setSelectedProject(null)}
-          title={`Project Details: ${selectedProject.projectName}`}
+          title={`Project Details: ${selectedProject.project_name}`}
           data={selectedProject}
           fields={detailsFields}
           onSave={handleUpdateProject}

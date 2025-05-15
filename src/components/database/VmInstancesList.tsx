@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Cloud, RefreshCw, PlusCircle } from 'lucide-react';
+import { Cloud, RefreshCw, PlusCircle, ListChecks, Edit3 } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { VmInstance, Software } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 import ManagePCSwAssignments from './ManagePCSwAssignments';
+import ManageVMLicenseAssignments from './ManageVMLicenseAssignments';
 
 // --- Reusable Modal Field Type Definitions ---
 // (Consider moving to a shared file)
@@ -19,6 +19,16 @@ interface DateField extends BaseField { type: 'date'; }
 interface SelectField extends BaseField { type: 'select'; options: SelectOption[]; }
 type ModalField = TextField | NumberField | DateField | SelectField;
 // --- End Reusable Modal Field Type Definitions ---
+
+// Add type definition for assigned license data (self-contained now)
+interface AssignedLicenseInfo {
+    license_id: number;
+    license_name: string | null;
+    license_type: string | null;
+    software_name: string; // This typically comes from a join in the API for assigned licenses
+    major_version: string | null; // Also from join
+    assigned_on: string | null; 
+}
 
 export default function VmInstancesList() {
   const [vmInstances, setVmInstances] = useState<VmInstance[]>([]);
@@ -33,30 +43,36 @@ export default function VmInstancesList() {
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
-  // Fetch all software (needed for assignment dropdown)
-  const fetchAllSoftware = async () => {
-    if (allSoftware.length > 0) return; 
+  // State for VM license assignment management
+  const [assignedLicenses, setAssignedLicenses] = useState<AssignedLicenseInfo[]>([]);
+  const [licenseAssignmentLoading, setLicenseAssignmentLoading] = useState(false);
+  const [licenseAssignmentError, setLicenseAssignmentError] = useState<string | null>(null);
+
+  const fetchRelatedData = async () => {
     try {
-      const response = await fetch('/api/software');
-      if (response.ok) {
-        const data = await response.json();
-        setAllSoftware(keysToCamel<Software[]>(data.software || []));
+      const [swResponse] = await Promise.all([
+        fetch('/api/software'),
+      ]);
+
+      if (swResponse.ok) {
+        const swData = await swResponse.json();
+        setAllSoftware(swData.software || []);
       } else {
         console.error('Failed to fetch software for assignment');
         setAllSoftware([]);
       }
+
     } catch (err) {
-      console.error('Error fetching software:', err);
+      console.error('Error fetching related data (software):', err);
       setAllSoftware([]);
     }
   };
 
-  // Fetch software specifically assigned to the selected VM
-  const fetchAssignedVmSoftware = async (vmId: number) => {
+  const fetchAssignedVmSoftware = async (vm_id: number) => {
     setAssignmentLoading(true);
     setAssignmentError(null);
     try {
-      const response = await fetch(`/api/vms/${vmId}/software`);
+      const response = await fetch(`/api/vms/${vm_id}/software`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch assigned VM software');
@@ -65,11 +81,31 @@ export default function VmInstancesList() {
       const assignments = data.softwareAssignments || [];
       setAssignedSoftwareIds(assignments.map((a: any) => a.software_id));
     } catch (err) {
-      console.error(`Error fetching assigned software for VM ${vmId}:`, err);
+      console.error(`Error fetching assigned software for VM ${vm_id}:`, err);
       setAssignmentError('Failed to load assigned software.');
       setAssignedSoftwareIds([]);
     } finally {
       setAssignmentLoading(false);
+    }
+  };
+
+  const fetchAssignedVmLicenses = async (vm_id: number) => {
+    setLicenseAssignmentLoading(true);
+    setLicenseAssignmentError(null);
+    try {
+      const response = await fetch(`/api/vms/${vm_id}/licenses`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch assigned VM licenses');
+      }
+      const data = await response.json();
+      setAssignedLicenses(data.assignedLicenses || []);
+    } catch (err) {
+      console.error(`Error fetching assigned licenses for VM ${vm_id}:`, err);
+      setLicenseAssignmentError('Failed to load assigned licenses for VM.');
+      setAssignedLicenses([]);
+    } finally {
+      setLicenseAssignmentLoading(false);
     }
   };
 
@@ -82,7 +118,7 @@ export default function VmInstancesList() {
         throw new Error('Failed to fetch VM instances');
       }
       const data = await response.json();
-      setVmInstances(keysToCamel<VmInstance[]>(data.vmInstances || [])); 
+      setVmInstances(data.vm_instances || []); 
     } catch (err) {
       setError('Error loading VM instances: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching VM instances:', err);
@@ -94,6 +130,7 @@ export default function VmInstancesList() {
   // Load data on component mount
   useEffect(() => {
     fetchData();
+    fetchRelatedData();
   }, []);
 
   const handleAddClick = () => {
@@ -102,19 +139,18 @@ export default function VmInstancesList() {
 
   const handleRowClick = async (vmInstance: VmInstance) => {
     setSelectedVmInstance(vmInstance);
-    await fetchAllSoftware();
-    if (vmInstance.vmId !== undefined) {
-      await fetchAssignedVmSoftware(vmInstance.vmId);
+    if (vmInstance.vm_id !== undefined) {
+      await fetchAssignedVmSoftware(vmInstance.vm_id);
+      await fetchAssignedVmLicenses(vmInstance.vm_id);
     }
   };
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/vminstances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -123,7 +159,7 @@ export default function VmInstancesList() {
       }
 
       const savedData = await response.json();
-      const newVmInstance = keysToCamel<VmInstance>(savedData.vmInstance);
+      const newVmInstance = savedData.vm_instance as VmInstance;
       setVmInstances(prev => [...prev, newVmInstance]);
       setIsAddModalOpen(false);
 
@@ -136,17 +172,16 @@ export default function VmInstancesList() {
   const handleUpdateVmInstance = async (formData: Record<string, any>) => {
     console.log("Attempting to update VM instance. Form data:", formData);
     try {
-      if (!formData.vmId) {
-        throw new Error('VM ID is required');
+      if (!formData.vm_id) {
+        throw new Error('VM ID (vm_id) is required');
       }
 
-      const snakeCaseData = keysToSnake(formData);
-      console.log("Sending snake_case data to API:", snakeCaseData);
+      console.log("Sending snake_case data to API:", formData);
       
-      const response = await fetch(`/api/vminstances/${formData.vmId}`, {
+      const response = await fetch(`/api/vminstances/${formData.vm_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -162,15 +197,15 @@ export default function VmInstancesList() {
       }
 
       const data = await response.json();
-      const updatedVmInstance = keysToCamel<VmInstance>(data.vmInstance);
+      const updatedVmInstance = data.vm_instance as VmInstance;
 
       setVmInstances(prev =>
         prev.map(vm =>
-          vm.vmId === updatedVmInstance.vmId ? updatedVmInstance : vm
+          vm.vm_id === updatedVmInstance.vm_id ? updatedVmInstance : vm
         )
       );
       
-      if (selectedVmInstance?.vmId === updatedVmInstance.vmId) {
+      if (selectedVmInstance?.vm_id === updatedVmInstance.vm_id) {
            setSelectedVmInstance(updatedVmInstance);
       }
 
@@ -181,68 +216,92 @@ export default function VmInstancesList() {
   };
 
   // --- Handlers for Assigning/Unassigning Software to VM --- 
-  const handleAssignVmSoftware = async (softwareId: number) => {
-    if (!selectedVmInstance?.vmId) {
-      setAssignmentError("Cannot assign software: No VM selected.");
+  const handleAssignVmSoftware = async (software_id: number) => {
+    if (!selectedVmInstance?.vm_id) {
+      setAssignmentError("No VM selected to assign software to.");
       return;
     }
     setAssignmentLoading(true);
     setAssignmentError(null);
     try {
-      const response = await fetch(`/api/vms/${selectedVmInstance.vmId}/software`, {
+      const response = await fetch(`/api/vms/${selectedVmInstance.vm_id}/software`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ software_id: softwareId }),
+        body: JSON.stringify({ software_id }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to assign software to VM');
       }
-      setAssignedSoftwareIds(prev => [...prev, softwareId].sort((a, b) => a - b));
+      await fetchAssignedVmSoftware(selectedVmInstance.vm_id);
     } catch (err) {
-      const errorMsg = `Error assigning software: ${err instanceof Error ? err.message : String(err)}`;
-      setAssignmentError(errorMsg);
+      console.error("Error assigning software to VM:", err);
+      setAssignmentError(err instanceof Error ? err.message : 'Could not assign software.');
     } finally {
       setAssignmentLoading(false);
     }
   };
 
-  const handleUnassignVmSoftware = async (softwareId: number) => {
-    if (!selectedVmInstance?.vmId) {
-      setAssignmentError("Cannot unassign software: No VM selected.");
+  const handleUnassignVmSoftware = async (software_id: number) => {
+    if (!selectedVmInstance?.vm_id) {
+      setAssignmentError("No VM selected to unassign software from.");
       return;
     }
     setAssignmentLoading(true);
     setAssignmentError(null);
     try {
-      const response = await fetch(`/api/vms/${selectedVmInstance.vmId}/software/${softwareId}`, {
+      const response = await fetch(`/api/vms/${selectedVmInstance.vm_id}/software/${software_id}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to unassign software from VM');
       }
-      setAssignedSoftwareIds(prev => prev.filter(id => id !== softwareId));
+      await fetchAssignedVmSoftware(selectedVmInstance.vm_id);
     } catch (err) {
-      const errorMsg = `Error unassigning software: ${err instanceof Error ? err.message : String(err)}`;
-      setAssignmentError(errorMsg);
+      console.error("Error unassigning software from VM:", err);
+      setAssignmentError(err instanceof Error ? err.message : 'Could not unassign software.');
     } finally {
       setAssignmentLoading(false);
     }
   };
-  // --- End Assignment Handlers ---
 
-  // Define fields for the add entry modal using camelCase names
+  // --- Handlers for Assigning/Unassigning Licenses to VM ---
+  const handleUnassignVmLicense = async (license_id: number) => {
+    if (!selectedVmInstance?.vm_id) {
+      setLicenseAssignmentError("No VM selected to unassign license from.");
+      return;
+    }
+    setLicenseAssignmentLoading(true);
+    setLicenseAssignmentError(null);
+    try {
+      const response = await fetch(`/api/vms/${selectedVmInstance.vm_id}/licenses/${license_id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to unassign license from VM');
+      }
+      await fetchAssignedVmLicenses(selectedVmInstance.vm_id);
+    } catch (err) {
+      console.error("Error unassigning license from VM:", err);
+      setLicenseAssignmentError(err instanceof Error ? err.message : 'Could not unassign license from VM.');
+    } finally {
+      setLicenseAssignmentLoading(false);
+    }
+  };
+
+  // Define fields for the add entry modal using snake_case names
   const addEntryFields: ModalField[] = [
-    { name: 'vmName', label: 'VM Name', type: 'text', required: true },
-    { name: 'vmAddress', label: 'VM Address', type: 'text', required: false },
+    { name: 'vm_name', label: 'VM Name', type: 'text', required: true },
+    { name: 'vm_address', label: 'VM Address', type: 'text', required: false },
   ];
 
-  // Define fields for the editable details modal using camelCase names
+  // Define fields for the editable details modal using snake_case names
   const detailsFields: ModalField[] = [
-    { name: 'vmId', label: 'VM ID', type: 'number', editable: false },
-    { name: 'vmName', label: 'VM Name', type: 'text', required: true, editable: true },
-    { name: 'vmAddress', label: 'VM Address', type: 'text', required: false, editable: true },
+    { name: 'vm_id', label: 'VM ID', type: 'number', editable: false },
+    { name: 'vm_name', label: 'VM Name', type: 'text', required: true, editable: true },
+    { name: 'vm_address', label: 'VM Address', type: 'text', required: false, editable: true },
   ];
 
   // --- Styles --- 
@@ -279,7 +338,26 @@ export default function VmInstancesList() {
     assignmentItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', fontSize: '0.875rem', borderBottom: '1px solid #f3f4f6', },
     assignmentItemLast: { borderBottom: 'none', },
     assignmentDetails: { display: 'flex', flexDirection: 'column', gap: '0.1rem' },
-    assignmentTextMuted: { fontSize: '0.75rem', color: '#6b7280', }
+    assignmentTextMuted: { fontSize: '0.75rem', color: '#6b7280', },
+    buttonCommon: {
+      border: 'none',
+      borderRadius: '0.375rem',
+      padding: '0.25rem 0.5rem',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '0.875rem',
+      fontWeight: 500,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+    },
+    actionButton: {
+      backgroundColor: '#39A2DB',
+      color: 'white',
+    },
+    editButton: {
+      backgroundColor: 'white',
+      color: '#6b7280',
+    },
   };
 
   return (
@@ -314,25 +392,23 @@ export default function VmInstancesList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>ID</th>
                 <th style={styles.tableHeaderCell}>VM Name</th>
                 <th style={styles.tableHeaderCell}>VM Address</th>
               </tr>
             </thead>
             <tbody>
               {vmInstances.length === 0 ? (
-                <tr><td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No VM instances found</td></tr>
+                <tr><td colSpan={2} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No VM instances found</td></tr>
               ) : (
                 vmInstances.map((vmInstance) => (
-                  <tr key={vmInstance.vmId}
+                  <tr key={vmInstance.vm_id}
                     style={styles.tableBodyRow}
                     onClick={() => handleRowClick(vmInstance)}
                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <td style={styles.tableBodyCell}>{vmInstance.vmId}</td>
-                    <td style={styles.tableBodyCell}>{vmInstance.vmName}</td>
-                    <td style={styles.tableBodyCell}>{vmInstance.vmAddress || '-'}</td>
+                    <td style={styles.tableBodyCell}>{vmInstance.vm_name}</td>
+                    <td style={styles.tableBodyCell}>{vmInstance.vm_address || '-'}</td>
                   </tr>
                 ))
               )}
@@ -344,22 +420,42 @@ export default function VmInstancesList() {
       {/* Modals */} 
       {selectedVmInstance && (
         <EditableDetailsModal
-          isOpen={selectedVmInstance !== null}
-          onClose={() => setSelectedVmInstance(null)}
-          title={`VM Details: ${selectedVmInstance.vmName}`}
+          isOpen={!!selectedVmInstance}
+          onClose={() => {
+            setSelectedVmInstance(null);
+            setAssignedSoftwareIds([]);
+            setAssignedLicenses([]);
+            setAssignmentError(null);
+            setLicenseAssignmentError(null);
+          }}
           data={selectedVmInstance}
           fields={detailsFields}
           onSave={handleUpdateVmInstance}
+          title={`Edit VM Instance: ${selectedVmInstance.vm_name}`}
         >
+          {/* Software Assignment Section */}
           <div style={styles.assignmentSection}>
+            <h3 style={styles.assignmentTitle}>Manage Software Assignments</h3>
             <ManagePCSwAssignments
-              pcId={selectedVmInstance.vmId!}
-              allSoftware={allSoftware}
-              assignedSoftwareIds={assignedSoftwareIds}
-              onAssign={handleAssignVmSoftware}
-              onUnassign={handleUnassignVmSoftware}
-              isLoading={assignmentLoading}
+              pc_id={selectedVmInstance.vm_id ?? 0}
+              all_software={allSoftware}
+              assigned_software_ids={assignedSoftwareIds}
+              on_assign={handleAssignVmSoftware}
+              on_unassign={handleUnassignVmSoftware}
+              is_loading={assignmentLoading}
               error={assignmentError}
+            />
+          </div>
+
+          {/* License Assignment Section - Updated Props */}
+          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e9ecef' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#343a40', marginBottom: '1rem' }}>Assigned Licenses</h3>
+            <ManageVMLicenseAssignments
+              vm_id={selectedVmInstance.vm_id}
+              assigned_licenses={assignedLicenses}
+              on_unassign={handleUnassignVmLicense}
+              is_loading={licenseAssignmentLoading}
+              error={licenseAssignmentError}
             />
           </div>
         </EditableDetailsModal>

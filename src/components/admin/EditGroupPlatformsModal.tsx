@@ -2,89 +2,91 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, RefreshCw, ShieldCheck } from 'lucide-react';
-import { keysToCamel } from '@/utils/caseConverter';
 
-// Interface for the group data passed into the modal
-interface GroupData {
-    userGroupId: number;
-    userGroupName: string;
-    accessiblePlatformIds: string | null; // Comma-separated string of IDs
-    permissionId: number; // Added current permission ID
+// Interface for the group data passed into the modal - now expects UserGroup (snake_case)
+// Re-using UserGroup interface definition from AdminGroupsPage, assuming it will be imported or reconciled.
+// For now, let's define it locally for clarity if this component were standalone.
+interface UserGroup {
+    user_group_id: number;
+    user_group_name: string;
+    accessible_platform_ids: string | null; 
+    permission_id: number; 
+    // permission_name is also part of UserGroup but not strictly needed for this modal's props
 }
 
-// Interface for Platform data fetched from API
+// Interface for Platform data fetched from API - now snake_case
 interface Platform {
-  platformId: number;
-  platformName: string;
+  platform_id: number;
+  platform_name: string;
 }
 
-// Interface for Permission data fetched from API
+// Interface for Permission data fetched from API - now snake_case
 interface Permission {
-  permissionId: number;
-  permissionName: string;
+  permission_id: number;
+  permission_name: string;
 }
 
 interface EditGroupPlatformsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  groupData: GroupData;
-  // Updated onSave to include permissionId
-  onSave: (groupId: number, platformIds: number[], permissionId: number) => Promise<void>; 
+  group: UserGroup; // Changed from groupData, type is now snake_case UserGroup
+  // Updated onSave to include permission_id (already snake_case from parent)
+  onSave: (group_id: number, platform_ids: number[], permission_id: number) => Promise<void>; 
 }
 
 const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
   isOpen,
   onClose,
-  groupData,
+  group, // Changed from groupData
   onSave,
 }) => {
   // Platform state
-  const [allPlatforms, setAllPlatforms] = useState<Platform[]>([]);
-  const [loadingPlatforms, setLoadingPlatforms] = useState(false);
-  const [selectedPlatformIds, setSelectedPlatformIds] = useState<Set<number>>(new Set());
+  const [all_platforms, setAllPlatforms] = useState<Platform[]>([]); // snake_case state name
+  const [loading_platforms, setLoadingPlatforms] = useState(false);
+  const [selected_platform_ids, setSelectedPlatformIds] = useState<Set<number>>(new Set());
 
   // Permission state
-  const [availablePermissions, setAvailablePermissions] = useState<Permission[]>([]);
-  const [loadingPermissions, setLoadingPermissions] = useState(false);
-  const [selectedPermissionId, setSelectedPermissionId] = useState<number | ''>(groupData?.permissionId ?? '');
+  const [available_permissions, setAvailablePermissions] = useState<Permission[]>([]);
+  const [loading_permissions, setLoadingPermissions] = useState(false);
+  const [selected_permission_id, setSelectedPermissionId] = useState<number | ''>(group?.permission_id ?? '');
 
   // General modal state
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize selected IDs and permission when groupData changes
+  // Initialize selected IDs and permission when group changes
   useEffect(() => {
-    if (groupData) {
+    if (group) {
         // Current state representation
-        const currentPlatformIdsString = Array.from(selectedPlatformIds).sort().join(',');
-        const currentPermissionId = selectedPermissionId === '' ? null : Number(selectedPermissionId);
+        const currentPlatformIdsString = Array.from(selected_platform_ids).sort().join(',');
+        const currentPermissionId = selected_permission_id === '' ? null : Number(selected_permission_id);
         
         // Incoming prop representation
-        const incomingPlatformIds = groupData.accessiblePlatformIds 
-            ? groupData.accessiblePlatformIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id)).sort().join(',')
+        const incomingPlatformIds = group.accessible_platform_ids 
+            ? group.accessible_platform_ids.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id)).sort().join(',')
             : '';
-        const incomingPermissionId = groupData.permissionId;
+        const incomingPermissionId = group.permission_id;
 
         // Only update state and reset flags if incoming data is different
         if (incomingPlatformIds !== currentPlatformIdsString || incomingPermissionId !== currentPermissionId) {
-            if (groupData.accessiblePlatformIds) {
-                const ids = groupData.accessiblePlatformIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+            if (group.accessible_platform_ids) {
+                const ids = group.accessible_platform_ids.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
                 setSelectedPlatformIds(new Set(ids));
             } else {
                 setSelectedPlatformIds(new Set());
             }
-            setSelectedPermissionId(groupData.permissionId ?? '');
+            setSelectedPermissionId(group.permission_id ?? '');
             setError(null);
             setSaving(false);
         }
     } else {
-        // Reset if groupData becomes null
+        // Reset if group becomes null
         setSelectedPlatformIds(new Set());
         setSelectedPermissionId('');
         setError(null);
         setSaving(false);
     }
-  }, [groupData]);
+  }, [group]);
 
   // Fetch all available platforms AND permissions when the modal opens
   useEffect(() => {
@@ -96,7 +98,7 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
       setLoadingPlatforms(true);
       fetch('/api/platforms') 
         .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch platforms'))
-        .then(data => setAllPlatforms(keysToCamel<Platform[]>(data.platforms || [])))
+        .then(data => setAllPlatforms(data.platforms || [])) // API returns snake_case
         .catch(err => {
           console.error("Error fetching platforms:", err);
           setError(prev => prev ? prev + ' \nCould not load platforms.' : 'Could not load platforms.');
@@ -107,7 +109,7 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
       setLoadingPermissions(true);
       fetch('/api/admin/permissions') 
         .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch permissions'))
-        .then(data => setAvailablePermissions(keysToCamel<Permission[]>(data.permissions || [])))
+        .then(data => setAvailablePermissions(data.permissions || [])) // API returns snake_case
         .catch(err => {
           console.error("Error fetching permissions:", err);
           setError(prev => prev ? prev + ' \nCould not load permissions.' : 'Could not load permissions.');
@@ -117,13 +119,13 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
   }, [isOpen]);
 
   // Handler for checkbox changes
-  const handleCheckboxChange = useCallback((platformId: number, isChecked: boolean) => {
+  const handleCheckboxChange = useCallback((platform_id: number, isChecked: boolean) => {
       setSelectedPlatformIds(prevIds => {
           const newIds = new Set(prevIds);
           if (isChecked) {
-              newIds.add(platformId);
+              newIds.add(platform_id);
           } else {
-              newIds.delete(platformId);
+              newIds.delete(platform_id);
           }
           return newIds;
       });
@@ -138,17 +140,17 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
   // Handler for save button click
   const handleSaveClick = async () => {
     // Ensure a valid permission is selected
-    if (selectedPermissionId === '' || isNaN(Number(selectedPermissionId))) {
+    if (selected_permission_id === '' || isNaN(Number(selected_permission_id))) {
         setError('Please select a valid permission level.');
         return;
     }
-    const permissionIdToSave = Number(selectedPermissionId);
+    const permission_id_to_save = Number(selected_permission_id);
 
     setSaving(true);
     setError(null);
     try {
-      const platformIdsArray = Array.from(selectedPlatformIds);
-      await onSave(groupData.userGroupId, platformIdsArray, permissionIdToSave);
+      const platform_ids_array = Array.from(selected_platform_ids);
+      await onSave(group.user_group_id, platform_ids_array, permission_id_to_save);
     } catch (err) {
       setError(`Failed to save changes: ${err instanceof Error ? err.message : 'Unknown error'}`);
       console.error('Error in EditGroupPlatformsModal save:', err);
@@ -157,16 +159,16 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
     }
   };
 
-  if (!isOpen || !groupData) return null;
+  if (!isOpen || !group) return null;
 
-  const isLoading = loadingPlatforms || loadingPermissions;
+  const isLoading = loading_platforms || loading_permissions;
 
   return (
     <div style={styles.overlay}>
       <div style={styles.modalContainer}>
         {/* Modal Header */}
         <div style={styles.modalHeader}>
-          <h2 style={styles.modalTitle}>Edit Group: "{groupData.userGroupName}"</h2>
+          <h2 style={styles.modalTitle}>Edit Group: "{group.user_group_name}"</h2>
           <button onClick={onClose} style={styles.closeButton} disabled={saving}>
             <X size={20} color="#6b7280" />
           </button>
@@ -182,20 +184,20 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
         {/* Permission Selection */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label htmlFor="permission-select" style={styles.label}>Permission Level</label>
-          {loadingPermissions ? (
+          {loading_permissions ? (
              <p style={{color: '#6b7280'}}>Loading permissions...</p>
-          ) : availablePermissions.length > 0 ? (
+          ) : available_permissions.length > 0 ? (
             <select
               id="permission-select"
-              value={selectedPermissionId}
+              value={selected_permission_id}
               onChange={handlePermissionChange}
               disabled={saving}
               style={styles.selectInput}
             >
               <option value="" disabled>-- Select Permission --</option>
-              {availablePermissions.map((perm) => (
-                <option key={perm.permissionId} value={perm.permissionId}>
-                  {perm.permissionName}
+              {available_permissions.map((perm) => (
+                <option key={perm.permission_id} value={perm.permission_id}>
+                  {perm.permission_name}
                 </option>
               ))}
             </select>
@@ -206,25 +208,25 @@ const EditGroupPlatformsModal: React.FC<EditGroupPlatformsModalProps> = ({
 
         {/* Platform Checkbox List */}
          <div>
-            <label style={styles.label}>Platform Access</label>
+            <label style={styles.label}>Accessible Platforms</label>
             <div className="platform-list-container" style={styles.platformListContainer}>
-            {loadingPlatforms ? (
+            {loading_platforms ? (
                 <p style={{color: '#6b7280', textAlign: 'center'}}>Loading platforms...</p>
-            ) : allPlatforms.length === 0 ? (
+            ) : all_platforms.length === 0 ? (
                 <p style={{color: '#6b7280', textAlign: 'center'}}>No platforms found.</p>
             ) : (
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {allPlatforms.map((platform) => (
-                    <li key={platform.platformId} style={styles.listItem}>
+                {all_platforms.map((platform) => (
+                    <li key={platform.platform_id} style={styles.listItem}>
                     <label style={styles.checkboxLabel}>
                         <input
                         type="checkbox"
-                        checked={selectedPlatformIds.has(platform.platformId)}
-                        onChange={(e) => handleCheckboxChange(platform.platformId, e.target.checked)}
+                        checked={selected_platform_ids.has(platform.platform_id)}
+                        onChange={(e) => handleCheckboxChange(platform.platform_id, e.target.checked)}
                         disabled={saving}
                         style={styles.checkboxInput}
                         />
-                        {platform.platformName}
+                        {platform.platform_name}
                     </label>
                     </li>
                 ))}

@@ -5,7 +5,6 @@ import { Archive, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { ModelStand } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 
 // --- Reusable Modal Field Type Definitions ---
 // (Consider moving to a shared file)
@@ -35,7 +34,7 @@ export default function ModelStandsList() {
         throw new Error('Failed to fetch model stands');
       }
       const data = await response.json();
-      setModelStands(keysToCamel<ModelStand[]>(data.modelStands || []));
+      setModelStands(data.model_stands || []);
     } catch (err) {
       setError('Error loading model stands: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching model stands:', err);
@@ -54,11 +53,10 @@ export default function ModelStandsList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/modelstands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -67,7 +65,7 @@ export default function ModelStandsList() {
       }
 
       const savedData = await response.json();
-      const newModelStand = keysToCamel<ModelStand>(savedData.modelStand);
+      const newModelStand = savedData.model_stand as ModelStand;
       setModelStands(prev => [...prev, newModelStand]);
       setIsAddModalOpen(false);
 
@@ -79,15 +77,14 @@ export default function ModelStandsList() {
 
   const handleUpdateModelStand = async (formData: Record<string, any>) => {
     try {
-      if (!formData.modelId) {
-        throw new Error('Model ID is required');
+      if (!formData.model_id) {
+        throw new Error('Model ID (model_id) is required');
       }
 
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/modelstands', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -96,14 +93,14 @@ export default function ModelStandsList() {
       }
 
       const data = await response.json();
-      const updatedModelStand = keysToCamel<ModelStand>(data.modelStand);
+      const updatedModelStand = data.model_stand as ModelStand;
 
       setModelStands(prev =>
         prev.map(model =>
-          model.modelId === updatedModelStand.modelId ? updatedModelStand : model
+          model.model_id === updatedModelStand.model_id ? updatedModelStand : model
         )
       );
-      if (selectedModelStand?.modelId === updatedModelStand.modelId) {
+      if (selectedModelStand?.model_id === updatedModelStand.model_id) {
          setSelectedModelStand(updatedModelStand);
       }
 
@@ -113,17 +110,17 @@ export default function ModelStandsList() {
     }
   };
 
-  // Define fields using camelCase names
+  // Define fields using snake_case names
   const addEntryFields: ModalField[] = [
-    { name: 'modelName', label: 'Model Name', type: 'text', required: true },
-    { name: 'svnLink', label: 'SVN Link', type: 'text' },
+    { name: 'model_name', label: 'Model Name', type: 'text', required: true },
+    { name: 'svn_link', label: 'SVN Link', type: 'text' },
     { name: 'features', label: 'Features', type: 'text' },
   ];
 
   const detailsFields: ModalField[] = [
-    { name: 'modelId', label: 'Model ID', type: 'number', editable: false },
-    { name: 'modelName', label: 'Model Name', type: 'text', required: true, editable: true },
-    { name: 'svnLink', label: 'SVN Link', type: 'text', editable: true },
+    { name: 'model_id', label: 'Model ID', type: 'number', editable: false },
+    { name: 'model_name', label: 'Model Name', type: 'text', required: true, editable: true },
+    { name: 'svn_link', label: 'SVN Link', type: 'text', editable: true },
     { name: 'features', label: 'Features', type: 'text', editable: true },
   ];
 
@@ -189,8 +186,8 @@ export default function ModelStandsList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>ID</th>
                 <th style={styles.tableHeaderCell}>Model Name</th>
+                <th style={styles.tableHeaderCell}>Associated HIL(s)</th>
                 <th style={styles.tableHeaderCell}>SVN Link</th>
                 <th style={styles.tableHeaderCell}>Features</th>
               </tr>
@@ -200,15 +197,15 @@ export default function ModelStandsList() {
                 <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No model stands found</td></tr>
               ) : (
                 modelStands.map((model) => (
-                  <tr key={model.modelId}
+                  <tr key={model.model_id}
                     style={styles.tableBodyRow}
                     onClick={() => setSelectedModelStand(model)}
                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <td style={styles.tableBodyCell}>{model.modelId}</td>
-                    <td style={styles.tableBodyCell}>{model.modelName}</td>
-                    <td style={styles.tableBodyCell}>{model.svnLink || '-'}</td>
+                    <td style={styles.tableBodyCell}>{model.model_name}</td>
+                    <td style={styles.tableBodyCell}>{model.associated_hil_names || 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{model.svn_link || '-'}</td>
                     <td style={styles.tableBodyCell}>{model.features || '-'}</td>
                   </tr>
                 ))
@@ -223,7 +220,7 @@ export default function ModelStandsList() {
         <EditableDetailsModal
           isOpen={selectedModelStand !== null}
           onClose={() => setSelectedModelStand(null)}
-          title={`Model Stand Details: ${selectedModelStand.modelName}`}
+          title={`Model Stand Details: ${selectedModelStand.model_name}`}
           data={selectedModelStand}
           fields={detailsFields}
           onSave={handleUpdateModelStand}

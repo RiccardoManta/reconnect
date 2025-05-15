@@ -5,7 +5,6 @@ import { CircuitBoard, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { HilTechnology, TestBench } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 
 // --- Reusable Modal Field Type Definitions ---
 // ... (ModalField types definition) ...
@@ -20,21 +19,21 @@ type ModalField = TextField | NumberField | DateField | SelectField;
 // --- End Reusable Modal Field Type Definitions ---
 
 export default function HilTechnologyList() {
-  const [hilTechnology, setHilTechnology] = useState<HilTechnology[]>([]);
+  const [hil_technology, setHilTechnology] = useState<HilTechnology[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTechnology, setSelectedTechnology] = useState<HilTechnology | null>(null);
+  const [selected_technology, setSelectedTechnology] = useState<HilTechnology | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [testBenches, setTestBenches] = useState<TestBench[]>([]); // State for related TestBenches
+  const [test_benches, setTestBenches] = useState<TestBench[]>([]); // State for related TestBenches
 
   // Fetch related TestBench data for dropdowns
   const fetchRelatedData = async () => {
-    if (testBenches.length > 0) return;
+    if (test_benches.length > 0) return;
     try {
       const response = await fetch('/api/testbenches');
       if (response.ok) {
         const data = await response.json();
-        setTestBenches(keysToCamel<TestBench[]>(data.testBenches || []));
+        setTestBenches(data.test_benches || []);
       } else {
         console.error('Failed to fetch test benches for dropdown');
         setTestBenches([]);
@@ -54,7 +53,7 @@ export default function HilTechnologyList() {
         throw new Error('Failed to fetch HIL technology');
       }
       const data = await response.json();
-      setHilTechnology(keysToCamel<HilTechnology[]>(data.technology || []));
+      setHilTechnology(data.technology || []);
     } catch (err) {
       setError('Error loading HIL technology: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching HIL technology:', err);
@@ -84,11 +83,10 @@ export default function HilTechnologyList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/hiltechnology', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -97,8 +95,8 @@ export default function HilTechnologyList() {
       }
 
       const savedData = await response.json();
-      const newTechnology = keysToCamel<HilTechnology>(savedData.technology);
-      setHilTechnology(prev => [...prev, newTechnology]);
+      const new_technology = savedData.technology as HilTechnology; // API returns snake_case
+      setHilTechnology(prev => [...prev, new_technology]);
       setIsAddModalOpen(false);
 
     } catch (err) {
@@ -109,15 +107,14 @@ export default function HilTechnologyList() {
 
   const handleUpdateTechnology = async (formData: Record<string, any>) => {
     try {
-      if (!formData.techId) {
-        throw new Error('Technology ID is required');
+      if (!formData.tech_id) {
+        throw new Error('Technology ID (tech_id) is required');
       }
 
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/hiltechnology', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -126,15 +123,15 @@ export default function HilTechnologyList() {
       }
 
       const data = await response.json();
-      const updatedTechnology = keysToCamel<HilTechnology>(data.technology);
+      const updated_technology = data.technology as HilTechnology; // API returns snake_case
 
       setHilTechnology(prev =>
         prev.map(tech =>
-          tech.techId === updatedTechnology.techId ? updatedTechnology : tech
+          tech.tech_id === updated_technology.tech_id ? updated_technology : tech
         )
       );
-      if (selectedTechnology?.techId === updatedTechnology.techId) {
-           setSelectedTechnology(updatedTechnology);
+      if (selected_technology?.tech_id === updated_technology.tech_id) {
+           setSelectedTechnology(updated_technology);
       }
 
     } catch (err) {
@@ -143,54 +140,49 @@ export default function HilTechnologyList() {
     }
   };
 
-  // Define fields using camelCase names
+  // Define fields using snake_case names
   const addEntryFields: ModalField[] = [
     {
-      name: 'benchId',
+      name: 'bench_id',
       label: 'Test Bench',
       type: 'select',
       required: true,
       options: [
           { value: '', label: 'Select a Bench' },
-          ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+          ...test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
       ]
     },
-    { name: 'fiuInfo', label: 'FIU Info', type: 'text' },
-    { name: 'ioInfo', label: 'I/O Info', type: 'text' },
-    { name: 'canInterface', label: 'CAN Interface', type: 'text' },
-    { name: 'powerInterface', label: 'Power Interface', type: 'text' },
-    { name: 'possibleTests', label: 'Possible Tests', type: 'text' },
-    { name: 'leakageModule', label: 'Leakage Module', type: 'text' },
+    { name: 'fiu_info', label: 'FIU Info', type: 'text' },
+    { name: 'io_info', label: 'I/O Info', type: 'text' },
+    { name: 'can_interface', label: 'CAN Interface', type: 'text' },
+    { name: 'power_interface', label: 'Power Interface', type: 'text' },
+    { name: 'possible_tests', label: 'Possible Tests', type: 'text' },
+    { name: 'leakage_module', label: 'Leakage Module', type: 'text' },
   ];
 
   const detailsFields: ModalField[] = [
-    { name: 'techId', label: 'Technology ID', type: 'number', editable: false },
+    { name: 'tech_id', label: 'Technology ID', type: 'number', editable: false },
     {
-      name: 'benchId',
+      name: 'bench_id',
       label: 'Test Bench',
       type: 'select',
       required: true,
       editable: true,
       options: [
         { value: '', label: 'Select a Bench' },
-        ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+        ...test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
       ]
     },
-    { name: 'fiuInfo', label: 'FIU Info', type: 'text', editable: true },
-    { name: 'ioInfo', label: 'I/O Info', type: 'text', editable: true },
-    { name: 'canInterface', label: 'CAN Interface', type: 'text', editable: true },
-    { name: 'powerInterface', label: 'Power Interface', type: 'text', editable: true },
-    { name: 'possibleTests', label: 'Possible Tests', type: 'text', editable: true },
-    { name: 'leakageModule', label: 'Leakage Module', type: 'text', editable: true },
+    { name: 'hil_name', label: 'HIL Name', type: 'text', editable: false }, // Display only if tech object has hil_name
+    { name: 'fiu_info', label: 'FIU Info', type: 'text', editable: true },
+    { name: 'io_info', label: 'I/O Info', type: 'text', editable: true },
+    { name: 'can_interface', label: 'CAN Interface', type: 'text', editable: true },
+    { name: 'power_interface', label: 'Power Interface', type: 'text', editable: true },
+    { name: 'possible_tests', label: 'Possible Tests', type: 'text', editable: true },
+    { name: 'leakage_module', label: 'Leakage Module', type: 'text', editable: true },
+    { name: 'created_at', label: 'Created At', type: 'text', editable: false }, // Assuming these exist on HilTechnology
+    { name: 'updated_at', label: 'Updated At', type: 'text', editable: false }, // Assuming these exist on HilTechnology
   ];
-
-  // Helper to get bench name (consider memoization)
-  const getBenchName = (id: number | undefined): string => {
-      if (id === undefined) return 'N/A';
-      // Add loading check
-      if (testBenches.length === 0 && loading) return 'Loading...'; 
-      return testBenches.find(b => b.benchId === id)?.hilName || 'Unknown';
-  }
 
   // --- Styles --- 
   const styles: { [key: string]: CSSProperties } = {
@@ -220,6 +212,7 @@ export default function HilTechnologyList() {
     tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
     tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
     tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
+    noDataCell: { padding: '2rem', textAlign: 'center', color: '#6b7280' },
   };
 
   return (
@@ -228,7 +221,9 @@ export default function HilTechnologyList() {
       <div style={styles.headerContainer}>
         <div style={styles.headerTitleContainer}>
           <CircuitBoard size={28} style={styles.headerIcon} />
-          <h1 style={styles.headerTitle}>HIL Technology {hilTechnology.length > 0 ? `(${hilTechnology.length})` : ''}</h1>
+          <h1 style={styles.headerTitle}>
+            HIL Technology {hil_technology.length > 0 ? `(${hil_technology.length})` : ''}
+          </h1>
         </div>
         <button
           onClick={handleAddClick}
@@ -254,8 +249,8 @@ export default function HilTechnologyList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>Tech ID</th>
-                <th style={styles.tableHeaderCell}>HIL Name</th>
+                <th style={styles.tableHeaderCell}>Test Bench</th>
+                <th style={styles.tableHeaderCell}>Technology Name</th>
                 <th style={styles.tableHeaderCell}>FIU Info</th>
                 <th style={styles.tableHeaderCell}>I/O Info</th>
                 <th style={styles.tableHeaderCell}>CAN Interface</th>
@@ -264,25 +259,28 @@ export default function HilTechnologyList() {
               </tr>
             </thead>
             <tbody>
-              {hilTechnology.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No HIL technology found</td></tr>
+              {hil_technology.length === 0 ? (
+                <tr><td colSpan={7} style={styles.noDataCell}>No HIL technology entries found.</td></tr>
               ) : (
-                hilTechnology.map((tech) => (
-                  <tr key={tech.techId}
-                    style={styles.tableBodyRow}
-                    onClick={() => handleRowClick(tech)}
-                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  >
-                    <td style={styles.tableBodyCell}>{tech.techId}</td>
-                    <td style={styles.tableBodyCell}>{getBenchName(tech.benchId)}</td> 
-                    <td style={styles.tableBodyCell}>{tech.fiuInfo || '-'}</td>
-                    <td style={styles.tableBodyCell}>{tech.ioInfo || '-'}</td>
-                    <td style={styles.tableBodyCell}>{tech.canInterface || '-'}</td>
-                    <td style={styles.tableBodyCell}>{tech.powerInterface || '-'}</td>
-                    <td style={styles.tableBodyCell}>{tech.leakageModule || '-'}</td>
-                  </tr>
-                ))
+                hil_technology.map((tech) => {
+                  return (
+                    <tr
+                      key={tech.tech_id}
+                      style={styles.tableBodyRow}
+                      onClick={() => handleRowClick(tech)}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f4f8'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <td style={styles.tableBodyCell}>{tech.hil_name ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{tech.possible_tests ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{tech.fiu_info ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{tech.io_info ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{tech.can_interface ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{tech.power_interface ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{tech.leakage_module ?? 'N/A'}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -290,14 +288,15 @@ export default function HilTechnologyList() {
       </div>
 
       {/* Modals */} 
-      {selectedTechnology && (
+      {selected_technology && (
         <EditableDetailsModal
-          isOpen={selectedTechnology !== null}
-          onClose={() => setSelectedTechnology(null)}
-          title={`HIL Technology Details (Bench: ${getBenchName(selectedTechnology.benchId)})`}
-          data={selectedTechnology}
+          isOpen={!!selected_technology}
+          onClose={() => { setSelectedTechnology(null); setError(null); }}
+          data={selected_technology}
           fields={detailsFields}
           onSave={handleUpdateTechnology}
+          title={`Edit HIL Technology (ID: ${selected_technology.tech_id})`}
+          // Optional: Add onDelete prop if delete functionality is needed
         />
       )}
 

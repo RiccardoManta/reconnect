@@ -42,7 +42,7 @@ export async function GET(
             return NextResponse.json({ error: 'VM instance not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ vmInstance });
+        return NextResponse.json({ vm_instance: vmInstance });
 
     } catch (error: unknown) {
         console.error(`Error fetching VM instance ${vmId}:`, error);
@@ -158,7 +158,7 @@ export async function PUT(
                 return NextResponse.json({ 
                     success: true, // Technically no error, but maybe indicate no change?
                     message: 'VM instance update called, but no changes were applied.',
-                    vmInstance: currentVmInstance // Return current state
+                    vm_instance: currentVmInstance // Return current state
                 });
             }
         }
@@ -172,7 +172,7 @@ export async function PUT(
         return NextResponse.json({ 
             success: true, 
             message: 'VM instance updated successfully',
-            vmInstance: updatedVmInstance
+            vm_instance: updatedVmInstance
         });
         
     } catch (error: unknown) {

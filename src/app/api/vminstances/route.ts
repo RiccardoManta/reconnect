@@ -24,7 +24,7 @@ export async function GET(): Promise<NextResponse> {
       `SELECT * FROM vm_instances ORDER BY vm_id`
     );
     
-    return NextResponse.json({ vmInstances });
+    return NextResponse.json({ vm_instances: vmInstances });
 
   } catch (error: unknown) {
     console.error('Error fetching VM instances:', error);
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ 
       success: true, 
       message: 'VM instance added successfully',
-      vmInstance: newVmInstance
+      vm_instance: newVmInstance
     }, { status: 201 });
     
   } catch (error: unknown) {

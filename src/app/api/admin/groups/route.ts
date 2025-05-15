@@ -15,7 +15,7 @@ interface Group extends RowDataPacket {
 
 // Interface for POST request body
 interface CreateGroupRequest {
-    groupName: string;
+    group_name: string;
 }
 
 // Helper function for admin check (copied from users route)
@@ -61,8 +61,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           ORDER BY ug.user_group_name ASC
         `);
         
-        // Map results (keysToCamel will handle snake_case to camelCase)
-        const groupsArray = Array.isArray(groups) ? groups.map(g => ({...g})) : []; 
+        // Data is already snake_case as per Group interface and query
+        const groupsArray = Array.isArray(groups) ? groups : []; 
 
         return NextResponse.json({ groups: groupsArray });
 
@@ -86,13 +86,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     try {
         const body: CreateGroupRequest = await request.json();
-        const { groupName } = body;
+        const { group_name } = body;
 
         // Validate input
-        if (!groupName || groupName.trim().length === 0) {
+        if (!group_name || group_name.trim().length === 0) {
             return NextResponse.json({ error: 'Group Name is required.' }, { status: 400 });
         }
-        const trimmedGroupName = groupName.trim();
+        const trimmedGroupName = group_name.trim();
 
         // Optional: Check if group name already exists (case-insensitive check example)
         const existingGroup = await query<Group[]>(

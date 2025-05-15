@@ -5,7 +5,6 @@ import { TestTube, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { Wetbench, TestBench } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 
 // --- Reusable Modal Field Type Definitions ---
 type FieldType = 'text' | 'number' | 'date' | 'select';
@@ -22,18 +21,18 @@ export default function WetbenchesList() {
   const [wetbenches, setWetbenches] = useState<Wetbench[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedWetbench, setSelectedWetbench] = useState<Wetbench | null>(null);
+  const [selected_wetbench, setSelectedWetbench] = useState<Wetbench | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+  const [test_benches, setTestBenches] = useState<TestBench[]>([]);
 
   // Fetch related TestBench data for dropdowns
   const fetchRelatedData = async () => {
-    if (testBenches.length > 0) return;
+    if (test_benches.length > 0) return;
     try {
       const response = await fetch('/api/testbenches');
       if (response.ok) {
         const data = await response.json();
-        setTestBenches(keysToCamel<TestBench[]>(data.testBenches || []));
+        setTestBenches(data.test_benches || []);
       } else {
           console.error('Failed to fetch test benches for dropdown');
           setTestBenches([]);
@@ -53,7 +52,7 @@ export default function WetbenchesList() {
         throw new Error('Failed to fetch wetbenches');
       }
       const data = await response.json();
-      setWetbenches(keysToCamel<Wetbench[]>(data.wetbenches || []));
+      setWetbenches(data.wetbenches || []);
     } catch (err) {
       setError('Error loading wetbenches: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching wetbenches:', err);
@@ -80,11 +79,10 @@ export default function WetbenchesList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/wetbenches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -93,8 +91,8 @@ export default function WetbenchesList() {
       }
 
       const savedData = await response.json();
-      const newWetbench = keysToCamel<Wetbench>(savedData.wetbench);
-      setWetbenches(prev => [...prev, newWetbench]);
+      const new_wetbench = savedData.wetbench as Wetbench;
+      setWetbenches(prev => [...prev, new_wetbench].sort((a,b) => a.wetbench_id - b.wetbench_id));
       setIsAddModalOpen(false);
 
     } catch (err) {
@@ -105,15 +103,14 @@ export default function WetbenchesList() {
 
   const handleUpdateWetbench = async (formData: Record<string, any>) => {
     try {
-      if (!formData.wetbenchId) {
-        throw new Error('Wetbench ID is required');
+      if (!formData.wetbench_id) {
+        throw new Error('Wetbench ID (wetbench_id) is required');
       }
 
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/wetbenches', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -122,15 +119,15 @@ export default function WetbenchesList() {
       }
 
       const data = await response.json();
-      const updatedWetbench = keysToCamel<Wetbench>(data.wetbench);
+      const updated_wetbench = data.wetbench as Wetbench;
 
       setWetbenches(prev =>
         prev.map(wb =>
-          wb.wetbenchId === updatedWetbench.wetbenchId ? updatedWetbench : wb
-        )
+          wb.wetbench_id === updated_wetbench.wetbench_id ? updated_wetbench : wb
+        ).sort((a,b) => a.wetbench_id - b.wetbench_id)
       );
-      if (selectedWetbench?.wetbenchId === updatedWetbench.wetbenchId) {
-           setSelectedWetbench(updatedWetbench);
+      if (selected_wetbench?.wetbench_id === updated_wetbench.wetbench_id) {
+           setSelectedWetbench(updated_wetbench);
       }
 
     } catch (err) {
@@ -139,50 +136,51 @@ export default function WetbenchesList() {
     }
   };
 
-  // Define fields using camelCase names
+  // Define fields using snake_case names
   const addEntryFields: ModalField[] = [
-    { name: 'wetbenchName', label: 'Wetbench Name', type: 'text', required: true },
-    { name: 'ppNumber', label: 'PP Number', type: 'text' },
+    { name: 'wetbench_name', label: 'Wetbench Name', type: 'text', required: true },
+    { name: 'pp_number', label: 'PP Number', type: 'text' },
     { name: 'owner', label: 'Owner', type: 'text' },
-    { name: 'systemType', label: 'System Type', type: 'text' },
-    { name: 'platform', label: 'Platform', type: 'text' },
-    { name: 'systemSupplier', label: 'System Supplier', type: 'text' },
+    { name: 'system_type', label: 'System Type', type: 'text' },
+    { name: 'system_supplier', label: 'System Supplier', type: 'text' },
     {
-      name: 'linkedBenchId', 
+      name: 'linked_bench_id', 
       label: 'Linked Test Bench', 
       type: 'select',
       options: [
           { value: '', label: 'None' },
-          ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+          ...test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
       ]
     },
-    { name: 'actuatorInfo', label: 'Actuator Info', type: 'text' },
-    { name: 'hardwareComponents', label: 'Hardware Components', type: 'text' },
-    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text' },
+    { name: 'actuator_info', label: 'Actuator Info', type: 'text' },
+    { name: 'hardware_components', label: 'Hardware Components', type: 'text' },
+    { name: 'inventory_number', label: 'Inventory Number', type: 'text' },
   ];
 
   const detailsFields: ModalField[] = [
-    { name: 'wetbenchId', label: 'Wetbench ID', type: 'number', editable: false },
-    { name: 'wetbenchName', label: 'Wetbench Name', type: 'text', required: true, editable: true },
-    { name: 'ppNumber', label: 'PP Number', type: 'text', editable: true },
+    { name: 'wetbench_id', label: 'Wetbench ID', type: 'number', editable: false },
+    { name: 'wetbench_name', label: 'Wetbench Name', type: 'text', required: true, editable: true },
+    { name: 'pp_number', label: 'PP Number', type: 'text', editable: true },
     { name: 'owner', label: 'Owner', type: 'text', editable: true },
-    { name: 'systemType', label: 'System Type', type: 'text', editable: true },
-    { name: 'platform', label: 'Platform', type: 'text', editable: true },
-    { name: 'systemSupplier', label: 'System Supplier', type: 'text', editable: true },
+    { name: 'system_type', label: 'System Type', type: 'text', editable: true },
+    { name: 'system_supplier', label: 'System Supplier', type: 'text', editable: true },
     {
-      name: 'linkedBenchId',
+      name: 'linked_bench_id',
       label: 'Linked Test Bench',
       type: 'select',
       required: false,
       editable: true,
       options: [
         { value: '', label: 'None' },
-        ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+        ...test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
       ]
     },
-    { name: 'actuatorInfo', label: 'Actuator Info', type: 'text', editable: true },
-    { name: 'hardwareComponents', label: 'Hardware Components', type: 'text', editable: true },
-    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text', editable: true },
+    { name: 'actuator_info', label: 'Actuator Info', type: 'text', editable: true },
+    { name: 'hardware_components', label: 'Hardware Components', type: 'text', editable: true },
+    { name: 'inventory_number', label: 'Inventory Number', type: 'text', editable: true },
+    { name: 'linked_bench_name', label: 'Linked Bench Name', type: 'text', editable: false },
+    { name: 'created_at', label: 'Created At', type: 'text', editable: false },
+    { name: 'updated_at', label: 'Updated At', type: 'text', editable: false },
   ];
 
   // --- Styles ---
@@ -213,6 +211,7 @@ export default function WetbenchesList() {
     tableHeaderCell: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#4b5563' },
     tableBodyRow: { borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s', cursor: 'pointer' },
     tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
+    noDataCell: { padding: '2rem', textAlign: 'center', color: '#6b7280' },
   };
 
   return (
@@ -247,41 +246,40 @@ export default function WetbenchesList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                {/* Adjust headers as needed */}
-                <th style={styles.tableHeaderCell}>ID</th>
-                <th style={styles.tableHeaderCell}>Name</th>
-                <th style={styles.tableHeaderCell}>PP Number</th>
-                <th style={styles.tableHeaderCell}>Owner</th>
+                <th style={styles.tableHeaderCell}>Wetbench Name</th>
+                <th style={styles.tableHeaderCell}>Linked Test Bench</th>
                 <th style={styles.tableHeaderCell}>System Type</th>
-                <th style={styles.tableHeaderCell}>Platform</th>
-                <th style={styles.tableHeaderCell}>Inventory Nr.</th>
-                <th style={styles.tableHeaderCell}>Linked Bench</th>
+                <th style={styles.tableHeaderCell}>System Supplier</th>
+                <th style={styles.tableHeaderCell}>Owner</th>
+                <th style={styles.tableHeaderCell}>Inventory No.</th>
+                <th style={styles.tableHeaderCell}>PP Number</th>
+                <th style={styles.tableHeaderCell}>Actuator Info</th>
               </tr>
             </thead>
             <tbody>
               {wetbenches.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No wetbenches found</td></tr>
+                <tr><td colSpan={8} style={styles.noDataCell}>No wetbenches found.</td></tr>
               ) : (
-                wetbenches.map((wetbench) => {
-                    const linkedBenchName = (testBenches.length === 0 && loading) ? 'Loading...' : (testBenches.find(tb => tb.benchId === wetbench.linkedBenchId)?.hilName || 'N/A');
-                    return (
-                      <tr key={wetbench.wetbenchId}
-                        style={styles.tableBodyRow}
-                        onClick={() => handleRowClick(wetbench)}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                      >
-                        <td style={styles.tableBodyCell}>{wetbench.wetbenchId}</td>
-                        <td style={styles.tableBodyCell}>{wetbench.wetbenchName}</td>
-                        <td style={styles.tableBodyCell}>{wetbench.ppNumber || '-'}</td>
-                        <td style={styles.tableBodyCell}>{wetbench.owner || '-'}</td>
-                        <td style={styles.tableBodyCell}>{wetbench.systemType || '-'}</td>
-                        <td style={styles.tableBodyCell}>{wetbench.platform || '-'}</td>
-                        <td style={styles.tableBodyCell}>{wetbench.inventoryNumber || '-'}</td>
-                        <td style={styles.tableBodyCell}>{linkedBenchName}</td>
-                      </tr>
-                    );
-                  })
+                wetbenches.map((wb) => {
+                  return (
+                    <tr 
+                      key={wb.wetbench_id} 
+                      style={styles.tableBodyRow} 
+                      onClick={() => handleRowClick(wb)}
+                      onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <td style={styles.tableBodyCell}>{wb.wetbench_name ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{wb.hil_name ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{wb.system_type ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{wb.system_supplier ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{wb.owner ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{wb.inventory_number ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{wb.pp_number ?? 'N/A'}</td>
+                      <td style={styles.tableBodyCell}>{wb.actuator_info ?? 'N/A'}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -289,14 +287,14 @@ export default function WetbenchesList() {
       </div>
 
       {/* Modals */}
-      {selectedWetbench && (
+      {selected_wetbench && (
         <EditableDetailsModal
-          isOpen={selectedWetbench !== null}
-          onClose={() => setSelectedWetbench(null)}
-          title={`Wetbench Details: ${selectedWetbench.wetbenchName}`}
-          data={selectedWetbench}
+          isOpen={!!selected_wetbench}
+          onClose={() => { setSelectedWetbench(null); setError(null); }}
+          data={selected_wetbench}
           fields={detailsFields}
           onSave={handleUpdateWetbench}
+          title={`Edit Wetbench (ID: ${selected_wetbench.wetbench_id})`}
         />
       )}
 

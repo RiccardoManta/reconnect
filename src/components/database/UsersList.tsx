@@ -5,7 +5,6 @@ import { Users, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { User } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 
 // --- Reusable Modal Field Type Definitions ---
 type FieldType = 'text' | 'number' | 'date' | 'select';
@@ -34,8 +33,7 @@ export default function UsersList() {
         throw new Error('Failed to fetch users');
       }
       const data = await response.json();
-      // Convert incoming snake_case keys to camelCase
-      setUsers(keysToCamel<User[]>(data.users || []));
+      setUsers(data.users || []);
     } catch (err) {
       setError('Error loading users: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching users:', err);
@@ -54,12 +52,10 @@ export default function UsersList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      // Convert outgoing camelCase keys to snake_case for the API
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -67,9 +63,8 @@ export default function UsersList() {
         throw new Error(errorData.error || 'Failed to add user');
       }
 
-      // Refresh data - API returns snake_case, convert to camelCase
       const savedData = await response.json();
-      const newUser = keysToCamel<User>(savedData.user);
+      const newUser = savedData.user as User;
       setUsers(prev => [...prev, newUser]);
       setIsAddModalOpen(false);
 
@@ -81,17 +76,14 @@ export default function UsersList() {
 
   const handleUpdateUser = async (formData: Record<string, any>) => {
     try {
-      // Ensure userId is present (already camelCase from modal)
-      if (!formData.userId) {
-        throw new Error('User ID is required');
+      if (!formData.user_id) {
+        throw new Error('User ID (user_id) is required');
       }
 
-      // Convert outgoing camelCase keys to snake_case for the API
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -99,19 +91,16 @@ export default function UsersList() {
         throw new Error(errorData.error || 'Failed to update user');
       }
 
-      // API returns the updated record in snake_case, convert to camelCase
       const data = await response.json();
-      const updatedUser = keysToCamel<User>(data.user);
+      const updatedUser = data.user as User;
 
-      // Update local state with camelCase data
       setUsers(prev =>
         prev.map(user =>
-          user.userId === updatedUser.userId ? updatedUser : user
+          user.user_id === updatedUser.user_id ? updatedUser : user
         )
       );
 
-      // Update selected user with camelCase data
-      if (selectedUser?.userId === updatedUser.userId) {
+      if (selectedUser?.user_id === updatedUser.user_id) {
          setSelectedUser(updatedUser);
       }
 
@@ -121,18 +110,18 @@ export default function UsersList() {
     }
   };
 
-  // Define fields for the add entry modal using camelCase names
+  // Define fields for the add entry modal using snake_case names
   const addEntryFields: ModalField[] = [
-    { name: 'userName', label: 'User Name', type: 'text', required: true },
-    { name: 'companyUsername', label: 'Company Username', type: 'text' },
+    { name: 'user_name', label: 'User Name', type: 'text', required: true },
+    { name: 'company_username', label: 'Company Username', type: 'text' },
     { name: 'email', label: 'Email', type: 'text', required: true },
   ];
 
-  // Define fields for the editable details modal using camelCase names
+  // Define fields for the editable details modal using snake_case names
   const detailsFields: ModalField[] = [
-    { name: 'userId', label: 'User ID', type: 'number', editable: false },
-    { name: 'userName', label: 'User Name', type: 'text', required: true, editable: true },
-    { name: 'companyUsername', label: 'Company Username', type: 'text', editable: true },
+    { name: 'user_id', label: 'User ID', type: 'number', editable: false },
+    { name: 'user_name', label: 'User Name', type: 'text', required: true, editable: true },
+    { name: 'company_username', label: 'Company Username', type: 'text', editable: true },
     { name: 'email', label: 'Email', type: 'text', required: true, editable: true },
   ];
 
@@ -209,15 +198,15 @@ export default function UsersList() {
                 <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No users found</td></tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user.userId}
+                  <tr key={user.user_id}
                     style={styles.tableBodyRow}
                     onClick={() => setSelectedUser(user)}
                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <td style={styles.tableBodyCell}>{user.userId}</td>
-                    <td style={styles.tableBodyCell}>{user.userName}</td>
-                    <td style={styles.tableBodyCell}>{user.companyUsername || '-'}</td>
+                    <td style={styles.tableBodyCell}>{user.user_id}</td>
+                    <td style={styles.tableBodyCell}>{user.user_name}</td>
+                    <td style={styles.tableBodyCell}>{user.company_username || '-'}</td>
                     <td style={styles.tableBodyCell}>{user.email || '-'}</td>
                   </tr>
                 ))
@@ -232,7 +221,7 @@ export default function UsersList() {
         <EditableDetailsModal
           isOpen={selectedUser !== null}
           onClose={() => setSelectedUser(null)}
-          title={`User Details: ${selectedUser.userName}`}
+          title={`User Details: ${selectedUser.user_name}`}
           data={selectedUser}
           fields={detailsFields}
           onSave={handleUpdateUser}

@@ -5,7 +5,6 @@ import { Package, RefreshCw, PlusCircle, Trash2 } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { Software } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 
 // --- Reusable Modal Field Type Definitions ---
 // (Ideally move to a shared file if not already done)
@@ -35,7 +34,7 @@ export default function SoftwareList() {
         throw new Error('Failed to fetch software list');
       }
       const data = await response.json();
-      setSoftwareList(keysToCamel<Software[]>(data.software || []));
+      setSoftwareList(data.software || []);
     } catch (err) {
       setError('Error loading software: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching software:', err);
@@ -59,11 +58,10 @@ export default function SoftwareList() {
   // --- API Call Handlers for Save, Update, Delete ---
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/software', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -72,11 +70,11 @@ export default function SoftwareList() {
       }
 
       const savedData = await response.json();
-      const newSoftware = keysToCamel<Software>(savedData.software);
+      const newSoftware = savedData.software as Software;
 
       // Add to local state and refresh/re-sort if needed
       setSoftwareList(prev => [...prev, newSoftware].sort((a, b) => 
-        a.softwareName.localeCompare(b.softwareName) || (a.majorVersion ?? '').localeCompare(b.majorVersion ?? '')
+        a.software_name.localeCompare(b.software_name) || (a.major_version ?? '').localeCompare(b.major_version ?? '')
       ));
       setIsAddModalOpen(false);
 
@@ -88,17 +86,15 @@ export default function SoftwareList() {
 
   const handleUpdateSoftware = async (formData: Record<string, any>) => {
     try {
-      const softwareId = formData.softwareId;
-      if (!softwareId) {
-        throw new Error('Software ID is required for update.');
+      const software_id = formData.software_id;
+      if (!software_id) {
+        throw new Error('Software ID (software_id) is required for update.');
       }
 
-      const snakeCaseData = keysToSnake(formData);
-      
-      const response = await fetch(`/api/software/${softwareId}`, { 
+      const response = await fetch(`/api/software/${software_id}`, { 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -107,19 +103,19 @@ export default function SoftwareList() {
       }
 
       const data = await response.json();
-      const updatedSoftware = keysToCamel<Software>(data.software);
+      const updatedSoftware = data.software as Software;
 
       // Update local state 
       setSoftwareList(prev =>
         prev.map(sw =>
-          sw.softwareId === updatedSoftware.softwareId ? updatedSoftware : sw
+          sw.software_id === updatedSoftware.software_id ? updatedSoftware : sw
         ).sort((a, b) => 
-          a.softwareName.localeCompare(b.softwareName) || (a.majorVersion ?? '').localeCompare(b.majorVersion ?? '')
+          a.software_name.localeCompare(b.software_name) || (a.major_version ?? '').localeCompare(b.major_version ?? '')
         )
       );
 
       // Update selected state only if it matches
-      if (selectedSoftware?.softwareId === updatedSoftware.softwareId) {
+      if (selectedSoftware?.software_id === updatedSoftware.software_id) {
            setSelectedSoftware(updatedSoftware);
       }
       // Close the modal on success by default when updating from the modal
@@ -154,7 +150,7 @@ export default function SoftwareList() {
         }
 
         // Remove from local state
-        setSoftwareList(prev => prev.filter(sw => sw.softwareId !== id));
+        setSoftwareList(prev => prev.filter(sw => sw.software_id !== id));
         setSelectedSoftware(null); // Close modal 
         // Optional: Show success message (toast)
         // alert('Software deleted successfully.');
@@ -169,18 +165,18 @@ export default function SoftwareList() {
   };
   // --- End API Call Handlers ---
 
-  // Define fields for the Add modal (camelCase)
+  // Define fields for the Add modal (snake_case)
   const addEntryFields: ModalField[] = [
-    { name: 'softwareName', label: 'Software Name', type: 'text', required: true },
-    { name: 'majorVersion', label: 'Major Version', type: 'text' },
+    { name: 'software_name', label: 'Software Name', type: 'text', required: true },
+    { name: 'major_version', label: 'Major Version', type: 'text' },
     { name: 'vendor', label: 'Vendor', type: 'text' },
   ];
 
-  // Define fields for the Details/Edit modal (camelCase)
+  // Define fields for the Details/Edit modal (snake_case)
   const detailsFields: ModalField[] = [
-    { name: 'softwareId', label: 'Software ID', type: 'number', editable: false },
-    { name: 'softwareName', label: 'Software Name', type: 'text', required: true, editable: true },
-    { name: 'majorVersion', label: 'Major Version', type: 'text', editable: true },
+    { name: 'software_id', label: 'Software ID', type: 'number', editable: false },
+    { name: 'software_name', label: 'Software Name', type: 'text', required: true, editable: true },
+    { name: 'major_version', label: 'Major Version', type: 'text', editable: true },
     { name: 'vendor', label: 'Vendor', type: 'text', editable: true },
   ];
 
@@ -246,7 +242,6 @@ export default function SoftwareList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>ID</th>
                 <th style={styles.tableHeaderCell}>Name</th>
                 <th style={styles.tableHeaderCell}>Version</th>
                 <th style={styles.tableHeaderCell}>Vendor</th>
@@ -254,22 +249,19 @@ export default function SoftwareList() {
             </thead>
             <tbody>
               {softwareList.length === 0 ? (
-                <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No software found</td></tr>
+                <tr><td colSpan={3} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No software entries found.</td></tr>
               ) : (
-                // Sort list for consistent display
-                [...softwareList].sort((a, b) => 
-                  a.softwareName.localeCompare(b.softwareName) || (a.majorVersion ?? '').localeCompare(b.majorVersion ?? '')
-                ).map((sw) => (
-                  <tr key={sw.softwareId}
-                    style={styles.tableBodyRow}
+                softwareList.map((sw) => (
+                  <tr 
+                    key={sw.software_id}
+                    style={styles.tableBodyRow} 
                     onClick={() => handleRowClick(sw)}
                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <td style={styles.tableBodyCell}>{sw.softwareId}</td>
-                    <td style={styles.tableBodyCell}>{sw.softwareName}</td>
-                    <td style={styles.tableBodyCell}>{sw.majorVersion || '-'}</td>
-                    <td style={styles.tableBodyCell}>{sw.vendor || '-'}</td>
+                    <td style={styles.tableBodyCell}>{sw.software_name}</td>
+                    <td style={styles.tableBodyCell}>{sw.major_version || 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{sw.vendor || 'N/A'}</td>
                   </tr>
                 ))
               )}
@@ -283,12 +275,12 @@ export default function SoftwareList() {
         <EditableDetailsModal
           isOpen={selectedSoftware !== null}
           onClose={() => setSelectedSoftware(null)}
-          title={`Software Details: ${selectedSoftware.softwareName}`}
+          title={`Software Details: ${selectedSoftware.software_name}`}
           data={selectedSoftware}
           fields={detailsFields}
           onSave={handleUpdateSoftware}
-        >
-        </EditableDetailsModal>
+          onDelete={() => handleDeleteSoftware(selectedSoftware?.software_id)}
+        />
       )}
 
       {isAddModalOpen && (

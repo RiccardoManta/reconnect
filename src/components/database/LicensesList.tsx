@@ -5,7 +5,6 @@ import { KeyRound, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { License, Software, PcOverview, VmInstance } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
 import ManageLicenseAssignment from './ManageLicenseAssignment';
 
 // --- Reusable Modal Field Type Definitions ---
@@ -23,38 +22,35 @@ type ModalField = TextField | NumberField | DateField | SelectField;
 // Interface for the assignment data fetched from API
 // Must match the structure returned by /api/licenses/[id]/assignment GET
 interface FetchedAssignment {
-  assignmentId: number;
-  licenseId: number;
-  pcId: number | null;
-  vmId: number | null;
-  assignedOn: string | null;
+  assignment_id: number;
+  license_id: number;
+  pc_id: number | null;
+  vm_id: number | null;
+  assigned_on: string | null;
 }
 
 export default function LicensesList() {
   const [licenses, setLicenses] = useState<License[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedLicense, setSelectedLicense] = useState<License | null>(null);
+  const [selected_license, setSelectedLicense] = useState<License | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [software, setSoftware] = useState<Software[]>([]);
 
   // State for license assignment management
-  const [allPcs, setAllPcs] = useState<PcOverview[]>([]);
-  const [allVms, setAllVms] = useState<VmInstance[]>([]);
-  const [currentAssignment, setCurrentAssignment] = useState<FetchedAssignment | null>(null);
-  const [assignmentLoading, setAssignmentLoading] = useState(false);
-  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [all_pcs, setAllPcs] = useState<PcOverview[]>([]);
+  const [all_vms, setAllVms] = useState<VmInstance[]>([]);
 
   const fetchRelatedData = async () => {
     // Combine fetches for efficiency, prevent re-fetching if already loaded
-    const softwareFetchNeeded = software.length === 0;
-    const pcsFetchNeeded = allPcs.length === 0;
-    const vmsFetchNeeded = allVms.length === 0;
+    const software_fetch_needed = software.length === 0;
+    const pcs_fetch_needed = all_pcs.length === 0;
+    const vms_fetch_needed = all_vms.length === 0;
 
     const fetches = [];
-    if (softwareFetchNeeded) fetches.push(fetch('/api/software'));
-    if (pcsFetchNeeded) fetches.push(fetch('/api/pcs'));
-    if (vmsFetchNeeded) fetches.push(fetch('/api/vminstances'));
+    if (software_fetch_needed) fetches.push(fetch('/api/software'));
+    if (pcs_fetch_needed) fetches.push(fetch('/api/pcs'));
+    if (vms_fetch_needed) fetches.push(fetch('/api/vminstances'));
 
     if (fetches.length === 0) return; // All data already loaded
     
@@ -64,50 +60,23 @@ export default function LicensesList() {
       const results = await Promise.all(responses.map(res => res.json()));
 
       let resultIndex = 0;
-      if (softwareFetchNeeded) {
-        const swData = results[resultIndex++];
-        setSoftware(keysToCamel<Software[]>(swData.software || []));
+      if (software_fetch_needed) {
+        const sw_data = results[resultIndex++];
+        setSoftware(sw_data.software || []);
       }
-      if (pcsFetchNeeded) {
-        const pcData = results[resultIndex++];
-        setAllPcs(keysToCamel<PcOverview[]>(pcData.pcs || []));
+      if (pcs_fetch_needed) {
+        const pc_data = results[resultIndex++];
+        setAllPcs(pc_data.pcs || []);
       }
-      if (vmsFetchNeeded) {
-        const vmData = results[resultIndex++];
-        setAllVms(keysToCamel<VmInstance[]>(vmData.vmInstances || []));
+      if (vms_fetch_needed) {
+        const vm_data = results[resultIndex++];
+        setAllVms(vm_data.vm_instances || []);
       }
     } catch (err) {
       console.error('Error fetching related data (SW/PC/VM):', err);
       // Handle individual fetch failures if needed by checking responses array status
       setError('Failed to load data needed for assignments.'); // Set general error maybe
     }
-  };
-
-  const fetchCurrentLicenseAssignment = async (licenseId: number) => {
-      setAssignmentLoading(true);
-      setAssignmentError(null);
-      setCurrentAssignment(null); // Clear previous assignment
-      try {
-          const response = await fetch(`/api/licenses/${licenseId}/assignment`);
-          if (!response.ok) {
-              const errorData = await response.json();
-              // 404 might be common if not assigned, handle gracefully
-              if (response.status !== 404) {
-                throw new Error(errorData.error || 'Failed to fetch assignment');
-              }
-          }
-          const data = await response.json();
-          if (data.assignment) {
-             setCurrentAssignment(keysToCamel<FetchedAssignment>(data.assignment));
-          } else {
-             setCurrentAssignment(null); // Explicitly set to null if no assignment found
-          }
-      } catch (err) {
-          console.error(`Error fetching assignment for license ${licenseId}:`, err);
-          setAssignmentError('Failed to load current license assignment.');
-      } finally {
-          setAssignmentLoading(false);
-      }
   };
 
   const fetchData = async () => {
@@ -119,7 +88,7 @@ export default function LicensesList() {
         throw new Error('Failed to fetch licenses');
       }
       const data = await response.json();
-      setLicenses(keysToCamel<License[]>(data.licenses || []));
+      setLicenses(data.licenses || []);
     } catch (err) {
       setError('Error loading licenses: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching licenses:', err);
@@ -144,11 +113,10 @@ export default function LicensesList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
       const response = await fetch('/api/licenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -156,8 +124,8 @@ export default function LicensesList() {
         throw new Error(errorData.error || 'Failed to add license');
       }
       const savedData = await response.json();
-      const newLicense = keysToCamel<License>(savedData.license);
-      setLicenses(prev => [...prev, newLicense]);
+      const new_license = savedData.license as License;
+      setLicenses(prev => [...prev, new_license]);
       setIsAddModalOpen(false);
 
     } catch (err) {
@@ -168,219 +136,272 @@ export default function LicensesList() {
 
   const handleUpdateLicense = async (formData: Record<string, any>) => {
     try {
-      if (!formData.licenseId || !selectedLicense) {
-        throw new Error('License ID is required and license must be selected');
+      if (!formData.license_id) { // Simpler check, as selected_license is also checked later implicitly
+        throw new Error('License ID is required for update.');
       }
 
-      // --- Check if any editable fields actually changed ---
-      let changed = false;
-      for (const field of detailsFields) {
-        if (field.editable) {
-          const key = field.name as keyof License;
-          // Basic comparison, handling potential null/undefined
-          // For date fields, ensure consistent format or use Date objects if needed
-          const originalValue = selectedLicense[key];
-          const newValue = formData[key];
-          
-          // Coerce number fields from modal (might be string) to number for comparison
-          const isNumberField = field.type === 'number';
-          const coercedNewValue = isNumberField ? Number(newValue) : newValue;
-          const coercedOriginalValue = isNumberField ? Number(originalValue) : originalValue;
+      // Create a clean payload with only expected fields for a license
+      const updatePayload: any = {
+        license_id: formData.license_id,
+        software_id: formData.software_id ? Number(formData.software_id) : null, // Ensure software_id is number
+        license_name: formData.license_name || null,
+        license_description: formData.license_description || null,
+        license_number: formData.license_number || null,
+        dongle_number: formData.dongle_number || null,
+        activation_key: formData.activation_key || null,
+        system_id: formData.system_id || null,
+        license_user: formData.license_user || null,
+        owner: formData.owner || null,
+        license_type: formData.license_type || null,
+        remarks: formData.remarks || null,
+      };
 
-          // Handle null/undefined/empty string equivalence for non-required fields
-          const areEffectivelyEqual = 
-              (coercedOriginalValue === coercedNewValue) || 
-              ( (coercedOriginalValue === null || coercedOriginalValue === undefined || coercedOriginalValue === '') && 
-                (coercedNewValue === null || coercedNewValue === undefined || coercedNewValue === '') );
-
-          if (!areEffectivelyEqual) {
-            // Special check for date: Ensure formats match or parse them
-            if (field.type === 'date') {
-                 // Assuming YYYY-MM-DD format from date input
-                 const originalDate = originalValue ? String(originalValue).split('T')[0] : null;
-                 const newDate = newValue ? String(newValue).split('T')[0] : null;
-                 if (originalDate !== newDate) {
-                     changed = true;
-                     break;
-                 }
-            } else {
-                changed = true;
-                break; // Found a change, no need to check further
-            }
+      // Format maintenance_end to YYYY-MM-DD
+      if (formData.maintenance_end) {
+        try {
+          const date = new Date(formData.maintenance_end);
+          if (!isNaN(date.getTime())) {
+            updatePayload.maintenance_end = date.toISOString().split('T')[0];
+          } else {
+            updatePayload.maintenance_end = null;
           }
+        } catch (e) {
+          console.warn('Could not parse maintenance_end, setting to null:', formData.maintenance_end, e);
+          updatePayload.maintenance_end = null;
         }
+      } else {
+        updatePayload.maintenance_end = null; // Ensure empty/undefined becomes null
       }
 
-      if (!changed) {
-        console.log("No changes detected in license details. Skipping update.");
-        // Optionally close the modal here if desired, or just do nothing.
-        // onClose(); // Example if you want it to close
-        return; // Exit the function gracefully
+      // Validate required fields in the payload
+      if (updatePayload.software_id === null) {
+          throw new Error('Software ID (software_id) is required for update.');
       }
-      // --- End change detection ---
 
-      console.log("Changes detected, proceeding with update...");
-      const snakeCaseData = keysToSnake(formData);
-      const response = await fetch(`/api/licenses/${formData.licenseId}`, { 
+      const response = await fetch('/api/licenses', { 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(updatePayload),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update license');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response for license update' }));
+        console.error('Failed to update license:', errorData);
+        throw new Error(errorData.error || `HTTP error ${response.status} during license update`);
       }
-      const data = await response.json();
-      const updatedLicense = keysToCamel<License>(data.license);
-      setLicenses(prev =>
-        prev.map(license =>
-          license.licenseId === updatedLicense.licenseId ? updatedLicense : license
-        )
-      );
-      setSelectedLicense(updatedLicense);
-      // Don't close modal automatically after successful save, user might want to see changes
-    } catch (err) {
-      console.error("Failed to update license:", err);
-      // IMPORTANT: Re-throw the error so EditableDetailsModal can catch it and display it
+      
+      const result = await response.json();
+      const updated_license = result.license as License;
+
+      if (result.success && updated_license) {
+        setLicenses(prev =>
+          prev.map(lic =>
+            lic.license_id === updated_license.license_id ? updated_license : lic
+          )
+        );
+        // If the updated license is the one currently selected, update selected_license
+        // This ensures the modal reflects the changes IF it stays open (e.g. for assignment section)
+        if (selected_license?.license_id === updated_license.license_id) {
+            setSelectedLicense(updated_license); 
+        }
+        // The ManageLicenseAssignment component should handle its own state and closing the modal if needed.
+        // We don't close the main modal here to allow assignment to proceed.
+
+      } else {
+        throw new Error(result.error || 'API did not return success or updated license data.');
+      }
+
+      // Assignment logic (from ManageLicenseAssignment component) will be handled separately by that component after this function resolves successfully.
+      // The main modal will stay open if the ManageLicenseAssignment component logic dictates it.
+      // If there's no assignment component or logic, the modal should be closed by its own onSave handler completing.
+      // For now, assume ManageLicenseAssignment is a child and will react to selected_license update or trigger modal close.
+
+    } catch (err: any) {
+      console.error("Error in handleUpdateLicense:", err);
       throw err; 
     }
   };
 
   const handleRowClick = async (license: License) => {
-    setSelectedLicense(license); // Set selected license first
-    await fetchRelatedData(); // Ensure Software, PCs, VMs are loaded
-    if (license.licenseId !== undefined) {
-      await fetchCurrentLicenseAssignment(license.licenseId);
-    }
+    setSelectedLicense(license);
+    // fetchRelatedData(); // Already called on mount, ensure all_pcs/all_vms are populated
+    // No need to fetch current assignment separately, it's part of the License object from /api/licenses
   };
 
-  // Helper function to get software name by ID
-  const getSoftwareName = (id: number): string => {
-    // Add a check for when software list might still be loading
-    if (software.length === 0 && loading) return 'Loading...'; 
-    const sw = software.find(s => s.softwareId === id);
-    if (!sw) return `ID: ${id}`; // Fallback if software not found
-    return `${sw.softwareName}${sw.majorVersion ? ' ('+sw.majorVersion+')' : ''}`;
+  const getSoftwareName = (id: number | undefined): string => {
+    if (id === undefined) return 'N/A';
+    if (software.length === 0 && loading) return 'Loading Software...'; // Add loading check
+    return software.find(s => s.software_id === id)?.software_name || 'Unknown Software';
   };
 
-  // Define fields for the add entry modal using camelCase names
+  // Define fields for the Add Entry Modal (snake_case)
   const addEntryFields: ModalField[] = [
     {
-      name: 'softwareId',
+      name: 'software_id',
       label: 'Software',
       type: 'select',
       required: true,
-      // Populate options from the fetched software state
-      options: software.map(s => ({ 
-        value: String(s.softwareId), 
-        // Combine name and version for clarity if needed
-        label: `${s.softwareName}${s.majorVersion ? ' ('+s.majorVersion+')' : ''}` 
-      }))
+      options: [
+        { value: '', label: 'Select Software' },
+        ...software.map(s => ({ value: String(s.software_id), label: `${s.software_name}${s.major_version ? ' ('+s.major_version+')' : ''}` }))
+      ]
     },
-    { name: 'licenseName', label: 'License Name', type: 'text' },
-    { name: 'licenseDescription', label: 'Description', type: 'text' }, // Consider textarea type if available
-    { name: 'licenseNumber', label: 'License Number', type: 'text' },
-    { name: 'dongleNumber', label: 'Dongle Number', type: 'text' },
-    { name: 'activationKey', label: 'Activation Key', type: 'text' },
-    { name: 'systemId', label: 'System ID (e.g., IPG)', type: 'text' },
-    { name: 'licenseUser', label: 'License User (e.g., MathWorks)', type: 'text' },
-    { name: 'maintenanceEnd', label: 'Maintenance End', type: 'date' },
-    { name: 'owner', label: 'Owner (Cost Center/Project)', type: 'text' },
-    { name: 'licenseType', label: 'License Type', type: 'text' }, // Consider select if predefined types
-    { name: 'remarks', label: 'Remarks', type: 'text' }, // Consider textarea type if available
+    { name: 'license_name', label: 'License Name', type: 'text' },
+    { name: 'license_description', label: 'Description', type: 'text' },
+    { name: 'license_number', label: 'License Number/Key', type: 'text' },
+    { name: 'dongle_number', label: 'Dongle Number', type: 'text' },
+    { name: 'activation_key', label: 'Activation Key', type: 'text' },
+    { name: 'system_id', label: 'System ID', type: 'text' },
+    { name: 'license_user', label: 'User', type: 'text' },
+    { name: 'maintenance_end', label: 'Maintenance End', type: 'date' },
+    { name: 'owner', label: 'Owner', type: 'text' },
+    { name: 'license_type', label: 'License Type', type: 'text' },
+    { name: 'remarks', label: 'Remarks', type: 'text' },
   ];
 
-  // Define fields for the editable details modal using camelCase names
+  // Define fields for the Editable Details Modal (snake_case)
   const detailsFields: ModalField[] = [
-    { name: 'licenseId', label: 'License ID', type: 'number', editable: false },
+    { name: 'license_id', label: 'License ID', type: 'number', editable: false },
     {
-      name: 'softwareId',
+      name: 'software_id',
       label: 'Software',
       type: 'select',
       required: true,
       editable: true,
-      options: software.map(s => ({ 
-        value: String(s.softwareId), 
-        label: `${s.softwareName}${s.majorVersion ? ' ('+s.majorVersion+')' : ''}` 
-      }))
+      options: [
+          { value: '', label: 'Select Software' },
+          ...software.map(s => ({ value: String(s.software_id), label: `${s.software_name}${s.major_version ? ' ('+s.major_version+')' : ''}` }))
+      ]
     },
-    { name: 'licenseName', label: 'License Name', type: 'text', editable: true },
-    { name: 'licenseDescription', label: 'Description', type: 'text', editable: true },
-    { name: 'licenseNumber', label: 'License Number', type: 'text', editable: true },
-    { name: 'dongleNumber', label: 'Dongle Number', type: 'text', editable: true },
-    { name: 'activationKey', label: 'Activation Key', type: 'text', editable: true },
-    { name: 'systemId', label: 'System ID', type: 'text', editable: true },
-    { name: 'licenseUser', label: 'License User', type: 'text', editable: true },
-    { name: 'maintenanceEnd', label: 'Maintenance End', type: 'date', editable: true },
+    { name: 'license_name', label: 'License Name', type: 'text', editable: true },
+    { name: 'license_description', label: 'Description', type: 'text', editable: true },
+    { name: 'license_number', label: 'License Number/Key', type: 'text', editable: true },
+    { name: 'dongle_number', label: 'Dongle Number', type: 'text', editable: true },
+    { name: 'activation_key', label: 'Activation Key', type: 'text', editable: true },
+    { name: 'system_id', label: 'System ID', type: 'text', editable: true },
+    { name: 'license_user', label: 'User', type: 'text', editable: true },
+    { name: 'maintenance_end', label: 'Maintenance End', type: 'date', editable: true },
     { name: 'owner', label: 'Owner', type: 'text', editable: true },
-    { name: 'licenseType', label: 'License Type', type: 'text', editable: true },
+    { name: 'license_type', label: 'License Type', type: 'text', editable: true },
     { name: 'remarks', label: 'Remarks', type: 'text', editable: true },
   ];
 
-  // --- Handlers for Assigning/Unassigning License --- 
-  const handleAssignLicense = async (targetType: 'pc' | 'vm', targetId: number) => {
-      if (!selectedLicense?.licenseId) {
-          setAssignmentError("Cannot assign: No license selected.");
-          return;
+  // --- Handlers for Assigning/Unassigning License ---
+  const handleAssignLicenseWrapper = async (license_id_to_assign: number, target_type: 'pc' | 'vm', target_id: number) => {
+    setLoading(true); // Use main loading state or a specific one for this operation
+    setError(null);
+
+    const endpoint = `/api/licenses/${license_id_to_assign}/assignment`;
+    let requestBody: any;
+
+    if (target_type === 'pc') {
+      requestBody = { pc_id: target_id };
+    } else if (target_type === 'vm') {
+      requestBody = { vm_id: target_id };
+    } else {
+      setError('Invalid target type for assignment');
+      setLoading(false);
+      const err = new Error('Invalid target type for assignment');
+      console.error(err);
+      throw err; // Re-throw for ManageLicenseAssignment to catch
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        let errorData = { error: 'Failed to assign license due to server error.' };
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.error('Failed to parse error response from server:', parseError);
+          // const textError = await response.text(); // Uncomment for further debugging if needed
+          // console.error('Server response text:', textError);
+        }
+        throw new Error(errorData.error || `Failed to assign license. Status: ${response.status}`);
       }
-      setAssignmentLoading(true);
-      setAssignmentError(null);
-      try {
-          const body = {
-              pc_id: targetType === 'pc' ? targetId : null,
-              vm_id: targetType === 'vm' ? targetId : null,
-          };
-          const response = await fetch(`/api/licenses/${selectedLicense.licenseId}/assignment`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-          });
-          if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'Failed to assign license');
-          }
-          const data = await response.json();
-          // Update local state with the new assignment data
-          setCurrentAssignment(keysToCamel<FetchedAssignment>(data.assignment)); 
-      } catch (err) {
-          const errorMsg = `Error assigning license: ${err instanceof Error ? err.message : String(err)}`;
-          setAssignmentError(errorMsg);
-      } finally {
-          setAssignmentLoading(false);
+      
+      // Successfully assigned, now refresh data
+      await fetchData(); // Refreshes the main licenses list
+
+      // If the currently selected license is the one being assigned, 
+      // we need to update `selected_license` to reflect the new assignment details.
+      if (selected_license && selected_license.license_id === license_id_to_assign) {
+        // The POST request to /api/licenses/[id]/assignment now returns the updated assignment.
+        // We can use this, or re-fetch the license details. 
+        // For simplicity and to ensure we have the freshest full license object (including software_name etc.),
+        // let's re-fetch the specific license or find it in the updated `licenses` list.
+
+        // Option 1: Find in the already re-fetched `licenses` list by fetchData()
+        // `licenses` state should be updated by `fetchData()` by this point.
+        // Need to ensure `fetchData` completes and sets state before trying to find.
+        // However, direct access to `licenses` here might get stale closure value.
+        // A safer way is to get fresh full list and then find, or fetch the specific license.
+
+        const updated_licenses_list_response = await fetch('/api/licenses');
+        if (!updated_licenses_list_response.ok) {
+            console.warn('Failed to fetch updated licenses list after assignment for selected_license refresh.');
+        } else {
+            const updated_licenses_list_data = await updated_licenses_list_response.json();
+            const refreshed_selected_license = updated_licenses_list_data.licenses?.find((l: License) => l.license_id === license_id_to_assign);
+            if (refreshed_selected_license) {
+                setSelectedLicense(refreshed_selected_license); // Update the modal details
+            }
+        }
       }
+
+      // const assignmentResult = await response.json(); // This line would fail if response.ok is false and body is not json
+      // console.log('Assignment successful, API response:', assignmentResult); // For debugging the successful response structure
+
+    } catch (err) {
+      console.error(`Error assigning license ${license_id_to_assign} to ${target_type} ${target_id}:`, err);
+      const errorMessage = err instanceof Error ? err.message : 'Could not assign license.';
+      setError(errorMessage);
+      throw err; // Re-throw for ManageLicenseAssignment to catch in its actionError
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUnassignLicense = async () => {
-      if (!selectedLicense?.licenseId) {
-          setAssignmentError("Cannot unassign: No license selected.");
-          return;
+  const handleUnassignLicenseWrapper = async (license_id_to_unassign: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // This API should clear the assignment for the given license_id
+      const response = await fetch(`/api/licenses/${license_id_to_unassign}/assignment`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to unassign license');
       }
-      // Optional: Confirmation
-      if (!confirm('Are you sure you want to unassign this license?')) return;
-
-      setAssignmentLoading(true);
-      setAssignmentError(null);
-      try {
-          const response = await fetch(`/api/licenses/${selectedLicense.licenseId}/assignment`, {
-              method: 'DELETE',
-          });
-          if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'Failed to unassign license');
-          }
-          // Update local state - no assignment exists now
-          setCurrentAssignment(null);
-      } catch (err) {
-          const errorMsg = `Error unassigning license: ${err instanceof Error ? err.message : String(err)}`;
-          setAssignmentError(errorMsg);
-      } finally {
-          setAssignmentLoading(false);
+      // Refresh data
+      await fetchData(); // Refreshes the main list
+      if (selected_license && selected_license.license_id === license_id_to_unassign) {
+        // If the currently selected license is the one being unassigned, refresh its details
+        const updated_licenses_list = await (await fetch('/api/licenses')).json();
+        const refreshed_selected_license = updated_licenses_list.licenses.find((l: License) => l.license_id === license_id_to_unassign);
+        if (refreshed_selected_license) {
+            setSelectedLicense(refreshed_selected_license);
+        } else {
+            setSelectedLicense(null); // It might have been deleted or no longer accessible
+        }
       }
+    } catch (err) {
+      console.error(`Error unassigning license ${license_id_to_unassign}:`, err);
+      setError(err instanceof Error ? err.message : 'Could not unassign license.');
+      throw err; // Re-throw for ManageLicenseAssignment to catch
+    } finally {
+      setLoading(false);
+    }
   };
   // --- End Assignment Handlers ---
 
-  // --- Styles --- 
+  // --- Styles --- (Includes common styles and specific ones for assignment)
   const styles: { [key: string]: CSSProperties } = {
     headerContainer: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' },
     headerTitleContainer: { display: 'flex', alignItems: 'center' },
@@ -410,6 +431,8 @@ export default function LicensesList() {
     tableBodyCell: { padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' },
     // Styles for assignment section in modal
     assignmentSection: { marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb', },
+    assignmentTitle: { fontSize: '1.25rem', fontWeight: 'bold', color: '#0F3460', marginBottom: '1rem' },
+    noDataCell: { padding: '2rem', textAlign: 'center', color: '#6b7280' },
   };
 
   return (
@@ -444,35 +467,36 @@ export default function LicensesList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>ID</th>
-                <th style={styles.tableHeaderCell}>Software</th>
                 <th style={styles.tableHeaderCell}>License Name</th>
+                <th style={styles.tableHeaderCell}>Software</th>
+                <th style={styles.tableHeaderCell}>Assigned To</th>
+                <th style={styles.tableHeaderCell}>Assigned Type</th>
+                <th style={styles.tableHeaderCell}>License Number</th>
                 <th style={styles.tableHeaderCell}>Type</th>
-                <th style={styles.tableHeaderCell}>License No.</th>
-                <th style={styles.tableHeaderCell}>Dongle No.</th>
-                <th style={styles.tableHeaderCell}>User</th>
                 <th style={styles.tableHeaderCell}>Maintenance End</th>
+                <th style={styles.tableHeaderCell}>Owner</th>
               </tr>
             </thead>
             <tbody>
               {licenses.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No licenses found</td></tr>
+                <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No licenses found.</td></tr>
               ) : (
                 licenses.map((license) => (
-                  <tr key={license.licenseId}
-                    style={styles.tableBodyRow}
+                  <tr 
+                    key={license.license_id} 
+                    style={styles.tableBodyRow} 
                     onClick={() => handleRowClick(license)}
                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <td style={styles.tableBodyCell}>{license.licenseId}</td>
-                    <td style={styles.tableBodyCell}>{getSoftwareName(license.softwareId)}</td>
-                    <td style={styles.tableBodyCell}>{license.licenseName || '-'}</td>
-                    <td style={styles.tableBodyCell}>{license.licenseType || '-'}</td>
-                    <td style={styles.tableBodyCell}>{license.licenseNumber || '-'}</td>
-                    <td style={styles.tableBodyCell}>{license.dongleNumber || '-'}</td>
-                    <td style={styles.tableBodyCell}>{license.licenseUser || '-'}</td>
-                    <td style={styles.tableBodyCell}>{license.maintenanceEnd ? new Date(license.maintenanceEnd).toLocaleDateString() : '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.license_name ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{license.software_name ?? getSoftwareName(license.software_id)}</td>
+                    <td style={styles.tableBodyCell}>{license.assigned_to_name ?? '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.assigned_to_type ?? '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.license_number ?? '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.license_type ?? '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.maintenance_end ? new Date(license.maintenance_end).toLocaleDateString() : '-'}</td>
+                    <td style={styles.tableBodyCell}>{license.owner ?? '-'}</td>
                   </tr>
                 ))
               )}
@@ -481,28 +505,36 @@ export default function LicensesList() {
         )}
       </div>
 
-      {/* Modals */} 
-      {selectedLicense && (
+      {/* Modals */}
+      {selected_license && (
         <EditableDetailsModal
-          isOpen={selectedLicense !== null}
-          onClose={() => setSelectedLicense(null)}
-          title={`License Details: ${selectedLicense.licenseName || `ID ${selectedLicense.licenseId}`}`}
-          data={selectedLicense}
-          fields={detailsFields}
-          onSave={handleUpdateLicense}
+          isOpen={!!selected_license}
+          onClose={() => {
+            setSelectedLicense(null);
+            setError(null); // Clear general error
+            // No separate assignment_error to clear here as it's handled by child
+          }}
+          data={selected_license} // Contains assigned_to_type, assigned_to_name, assigned_to_id
+          fields={detailsFields} // These are for editing license properties, not assignment
+          onSave={handleUpdateLicense} // This handles updates to license properties
+          title={`Edit License: ${selected_license.license_name || selected_license.license_key}`}
         >
-          {/* Add Assignment Management Section */}
-          <div style={styles.assignmentSection}>
-              <ManageLicenseAssignment
-                  allPcs={allPcs}
-                  allVms={allVms}
-                  currentAssignment={currentAssignment}
-                  isLoading={assignmentLoading}
-                  error={assignmentError}
-                  onAssign={handleAssignLicense}
-                  onUnassign={handleUnassignLicense}
-                  // Pass any necessary styles if ManageLicenseAssignment expects them
-              />
+          {/* License Assignment Section using the new component */}
+          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e9ecef' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#343a40', marginBottom: '1rem' }}>
+              Manage License Assignment
+            </h3>
+            <ManageLicenseAssignment
+              license_id={selected_license.license_id}
+              license_name={selected_license.license_name || selected_license.license_key}
+              all_pcs={all_pcs}
+              all_vms={all_vms}
+              current_assignment_details={selected_license} // The selected_license object itself contains assignment info from the main GET /api/licenses
+              on_assign={handleAssignLicenseWrapper}
+              on_unassign={handleUnassignLicenseWrapper}
+              is_loading={loading} // Use the main list loading state for now, or a more specific one if needed
+              error={error}       // Pass the main list error state
+            />
           </div>
         </EditableDetailsModal>
       )}

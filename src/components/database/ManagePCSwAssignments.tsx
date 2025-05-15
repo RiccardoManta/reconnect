@@ -3,49 +3,49 @@ import { Software } from '../../types/database';
 import { PlusCircle, XCircle, RefreshCw } from 'lucide-react';
 
 interface ManagePCSwAssignmentsProps {
-  pcId: number;
-  allSoftware: Software[];
-  assignedSoftwareIds: number[];
-  onAssign: (softwareId: number) => Promise<void>;
-  onUnassign: (softwareId: number) => Promise<void>;
-  isLoading: boolean; // Loading state for assign/unassign actions
+  pc_id: number;
+  all_software: Software[];
+  assigned_software_ids: number[];
+  on_assign: (software_id: number) => Promise<void>;
+  on_unassign: (software_id: number) => Promise<void>;
+  is_loading: boolean; // Loading state for assign/unassign actions
   error: string | null;   // Error message for assign/unassign actions
 }
 
 const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
-  pcId,
-  allSoftware,
-  assignedSoftwareIds,
-  onAssign,
-  onUnassign,
-  isLoading,
+  pc_id,
+  all_software,
+  assigned_software_ids,
+  on_assign,
+  on_unassign,
+  is_loading,
   error
 }) => {
   const [selectedSoftwareToAdd, setSelectedSoftwareToAdd] = useState<string>(''); // Store ID as string for select
 
   // Memoize calculations for performance
   const assignedSoftwareDetails = useMemo(() => {
-    return allSoftware
-      .filter(sw => assignedSoftwareIds.includes(sw.softwareId))
-      .sort((a, b) => a.softwareName.localeCompare(b.softwareName));
-  }, [allSoftware, assignedSoftwareIds]);
+    return all_software
+      .filter(sw => assigned_software_ids.includes(sw.software_id))
+      .sort((a, b) => a.software_name.localeCompare(b.software_name));
+  }, [all_software, assigned_software_ids]);
 
   const availableSoftwareOptions = useMemo(() => {
-    return allSoftware
-      .filter(sw => !assignedSoftwareIds.includes(sw.softwareId))
-      .sort((a, b) => a.softwareName.localeCompare(b.softwareName))
+    return all_software
+      .filter(sw => !assigned_software_ids.includes(sw.software_id))
+      .sort((a, b) => a.software_name.localeCompare(b.software_name))
       .map(sw => ({ 
-        value: String(sw.softwareId), 
-        label: `${sw.softwareName}${sw.majorVersion ? ' (' + sw.majorVersion + ')' : ''}` 
+        value: String(sw.software_id), 
+        label: `${sw.software_name}${sw.major_version ? ' (' + sw.major_version + ')' : ''}` 
       }));
-  }, [allSoftware, assignedSoftwareIds]);
+  }, [all_software, assigned_software_ids]);
 
   const handleAddSoftware = async () => {
     if (!selectedSoftwareToAdd) return;
-    const softwareId = parseInt(selectedSoftwareToAdd, 10);
-    if (isNaN(softwareId)) return;
+    const software_id = parseInt(selectedSoftwareToAdd, 10);
+    if (isNaN(software_id)) return;
     
-    await onAssign(softwareId);
+    await on_assign(software_id);
     setSelectedSoftwareToAdd(''); // Reset dropdown after assigning
   };
 
@@ -56,7 +56,7 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
         <select
           value={selectedSoftwareToAdd}
           onChange={(e) => setSelectedSoftwareToAdd(e.target.value)}
-          disabled={isLoading}
+          disabled={is_loading}
           style={{
             flexGrow: 1,
             padding: '0.5rem',
@@ -74,21 +74,21 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
         </select>
         <button
           onClick={handleAddSoftware}
-          disabled={isLoading || !selectedSoftwareToAdd}
+          disabled={is_loading || !selectedSoftwareToAdd}
           style={{
             padding: '0.5rem 0.75rem',
             borderRadius: '0.25rem',
             border: 'none',
-            backgroundColor: (isLoading || !selectedSoftwareToAdd) ? '#9ca3af' : '#2563eb',
+            backgroundColor: (is_loading || !selectedSoftwareToAdd) ? '#9ca3af' : '#2563eb',
             color: 'white',
             fontSize: '0.875rem',
-            cursor: (isLoading || !selectedSoftwareToAdd) ? 'not-allowed' : 'pointer',
+            cursor: (is_loading || !selectedSoftwareToAdd) ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: '0.25rem'
           }}
         >
-            {isLoading ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }}/> : <PlusCircle size={16} />}
+            {is_loading ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }}/> : <PlusCircle size={16} />}
              Add
         </button>
       </div>
@@ -103,7 +103,7 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {assignedSoftwareDetails.map(sw => (
             <li 
-              key={sw.softwareId} 
+              key={sw.software_id}
               style={{
                 display: 'flex', 
                 justifyContent: 'space-between', 
@@ -113,19 +113,19 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
               }}
             >
               <span>
-                {sw.softwareName}
-                {sw.majorVersion && ` (${sw.majorVersion})`}
+                {sw.software_name}
+                {sw.major_version && ` (${sw.major_version})`}
                 {sw.vendor && <span style={{ fontSize: '0.8rem', color: '#6b7280', marginLeft: '0.5rem' }}> - {sw.vendor}</span>}
               </span>
               <button
-                onClick={() => onUnassign(sw.softwareId)}
-                disabled={isLoading}
+                onClick={() => on_unassign(sw.software_id)}
+                disabled={is_loading}
                 title="Unassign Software"
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: isLoading ? '#9ca3af' : '#dc2626', 
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  color: is_loading ? '#9ca3af' : '#dc2626', 
+                  cursor: is_loading ? 'not-allowed' : 'pointer',
                   padding: '0.25rem'
                 }}
               >

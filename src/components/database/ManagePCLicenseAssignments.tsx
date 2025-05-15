@@ -1,100 +1,118 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+// Removed License import as all_licenses is removed
+import { XCircle, RefreshCw } from 'lucide-react';
 
-// Use the same interface defined in PcOverviewList
+// Use the same interface defined in PcOverviewList (now snake_case)
 interface AssignedLicenseInfo {
-    licenseId: number;
-    licenseName: string | null;
-    licenseType: string | null;
-    softwareName: string;
-    majorVersion: string | null;
-    assignedOn: string | null; 
+    license_id: number;
+    license_name: string | null;
+    license_type: string | null;
+    software_name: string;
+    major_version: string | null;
+    assigned_on: string | null; 
 }
 
 interface ManagePCLicenseAssignmentsProps {
-  assignedLicenses: AssignedLicenseInfo[];
-  isLoading: boolean; // For the parent loading state
-  error: string | null; // For the parent error state
-  onUnassign: (licenseId: number) => Promise<void>; // Function to call when unassign is clicked
+  pc_id: number; 
+  assigned_licenses: AssignedLicenseInfo[];
+  // on_assign removed
+  on_unassign: (license_id: number) => Promise<void>; 
+  is_loading: boolean; 
+  error: string | null;  
 }
 
 export default function ManagePCLicenseAssignments({
-  assignedLicenses,
-  isLoading, // Display parent loading if needed
-  error,     // Display parent error if needed
-  onUnassign,
+  pc_id,
+  // all_licenses removed
+  assigned_licenses,
+  // on_assign removed
+  on_unassign,
+  is_loading, 
+  error      
 }: ManagePCLicenseAssignmentsProps) {
 
-  // Optional: Internal loading state for the unassign action itself
-  const [unassigningId, setUnassigningId] = React.useState<number | null>(null);
+  // Removed selectedLicenseToAdd state
+  const [actionLoading, setActionLoading] = useState<boolean>(false); 
+  const [actionError, setActionError] = useState<string | null>(null);  
 
-  const handleUnassignClick = async (licenseId: number) => {
-    // Optional: Confirmation
-    // if (!confirm('Are you sure you want to unassign this license from this PC?')) return;
-    setUnassigningId(licenseId);
+  const assignedLicenseIds = useMemo(() => {
+    return assigned_licenses.map(l => l.license_id);
+  }, [assigned_licenses]);
+
+  // Removed availableLicenseOptions
+  // Removed handleAssignLicense
+
+  const handleUnassignClick = async (license_id: number) => {
+    setActionLoading(true);
+    setActionError(null);
     try {
-      await onUnassign(licenseId);
-      // Parent component should handle refetching/state update
+      await on_unassign(license_id);
+      // Parent should refetch assigned_licenses
     } catch (err) {
-      // Parent component should ideally display the error
-      console.error("Unassign failed:", err);
-      // Optionally show a temporary error message here
+      console.error("Unassign license failed:", err);
+      setActionError(err instanceof Error ? err.message : 'Failed to unassign license');
     } finally {
-      setUnassigningId(null);
+      setActionLoading(false);
     }
   };
 
-  // Don't show anything if the parent is loading or has an error
-  if (isLoading) return <p>Loading assigned licenses...</p>; 
-  if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
-
-  if (assignedLicenses.length === 0) {
-    return <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>No licenses currently assigned to this PC.</p>;
-  }
+  // Display parent loading or error if present (e.g., initial load of assigned items)
+  if (is_loading && !actionLoading) return <p>Loading assigned licenses...</p>; // Show parent loading if no action is active
+  if (error && !actionError) return <p style={{ color: 'red' }}>Error: {error}</p>; 
 
   return (
-    <div style={{ maxHeight: '200px', overflowY: 'auto' }}> 
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {assignedLicenses.map((license) => (
-          <li 
-            key={license.licenseId}
-            style={{
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              padding: '0.5rem 0.25rem', 
-              borderBottom: '1px solid #e5e7eb',
-              fontSize: '0.875rem' 
-            }}
-          >
-            <div>
-              <span style={{ fontWeight: '500' }}>{license.softwareName}{license.majorVersion ? ` (${license.majorVersion})` : ''}</span>
-              <span style={{ color: '#6b7280' }}> - {license.licenseName || `ID: ${license.licenseId}`} ({license.licenseType || '-'})</span>
-              {license.assignedOn && 
-                <span style={{ color: '#6b7280', fontSize: '0.8rem', marginLeft: '0.5rem' }}>
-                  (Assigned: {new Date(license.assignedOn).toLocaleDateString()})
-                </span>
-              }
-            </div>
-            <button
-              onClick={() => handleUnassignClick(license.licenseId)}
-              disabled={unassigningId === license.licenseId} // Disable button during its own action
+    <div>
+      {/* Add License Section REMOVED */}
+
+      {/* Display Action Error if any (only for unassign now) */}
+      {actionError && <p style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.5rem' }}>{actionError}</p>}
+
+      {/* List of Assigned Licenses */}
+      {assigned_licenses.length === 0 && !actionError ? (
+        <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No licenses currently assigned to this PC.</p>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
+          {assigned_licenses.map((license) => (
+            <li 
+              key={license.license_id}
               style={{
-                padding: '0.2rem 0.6rem',
-                fontSize: '0.8rem',
-                background: '#fee2e2',
-                color: '#991b1b',
-                border: '1px solid #fecaca',
-                borderRadius: '4px',
-                cursor: 'pointer'
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '0.5rem 0.25rem', 
+                borderBottom: '1px solid #e5e7eb',
+                fontSize: '0.875rem' 
               }}
             >
-              {unassigningId === license.licenseId ? '...' : 'Unassign'}
-            </button>
-          </li>
-        ))}
-      </ul>
+              <div>
+                <span style={{ fontWeight: '500' }}>{license.software_name || 'Unknown Software'}{license.major_version ? ` (${license.major_version})` : ''}</span>
+                <span style={{ color: '#6b7280' }}> - {license.license_name || `ID: ${license.license_id}`} ({license.license_type || 'N/A'})</span>
+                {license.assigned_on && 
+                  <span style={{ color: '#6b7280', fontSize: '0.8rem', marginLeft: '0.5rem' }}>
+                    (Assigned: {new Date(license.assigned_on).toLocaleDateString()})
+                  </span>
+                }
+              </div>
+              <button
+                onClick={() => handleUnassignClick(license.license_id)}
+                disabled={actionLoading} 
+                title="Unassign License"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: actionLoading ? '#9ca3af' : '#dc2626', 
+                  cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  padding: '0.25rem'
+                }}
+              >
+                {actionLoading && assignedLicenseIds.includes(license.license_id) ? <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <XCircle size={18} />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 } 

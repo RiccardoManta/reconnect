@@ -1,24 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-
-// Interface adjusted for the NEW schema (snake_case)
-interface LicenseFromDb extends RowDataPacket {
-    license_id: number;
-    software_id: number; // Changed from tool_name
-    license_name: string | null;
-    license_description: string | null;
-    license_number: string | null;
-    dongle_number: string | null;
-    activation_key: string | null;
-    system_id: string | null;
-    license_user: string | null;
-    maintenance_end: string | null; // Keep as string for Date handling
-    owner: string | null;
-    license_type: string | null;
-    remarks: string | null;
-    // removed assigned_pc_id
-}
+import { License } from '@/types/database'; // Use the main License type
 
 // Interface for POST/PUT request body (snake_case)
 interface LicenseRequestBody {
@@ -40,17 +23,27 @@ interface LicenseRequestBody {
 // GET method to fetch all licenses
 export async function GET(): Promise<NextResponse> {
   try {
-    // Explicitly selecting columns based on the new schema is safer
-    // but SELECT * works if the dbUtils typing is generic enough.
-    const licenses = await dbUtils.query<LicenseFromDb[]>(
-      `SELECT 
-         license_id, software_id, license_name, license_description, 
-         license_number, dongle_number, activation_key, system_id, 
-         license_user, maintenance_end, owner, license_type, remarks 
-       FROM licenses ORDER BY license_id`
-    );
+    const query = `
+      SELECT 
+        l.*, 
+        s.software_name,
+        pc.pc_name AS assigned_pc_name, -- For direct use or constructing assigned_to_name
+        vm.vm_name AS assigned_vm_name  -- For direct use or constructing assigned_to_name
+      FROM licenses l
+      JOIN software s ON l.software_id = s.software_id
+      LEFT JOIN license_assignments la ON l.license_id = la.license_id
+      LEFT JOIN pc_overview pc ON la.pc_id = pc.pc_id
+      LEFT JOIN vm_instances vm ON la.vm_id = vm.vm_id
+      ORDER BY l.license_id;
+    `;
+    const licensesData = await dbUtils.query<License[]>(query);
+
+    const licenses = licensesData.map(lic => ({
+      ...lic,
+      assigned_to_name: lic.assigned_pc_name || lic.assigned_vm_name || null,
+      assigned_to_type: lic.assigned_pc_name ? 'pc' : (lic.assigned_vm_name ? 'vm' : null),
+    }));
     
-    // The frontend expects { licenses: [...] }
     return NextResponse.json({ licenses });
 
   } catch (error: unknown) {
@@ -107,10 +100,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Get the newly inserted record
-    const newLicense = await dbUtils.queryOne<LicenseFromDb>(
-      `SELECT * FROM licenses WHERE license_id = ?`,
+    const newLicenseData = await dbUtils.queryOne<License>(
+      `SELECT 
+        l.*, 
+        s.software_name,
+        pc.pc_name AS assigned_pc_name,
+        vm.vm_name AS assigned_vm_name
+      FROM licenses l
+      JOIN software s ON l.software_id = s.software_id
+      LEFT JOIN license_assignments la ON l.license_id = la.license_id
+      LEFT JOIN pc_overview pc ON la.pc_id = pc.pc_id
+      LEFT JOIN vm_instances vm ON la.vm_id = vm.vm_id
+      WHERE l.license_id = ?`,
       [licenseId]
     );
+    const newLicense = newLicenseData ? {
+      ...newLicenseData,
+      assigned_to_name: newLicenseData.assigned_pc_name || newLicenseData.assigned_vm_name || null,
+      assigned_to_type: newLicenseData.assigned_pc_name ? 'pc' : (newLicenseData.assigned_vm_name ? 'vm' : null),
+    } : null;
         
     return NextResponse.json({ 
       success: true, 
@@ -196,10 +204,25 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     // Get the updated record
-    const updatedLicense = await dbUtils.queryOne<LicenseFromDb>(
-        `SELECT * FROM licenses WHERE license_id = ?`,
+    const updatedLicenseData = await dbUtils.queryOne<License>(
+        `SELECT 
+          l.*, 
+          s.software_name,
+          pc.pc_name AS assigned_pc_name,
+          vm.vm_name AS assigned_vm_name
+        FROM licenses l
+        JOIN software s ON l.software_id = s.software_id
+        LEFT JOIN license_assignments la ON l.license_id = la.license_id
+        LEFT JOIN pc_overview pc ON la.pc_id = pc.pc_id
+        LEFT JOIN vm_instances vm ON la.vm_id = vm.vm_id
+        WHERE l.license_id = ?`,
         [body.license_id]
     );
+    const updatedLicense = updatedLicenseData ? {
+      ...updatedLicenseData,
+      assigned_to_name: updatedLicenseData.assigned_pc_name || updatedLicenseData.assigned_vm_name || null,
+      assigned_to_type: updatedLicenseData.assigned_pc_name ? 'pc' : (updatedLicenseData.assigned_vm_name ? 'vm' : null),
+    } : null;
         
     return NextResponse.json({ 
       success: true, 

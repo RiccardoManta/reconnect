@@ -42,7 +42,15 @@ interface PcOverviewRequestBody {
 export async function GET(): Promise<NextResponse> {
   try {
     const pcs = await dbUtils.query<PcOverview[]>(
-      `SELECT * FROM pc_overview ORDER BY pc_id`
+      `SELECT 
+        pc.*,
+        tb.hil_name AS hil_name,
+        p.platform_name AS platform_name
+      FROM pc_overview pc
+      LEFT JOIN test_benches tb ON pc.bench_id = tb.bench_id
+      LEFT JOIN test_bench_project_overview tbpo ON tb.bench_id = tbpo.bench_id
+      LEFT JOIN platforms p ON tbpo.platform_id = p.platform_id
+      ORDER BY pc.pc_id`
     );
     
     return NextResponse.json({ pcs });
@@ -115,7 +123,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Get the newly inserted record
     const newPc = await dbUtils.queryOne<PcOverview>(
-      `SELECT * FROM pc_overview WHERE pc_id = ?`,
+      `SELECT 
+        pc.*,
+        tb.hil_name AS hil_name,
+        p.platform_name AS platform_name
+      FROM pc_overview pc
+      LEFT JOIN test_benches tb ON pc.bench_id = tb.bench_id
+      LEFT JOIN test_bench_project_overview tbpo ON tb.bench_id = tbpo.bench_id
+      LEFT JOIN platforms p ON tbpo.platform_id = p.platform_id
+      WHERE pc.pc_id = ?`,
       [pcId]
     );
         
@@ -219,7 +235,15 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
          // Record exists, but no changes were made (data sent was the same as existing data)
          // Return the existing record as if updated
          const updatedPc = await dbUtils.queryOne<PcOverview>(
-            `SELECT * FROM pc_overview WHERE pc_id = ?`,
+            `SELECT 
+              pc.*,
+              tb.hil_name AS hil_name,
+              p.platform_name AS platform_name
+            FROM pc_overview pc
+            LEFT JOIN test_benches tb ON pc.bench_id = tb.bench_id
+            LEFT JOIN test_bench_project_overview tbpo ON tb.bench_id = tbpo.bench_id
+            LEFT JOIN platforms p ON tbpo.platform_id = p.platform_id
+            WHERE pc.pc_id = ?`,
             [body.pc_id]
          );
          return NextResponse.json({ 
@@ -232,7 +256,15 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     // Get the updated record
     const updatedPc = await dbUtils.queryOne<PcOverview>(
-        `SELECT * FROM pc_overview WHERE pc_id = ?`,
+        `SELECT 
+          pc.*,
+          tb.hil_name AS hil_name,
+          p.platform_name AS platform_name
+        FROM pc_overview pc
+        LEFT JOIN test_benches tb ON pc.bench_id = tb.bench_id
+        LEFT JOIN test_bench_project_overview tbpo ON tb.bench_id = tbpo.bench_id
+        LEFT JOIN platforms p ON tbpo.platform_id = p.platform_id
+        WHERE pc.pc_id = ?`,
         [body.pc_id]
     );
         

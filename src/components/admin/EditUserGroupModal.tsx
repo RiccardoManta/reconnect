@@ -2,40 +2,41 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, RefreshCw } from 'lucide-react';
-import { keysToCamel } from '@/utils/caseConverter'; // Import keysToCamel
 
 // Export the expected structure for user data passed as props
 export interface ModalUserData {
-  userId: number;
-  userName: string;
+  user_id: number;
+  user_name: string;
   email: string;
-  groupId: number | null; // Expect current group ID (as passed from AdminUsersPage)
+  user_group_id: number | null; 
 }
 
-// Interface for Group data fetched from API (after keysToCamel)
+// Interface for Group data fetched from API (already snake_case)
 interface Group {
-  userGroupId: number; // Updated from groupId
-  userGroupName: string; // Updated from groupName
+  user_group_id: number; 
+  user_group_name: string; 
+  permission_id?: number;
+  permission_name?: string;
+  accessible_platform_ids?: string | null;
+  accessible_platform_names?: string | null;
 }
 
 interface EditUserGroupModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userData: ModalUserData; // Use exported type
-  // onSave signature still uses groupId as that's what the modal manages internally
-  onSave: (data: { userId: number; groupId: number | null }) => Promise<void>; 
+  user: ModalUserData; // Changed back from user_data to user
+  onSave: (data: { user_id: number; user_group_id: number | null }) => Promise<void>; 
 }
 
 const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
   isOpen,
   onClose,
-  userData,
+  user, // Changed back from user_data to user
   onSave,
 }) => {
-  // State for the selected group ID (still corresponds to the value in the select dropdown)
-  const [selectedGroupId, setSelectedGroupId] = useState<string>(''); // Store as string for select value
-  const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
-  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [selected_group_id, setSelectedGroupId] = useState<string>(''); 
+  const [available_groups, setAvailableGroups] = useState<Group[]>([]);
+  const [loading_groups, setLoadingGroups] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,9 +54,8 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
             return res.json();
         })
         .then(data => {
-            // API returns user_group_id, user_group_name -> keysToCamel -> userGroupId, userGroupName
-            // This now matches the updated internal Group interface
-            setAvailableGroups(keysToCamel<Group[]>(data.groups || []));
+            // API returns snake_case groups
+            setAvailableGroups(data.groups || []);
         })
         .catch(err => {
             console.error("Error fetching groups:", err);
@@ -67,11 +67,11 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
     }
   }, [isOpen]);
 
-  // Update local state when userData changes, ONLY if it actually changed
+  // Update local state when user_data changes, ONLY if it actually changed
   useEffect(() => {
-    if (userData) {
-      const currentGroupIdString = userData.groupId !== null ? String(userData.groupId) : '';
-      if (currentGroupIdString !== selectedGroupId) {
+    if (user) { // Changed from user_data
+      const currentGroupIdString = user.user_group_id !== null ? String(user.user_group_id) : ''; // Changed from user_data
+      if (currentGroupIdString !== selected_group_id) {
           setSelectedGroupId(currentGroupIdString); 
           setError(null);
           setSaving(false);
@@ -81,17 +81,17 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
       setError(null);
       setSaving(false);
     }
-  }, [userData, selectedGroupId]); // Removed saveSuccess dependency
+  }, [user, selected_group_id]); // Changed from user_data
 
-  if (!isOpen || !userData) return null;
+  if (!isOpen || !user) return null; // Changed from user_data
 
   const handleSaveClick = async () => {
     setSaving(true);
     setError(null);
     try {
       await onSave({ 
-          userId: userData.userId, 
-          groupId: selectedGroupId === '' ? null : parseInt(selectedGroupId, 10) 
+          user_id: user.user_id, // Changed from user_data
+          user_group_id: selected_group_id === '' ? null : parseInt(selected_group_id, 10) 
       });
       setSaving(false);
     } catch (err) {
@@ -143,11 +143,11 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
         {/* User Info (Read-only) */}
         <div style={{ marginBottom: '1.5rem' }}>
           <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', color: '#6b7280' }}>User Name</p>
-          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937', fontWeight: 500 }}>{userData.userName}</p>
+          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937', fontWeight: 500 }}>{user.user_name}</p> // Changed from user_data
         </div>
         <div style={{ marginBottom: '1.5rem' }}>
           <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', color: '#6b7280' }}>Email</p>
-          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937' }}>{userData.email}</p>
+          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937' }}>{user.email}</p> // Changed from user_data
         </div>
 
         {/* Group Selection */}
@@ -155,14 +155,14 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
           <label htmlFor="userGroup" style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
             Assign Group
           </label>
-          {loadingGroups ? (
+          {loading_groups ? (
             <div style={{color: '#6b7280'}}>Loading groups...</div>
           ) : (
             <select
               id="userGroup"
-              value={selectedGroupId} // This string value should match the option value
+              value={selected_group_id} 
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              disabled={loadingGroups}
+              disabled={loading_groups}
               style={{
                 width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.375rem',
                 border: '1px solid #d1d5db', fontSize: '0.875rem', backgroundColor: 'white',
@@ -170,10 +170,9 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
               }}
             >
               <option value="">-- No Group --</option> 
-              {availableGroups.map((group) => (
-                // Use the updated field names: userGroupId and userGroupName
-                <option key={group.userGroupId} value={String(group.userGroupId)}>
-                  {group.userGroupName}
+              {available_groups.map((group) => (
+                <option key={group.user_group_id} value={String(group.user_group_id)}>
+                  {group.user_group_name}
                 </option>
               ))}
             </select>
@@ -198,12 +197,12 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
           </button>
           <button
             onClick={handleSaveClick}
-            disabled={saving || loadingGroups} // Disable if saving or loading groups
+            disabled={saving || loading_groups} // Disable if saving or loading groups
             style={{
               padding: '0.5rem 1rem', borderRadius: '0.375rem', fontSize: '0.875rem',
               backgroundColor: saving ? '#9ca3af' : '#39A2DB', 
               color: 'white', border: 'none',
-              cursor: (saving || loadingGroups) ? 'not-allowed' : 'pointer',
+              cursor: (saving || loading_groups) ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               fontWeight: 500
             }}

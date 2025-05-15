@@ -4,8 +4,7 @@ import React, { useState, useEffect, CSSProperties } from 'react';
 import { PcCase as Cpu, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
-import { PcOverview, TestBench, Software, License } from '../../types/database';
-import { keysToCamel, keysToSnake } from '../../utils/caseConverter';
+import { PcOverview, TestBench, Software } from '../../types/database';
 import ManagePCSwAssignments from './ManagePCSwAssignments';
 import ManagePCLicenseAssignments from './ManagePCLicenseAssignments';
 
@@ -21,45 +20,45 @@ interface SelectField extends BaseField { type: 'select'; options: SelectOption[
 type ModalField = TextField | NumberField | DateField | SelectField;
 // --- End Reusable Modal Field Type Definitions ---
 
-// Add type definition for assigned license data (matches API response)
+// Add type definition for assigned license data (matches API response - now snake_case)
 interface AssignedLicenseInfo {
-    licenseId: number;
-    licenseName: string | null;
-    licenseType: string | null;
-    softwareName: string;
-    majorVersion: string | null;
-    assignedOn: string | null; 
+    license_id: number;
+    license_name: string | null;
+    license_type: string | null;
+    software_name: string;
+    major_version: string | null;
+    assigned_on: string | null; 
 }
 
 export default function PcOverviewList() {
-  const [pcOverviews, setPcOverviews] = useState<PcOverview[]>([]);
+  const [pc_overviews, setPcOverviews] = useState<PcOverview[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPc, setSelectedPc] = useState<PcOverview | null>(null);
+  const [selected_pc, setSelectedPc] = useState<PcOverview | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [testBenches, setTestBenches] = useState<TestBench[]>([]); // For dropdown
+  const [test_benches, setTestBenches] = useState<TestBench[]>([]); // For dropdown
 
   // State for software relationship management
-  const [allSoftware, setAllSoftware] = useState<Software[]>([]);
-  const [assignedSoftwareIds, setAssignedSoftwareIds] = useState<number[]>([]);
-  const [assignmentLoading, setAssignmentLoading] = useState(false);
-  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [all_software, setAllSoftware] = useState<Software[]>([]);
+  const [assigned_software_ids, setAssignedSoftwareIds] = useState<number[]>([]);
+  const [assignment_loading, setAssignmentLoading] = useState(false);
+  const [assignment_error, setAssignmentError] = useState<string | null>(null);
 
   // State for license assignment management
-  const [assignedLicenses, setAssignedLicenses] = useState<AssignedLicenseInfo[]>([]);
-  const [licenseAssignmentLoading, setLicenseAssignmentLoading] = useState(false);
-  const [licenseAssignmentError, setLicenseAssignmentError] = useState<string | null>(null);
+  const [assigned_licenses, setAssignedLicenses] = useState<AssignedLicenseInfo[]>([]);
+  const [license_assignment_loading, setLicenseAssignmentLoading] = useState(false);
+  const [license_assignment_error, setLicenseAssignmentError] = useState<string | null>(null);
 
   const fetchRelatedData = async () => {
     try {
       const [tbResponse, swResponse] = await Promise.all([
         fetch('/api/testbenches'),
-        fetch('/api/software') // Fetch all software
+        fetch('/api/software'),
       ]);
 
       if (tbResponse.ok) {
         const tbData = await tbResponse.json();
-        setTestBenches(keysToCamel<TestBench[]>(tbData.testBenches || []));
+        setTestBenches(tbData.test_benches || []);
       } else {
         console.error('Failed to fetch test benches for dropdown');
         setTestBenches([]);
@@ -67,7 +66,7 @@ export default function PcOverviewList() {
 
       if (swResponse.ok) {
         const swData = await swResponse.json();
-        setAllSoftware(keysToCamel<Software[]>(swData.software || [])); // Store all software
+        setAllSoftware(swData.software || []);
       } else {
         console.error('Failed to fetch software for assignment');
         setAllSoftware([]);
@@ -79,17 +78,17 @@ export default function PcOverviewList() {
     }
   };
 
-  const fetchAssignedSoftware = async (pcId: number) => {
+  const fetchAssignedSoftware = async (pc_id: number) => {
     setAssignmentLoading(true);
     setAssignmentError(null);
     try {
-      const response = await fetch(`/api/pcs/${pcId}/software`);
+      const response = await fetch(`/api/pcs/${pc_id}/software`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch assigned software');
       }
       const data = await response.json();
-      const assignments = data.softwareAssignments || [];
+      const assignments = data.softwareAssignments || []; // API returns snake_case
       if (!Array.isArray(assignments)) {
         console.error("softwareAssignments received from API is not an array:", assignments);
         setAssignedSoftwareIds([]);
@@ -97,7 +96,7 @@ export default function PcOverviewList() {
         setAssignedSoftwareIds(assignments.map((a: any) => a.software_id));
       }
     } catch (err) {
-      console.error(`Error fetching assigned software for PC ${pcId}:`, err);
+      console.error(`Error fetching assigned software for PC ${pc_id}:`, err);
       setAssignmentError('Failed to load assigned software.');
       setAssignedSoftwareIds([]); // Clear on error
     } finally {
@@ -105,25 +104,25 @@ export default function PcOverviewList() {
     }
   };
 
-  const fetchAssignedLicenses = async (pcId: number) => {
+  const fetchAssignedLicenses = async (pc_id: number) => {
     setLicenseAssignmentLoading(true);
     setLicenseAssignmentError(null);
     try {
-      const response = await fetch(`/api/pcs/${pcId}/licenses`);
+      const response = await fetch(`/api/pcs/${pc_id}/licenses`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch assigned licenses');
       }
       const data = await response.json();
-      const licenses = data.assignedLicenses || [];
+      const licenses = data.assignedLicenses || []; // API now returns snake_case
       if (!Array.isArray(licenses)) {
         console.error("assignedLicenses received from API is not an array:", licenses);
         setAssignedLicenses([]);
       } else {
-        setAssignedLicenses(keysToCamel<AssignedLicenseInfo[]>(licenses));
+        setAssignedLicenses(licenses as AssignedLicenseInfo[]);
       }      
     } catch (err) {
-      console.error(`Error fetching assigned licenses for PC ${pcId}:`, err);
+      console.error(`Error fetching assigned licenses for PC ${pc_id}:`, err);
       setLicenseAssignmentError('Failed to load assigned licenses.');
       setAssignedLicenses([]); // Clear on error
     } finally {
@@ -140,7 +139,7 @@ export default function PcOverviewList() {
         throw new Error('Failed to fetch PC overviews');
       }
       const data = await response.json();
-      setPcOverviews(keysToCamel<PcOverview[]>(data.pcs || []));
+      setPcOverviews(data.pcs || []); // API returns snake_case
     } catch (err) {
       setError('Error loading PC overviews: ' + (err instanceof Error ? err.message : String(err)));
       console.error('Error fetching PC overviews:', err);
@@ -164,32 +163,64 @@ export default function PcOverviewList() {
 
   const handleRowClick = async (pc: PcOverview) => {
     setSelectedPc(pc);
-    if (pc.pcId !== undefined) {
-        await fetchAssignedSoftware(pc.pcId);
-        await fetchAssignedLicenses(pc.pcId);
+    if (pc.pc_id !== undefined) {
+        await fetchAssignedSoftware(pc.pc_id);
+        await fetchAssignedLicenses(pc.pc_id);
     }
   }
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
-      const snakeCaseData = keysToSnake(formData);
+      // Construct payload with only expected fields for pc_overview
+      const savePayload: any = {
+        // pc_id is auto-generated by the database
+        pc_name: formData.pc_name,
+        bench_id: formData.bench_id ? Number(formData.bench_id) : null,
+        casual_name: formData.casual_name || null,
+        purchase_year: formData.purchase_year ? Number(formData.purchase_year) : null,
+        inventory_number: formData.inventory_number || null,
+        pc_role: formData.pc_role || null,
+        pc_model: formData.pc_model || null,
+        special_equipment: formData.special_equipment || null,
+        mac_address: formData.mac_address || null,
+        ip_address: formData.ip_address || null,
+        pc_info_text: formData.pc_info_text || null,
+        status: formData.status || null, // Default status could be set by DB or API if not provided
+        active_user: formData.active_user || null,
+      };
+
+      // Validate required fields in the payload
+      if (savePayload.bench_id === null || savePayload.bench_id === undefined) {
+        throw new Error('Test Bench ID (bench_id) is required.');
+      }
+      if (!savePayload.pc_name) {
+        throw new Error('PC Name (pc_name) is required.');
+      }
+
       const response = await fetch('/api/pcs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(savePayload),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add PC overview');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        console.error('Failed to add PC overview:', errorData);
+        throw new Error(errorData.error || `HTTP error ${response.status}`);
       }
 
-      const savedData = await response.json();
-      const newPc = keysToCamel<PcOverview>(savedData.pc || savedData.pcOverview);
-      setPcOverviews(prev => [...prev, newPc]);
-      setIsAddModalOpen(false);
+      const result = await response.json();
+      const new_pc = result.pc as PcOverview;
 
-    } catch (err) {
+      if (result.success && new_pc) {
+        setPcOverviews(prevPcs => [...prevPcs, new_pc].sort((a,b) => (a.pc_id ?? 0) - (b.pc_id ?? 0)));
+        setIsAddModalOpen(false);
+      } else {
+        console.error("API did not return success or new PC data:", result);
+        throw new Error(result.error || "Failed to process save response from server.");
+      }
+
+    } catch (err: any) {
       console.error("Failed to save PC overview:", err);
       throw err;
     }
@@ -197,48 +228,75 @@ export default function PcOverviewList() {
 
   const handleUpdatePc = async (formData: Record<string, any>) => {
     try {
-      if (!formData.pcId) {
-        throw new Error('PC ID is required');
+      if (!formData.pc_id) {
+        throw new Error('PC ID (pc_id) is required for update');
+      }
+      const pcId = formData.pc_id;
+
+      // Construct payload with only expected fields for pc_overview
+      const updatePayload: any = {
+        pc_id: pcId,
+        pc_name: formData.pc_name,
+        bench_id: formData.bench_id ? Number(formData.bench_id) : null,
+        casual_name: formData.casual_name || null,
+        purchase_year: formData.purchase_year ? Number(formData.purchase_year) : null,
+        inventory_number: formData.inventory_number || null,
+        pc_role: formData.pc_role || null,
+        pc_model: formData.pc_model || null,
+        special_equipment: formData.special_equipment || null,
+        mac_address: formData.mac_address || null,
+        ip_address: formData.ip_address || null,
+        pc_info_text: formData.pc_info_text || null,
+        status: formData.status || null,
+        active_user: formData.active_user || null,
+      };
+
+      // Validate required fields in the payload
+      if (updatePayload.bench_id === null || updatePayload.bench_id === undefined) {
+        throw new Error('Test Bench ID (bench_id) is required for update.');
+      }
+      if (!updatePayload.pc_name) {
+        throw new Error('PC Name (pc_name) is required for update.');
       }
 
-      const snakeCaseData = keysToSnake(formData);
-      const response = await fetch('/api/pcs', {
+      const response = await fetch('/api/pcs', { 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snakeCaseData),
+        body: JSON.stringify(updatePayload),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update PC overview');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        console.error('Failed to update PC overview:', errorData);
+        throw new Error(errorData.error || `HTTP error ${response.status}`);
       }
 
-      const data = await response.json();
-      const updatedPc = keysToCamel<PcOverview>(data.pc || data.pcOverview);
+      const result = await response.json();
+      const updated_pc = result.pc as PcOverview;
 
-      if (updatedPc) {
-        setPcOverviews(prev =>
-          prev.map(pc =>
-            pc.pcId === updatedPc.pcId ? updatedPc : pc
+      if (result.success && updated_pc) {
+        setPcOverviews(prevPcs =>
+          prevPcs.map(p =>
+            p.pc_id === updated_pc.pc_id ? updated_pc : p
           )
         );
-        if (selectedPc?.pcId === updatedPc.pcId) {
-             setSelectedPc(updatedPc);
+        if (selected_pc?.pc_id === updated_pc.pc_id) {
+             setSelectedPc(updated_pc);
         }
       } else {
-        console.error("Failed to get updated PC data from API response:", data);
-        throw new Error("Failed to process update response from server.");
+        console.error("API did not return success or updated PC data:", result);
+        throw new Error(result.error || "Failed to process update response from server.");
       }
 
-    } catch (err) {
-      console.error("Failed to update PC overview:", err);
+    } catch (err: any) {
+      console.error("Error in handleUpdatePc:", err);
       throw err;
     }
   };
 
   // --- Handlers for Assigning/Unassigning Software --- 
-  const handleAssignSoftware = async (softwareId: number) => {
-    if (!selectedPc?.pcId) {
+  const handleAssignSoftware = async (software_id: number) => {
+    if (!selected_pc?.pc_id) {
       console.error("Cannot assign software: No PC selected.");
       setAssignmentError("Cannot assign software: No PC selected.");
       return;
@@ -246,110 +304,140 @@ export default function PcOverviewList() {
     setAssignmentLoading(true);
     setAssignmentError(null);
     try {
-      const response = await fetch(`/api/pcs/${selectedPc.pcId}/software`, {
+      const response = await fetch(`/api/pcs/${selected_pc.pc_id}/software`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ software_id: softwareId }),
+        body: JSON.stringify({ software_id }), // API expects snake_case
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to assign software');
       }
-
-      setAssignedSoftwareIds(prev => [...prev, softwareId]);
-
+      // Re-fetch assigned software to update the list
+      await fetchAssignedSoftware(selected_pc.pc_id);
     } catch (err) {
-      console.error("Failed to assign software:", err);
-      const errorMsg = `Error assigning software: ${err instanceof Error ? err.message : String(err)}`;
+      console.error("Error assigning software:", err);
+      const errorMsg = 'Failed to assign software: ' + (err instanceof Error ? err.message : String(err));
       setAssignmentError(errorMsg);
     } finally {
       setAssignmentLoading(false);
     }
   };
 
-  const handleUnassignSoftware = async (softwareId: number) => {
-    if (!selectedPc?.pcId) {
+  const handleUnassignSoftware = async (software_id: number) => {
+    if (!selected_pc?.pc_id) {
       console.error("Cannot unassign software: No PC selected.");
       setAssignmentError("Cannot unassign software: No PC selected.");
       return;
     }
-    
     setAssignmentLoading(true);
     setAssignmentError(null);
     try {
-      const response = await fetch(`/api/pcs/${selectedPc.pcId}/software/${softwareId}`, {
+      const response = await fetch(`/api/pcs/${selected_pc.pc_id}/software/${software_id}`, {
         method: 'DELETE',
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to unassign software');
       }
-
-      setAssignedSoftwareIds(prev => prev.filter(id => id !== softwareId));
-
+      // Re-fetch assigned software to update the list
+      await fetchAssignedSoftware(selected_pc.pc_id);
     } catch (err) {
-      console.error("Failed to unassign software:", err);
-      const errorMsg = `Error unassigning software: ${err instanceof Error ? err.message : String(err)}`;
+      console.error("Error unassigning software:", err);
+      const errorMsg = 'Failed to unassign software: ' + (err instanceof Error ? err.message : String(err));
       setAssignmentError(errorMsg);
     } finally {
       setAssignmentLoading(false);
     }
   };
-  // --- End Assignment Handlers ---
+  // --- End Software Assignment Handlers ---
 
-  // Define fields using camelCase names
+  // --- Handlers for Assigning/Unassigning Licenses ---
+  const handleUnassignPcLicense = async (license_id: number) => {
+    if (!selected_pc?.pc_id) {
+      setLicenseAssignmentError("No PC selected to unassign license from.");
+      return;
+    }
+    setLicenseAssignmentLoading(true);
+    setLicenseAssignmentError(null);
+    try {
+      const response = await fetch(`/api/pcs/${selected_pc.pc_id}/licenses/${license_id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to unassign license');
+      }
+      await fetchAssignedLicenses(selected_pc.pc_id);
+    } catch (err) {
+      console.error(`Error unassigning license ${license_id} from PC ${selected_pc.pc_id}:`, err);
+      setLicenseAssignmentError(err instanceof Error ? err.message : 'Could not unassign license.');
+    } finally {
+      setLicenseAssignmentLoading(false);
+    }
+  };
+  // --- End License Assignment Handlers ---
+
+  const getBenchName = (id: number | null | undefined): string => {
+    if (id === null || id === undefined) return 'N/A';
+    if (test_benches.length === 0 && loading) return 'Loading...'; // Add loading check for benches
+    return test_benches.find(tb => tb.bench_id === id)?.hil_name || 'Unknown Bench';
+  };
+
+  // Define fields for the add entry modal (snake_case)
   const addEntryFields: ModalField[] = [
+    { name: 'pc_name', label: 'PC Name', type: 'text', required: true },
     {
-      name: 'benchId',
-      label: 'Test Bench (Optional)',
+      name: 'bench_id',
+      label: 'Test Bench',
       type: 'select',
-      required: false,
+      required: true,
       options: [
-        { value: '', label: 'None' },
-        ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+        { value: '', label: 'Select Test Bench' },
+        ...test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
       ]
     },
-    { name: 'pcName', label: 'PC Name', type: 'text' },
-    { name: 'casualName', label: 'Casual Name', type: 'text' },
-    { name: 'purchaseYear', label: 'Purchase Year', type: 'number' },
-    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text' },
-    { name: 'pcRole', label: 'PC Role', type: 'text' },
-    { name: 'pcModel', label: 'PC Model', type: 'text' },
-    { name: 'specialEquipment', label: 'Special Equipment', type: 'text' },
-    { name: 'macAddress', label: 'MAC Address', type: 'text' },
-    { name: 'ipAddress', label: 'IP Address', type: 'text' },
-    { name: 'pcInfoText', label: 'PC Info Text', type: 'text' },
+    { name: 'casual_name', label: 'Casual Name', type: 'text' },
+    { name: 'purchase_year', label: 'Purchase Year', type: 'number' },
+    { name: 'inventory_number', label: 'Inventory Number', type: 'text' },
+    { name: 'pc_role', label: 'Role', type: 'text' },
+    { name: 'pc_model', label: 'Model', type: 'text' },
+    { name: 'special_equipment', label: 'Special Equipment', type: 'text' },
+    { name: 'mac_address', label: 'MAC Address', type: 'text' },
+    { name: 'ip_address', label: 'IP Address', type: 'text' },
     { name: 'status', label: 'Status', type: 'text' },
-    { name: 'activeUser', label: 'Active User', type: 'text' },
+    { name: 'active_user', label: 'Active User', type: 'text' },
+    { name: 'pc_info_text', label: 'Info Text', type: 'text' }, 
   ];
 
   const detailsFields: ModalField[] = [
-    { name: 'pcId', label: 'PC ID', type: 'number', editable: false },
+    { name: 'pc_id', label: 'PC ID', type: 'number', editable: false },
+    { name: 'pc_name', label: 'PC Name', type: 'text', required: true, editable: true },
     {
-      name: 'benchId',
-      label: 'Test Bench (Optional)',
+      name: 'bench_id',
+      label: 'Test Bench',
       type: 'select',
-      required: false,
+      required: true,
       editable: true,
       options: [
-        { value: '', label: 'None' },
-        ...testBenches.map(tb => ({ value: String(tb.benchId), label: tb.hilName }))
+        { value: '', label: 'Select Test Bench' },
+        ...test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
       ]
     },
-    { name: 'pcName', label: 'PC Name', type: 'text', editable: true },
-    { name: 'casualName', label: 'Casual Name', type: 'text', editable: true },
-    { name: 'purchaseYear', label: 'Purchase Year', type: 'number', editable: true },
-    { name: 'inventoryNumber', label: 'Inventory Number', type: 'text', editable: true },
-    { name: 'pcRole', label: 'PC Role', type: 'text', editable: true },
-    { name: 'pcModel', label: 'PC Model', type: 'text', editable: true },
-    { name: 'specialEquipment', label: 'Special Equipment', type: 'text', editable: true },
-    { name: 'macAddress', label: 'MAC Address', type: 'text', editable: true },
-    { name: 'ipAddress', label: 'IP Address', type: 'text', editable: true },
-    { name: 'pcInfoText', label: 'PC Info Text', type: 'text', editable: true },
+    { name: 'hil_name', label: 'Test Bench Name', type: 'text', editable: false }, // Display only for linked bench
+    { name: 'casual_name', label: 'Casual Name', type: 'text', editable: true },
+    { name: 'purchase_year', label: 'Purchase Year', type: 'number', editable: true },
+    { name: 'inventory_number', label: 'Inventory Number', type: 'text', editable: true },
+    { name: 'pc_role', label: 'Role', type: 'text', editable: true },
+    { name: 'pc_model', label: 'Model', type: 'text', editable: true },
+    { name: 'special_equipment', label: 'Special Equipment', type: 'text', editable: true },
+    { name: 'mac_address', label: 'MAC Address', type: 'text', editable: true },
+    { name: 'ip_address', label: 'IP Address', type: 'text', editable: true },
     { name: 'status', label: 'Status', type: 'text', editable: true },
-    { name: 'activeUser', label: 'Active User', type: 'text', editable: true },
+    { name: 'active_user', label: 'Active User', type: 'text', editable: true },
+    { name: 'pc_info_text', label: 'Info Text', type: 'text', editable: true },
+    { name: 'created_at', label: 'Created At', type: 'text', editable: false },
+    { name: 'updated_at', label: 'Updated At', type: 'text', editable: false },
   ];
 
   // Helper object for table styles (optional, keeps JSX cleaner)
@@ -417,41 +505,8 @@ export default function PcOverviewList() {
     assignmentTextMuted: {
         fontSize: '0.75rem',
         color: '#6b7280',
-    }
-  };
-
-  // --- Handlers for Assigning/Unassigning Licenses from PC view ---
-  const handleUnassignLicense = async (licenseId: number) => {
-    if (!selectedPc?.pcId) {
-      setLicenseAssignmentError("Cannot unassign: No PC selected.");
-      return;
-    }
-    setLicenseAssignmentLoading(true);
-    setLicenseAssignmentError(null);
-    try {
-        const response = await fetch(`/api/pcs/${selectedPc.pcId}/licenses/${licenseId}`, {
-            method: 'DELETE',
-        });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to unassign license');
-        }
-        await fetchAssignedLicenses(selectedPc.pcId);
-    } catch (err) {
-        const errorMsg = `Error unassigning license: ${err instanceof Error ? err.message : String(err)}`;
-        console.error(errorMsg);
-        setLicenseAssignmentError(errorMsg);
-    } finally {
-        setLicenseAssignmentLoading(false);
-    }
-  };
-  // --- End License Assignment Handlers ---
-
-  const getBenchName = (id: number | null | undefined): string => {
-    if (id === undefined || id === null) return 'N/A';
-    // Add loading check
-    if (testBenches.length === 0 && loading) return 'Loading...';
-    return testBenches.find(tb => tb.benchId === id)?.hilName || 'N/A';
+    },
+    noDataCell: { padding: '2rem', textAlign: 'center', color: '#6b7280' },
   };
 
   return (
@@ -460,7 +515,7 @@ export default function PcOverviewList() {
       <div style={styles.headerContainer}>
         <div style={styles.headerTitleContainer}>
           <Cpu size={28} style={styles.headerIcon} />
-          <h1 style={styles.headerTitle}>PC Overview {pcOverviews.length > 0 ? `(${pcOverviews.length})` : ''}</h1>
+          <h1 style={styles.headerTitle}>PC Overviews {pc_overviews.length > 0 ? `(${pc_overviews.length})` : ''}</h1>
         </div>
         <button
           onClick={handleAddClick}
@@ -486,81 +541,86 @@ export default function PcOverviewList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>ID</th>
-                <th style={styles.tableHeaderCell}>Name</th>
-                <th style={styles.tableHeaderCell}>Casual Name</th>
-                <th style={styles.tableHeaderCell}>Inventory Nr.</th>
-                <th style={styles.tableHeaderCell}>Role</th>
-                <th style={styles.tableHeaderCell}>Model</th>
+                <th style={styles.tableHeaderCell}>PC Name</th>
+                <th style={styles.tableHeaderCell}>Test Bench</th>
+                <th style={styles.tableHeaderCell}>Platform</th>
+                <th style={styles.tableHeaderCell}>MAC Address</th>
                 <th style={styles.tableHeaderCell}>IP Address</th>
+                <th style={styles.tableHeaderCell}>Role</th>
+                <th style={styles.tableHeaderCell}>Inventory No.</th>
                 <th style={styles.tableHeaderCell}>Status</th>
-                <th style={styles.tableHeaderCell}>Active User</th>
-                <th style={styles.tableHeaderCell}>Linked Bench</th>
               </tr>
             </thead>
             <tbody>
-              {pcOverviews.length === 0 ? (
-                <tr><td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No PC overviews found</td></tr>
+              {pc_overviews.length === 0 ? (
+                <tr><td colSpan={8} style={styles.noDataCell}>No PC overviews found.</td></tr>
               ) : (
-                pcOverviews.map((pc) => {
-                  const linkedBenchName = getBenchName(pc.benchId);
-                  return (
-                    <tr key={pc.pcId}
-                      style={styles.tableBodyRow}
-                      onClick={() => handleRowClick(pc)}
-                      onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    >
-                      <td style={styles.tableBodyCell}>{pc.pcId}</td>
-                      <td style={styles.tableBodyCell}>{pc.pcName || '-'}</td>
-                      <td style={styles.tableBodyCell}>{pc.casualName || '-'}</td>
-                      <td style={styles.tableBodyCell}>{pc.inventoryNumber || '-'}</td>
-                      <td style={styles.tableBodyCell}>{pc.pcRole || '-'}</td>
-                      <td style={styles.tableBodyCell}>{pc.pcModel || '-'}</td>
-                      <td style={styles.tableBodyCell}>{pc.ipAddress || '-'}</td>
-                      <td style={styles.tableBodyCell}>{pc.status || '-'}</td>
-                      <td style={styles.tableBodyCell}>{pc.activeUser || '-'}</td>
-                      <td style={styles.tableBodyCell}>{linkedBenchName}</td>
-                    </tr>
-                  );
-                })
+                pc_overviews.map((pc) => (
+                  <tr 
+                    key={pc.pc_id} 
+                    style={styles.tableBodyRow} 
+                    onClick={() => handleRowClick(pc)}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <td style={styles.tableBodyCell}>{pc.pc_name ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{pc.hil_name ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{pc.platform_name ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{pc.mac_address ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{pc.ip_address ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{pc.pc_role ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{pc.inventory_number ?? 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{pc.status ?? 'N/A'}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* Modals: Pass assignment state and handlers */} 
-      {selectedPc && (
+      {/* Modals */} 
+      {selected_pc && (
         <EditableDetailsModal
-          isOpen={selectedPc !== null}
-          onClose={() => setSelectedPc(null)}
-          title={`PC Details: ${selectedPc.pcName || selectedPc.casualName || `ID: ${selectedPc.pcId}`}`}
-          data={selectedPc}
+          isOpen={!!selected_pc}
+          onClose={() => { 
+            setSelectedPc(null); 
+            setError(null); 
+            setAssignmentError(null); 
+            setLicenseAssignmentError(null);
+            setAssignedSoftwareIds([]); // Clear software assignments
+            setAssignedLicenses([]); // Clear license assignments
+          }}
+          data={selected_pc} // Pass snake_case data
           fields={detailsFields}
           onSave={handleUpdatePc}
+          title={`Edit PC Overview (ID: ${selected_pc.pc_id})`}
         >
-          {/* Add Software Assignment Section */} 
-          <div style={styles.assignmentSection}>
+          {/* Software Assignment Section */}
+          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e9ecef' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#343a40', marginBottom: '1rem' }}>Manage Software Assignments</h3>
             <ManagePCSwAssignments
-                pcId={selectedPc.pcId!}
-                allSoftware={allSoftware}
-                assignedSoftwareIds={assignedSoftwareIds}
-                onAssign={handleAssignSoftware}
-                onUnassign={handleUnassignSoftware}
-                isLoading={assignmentLoading}
-                error={assignmentError}
+              pc_id={selected_pc.pc_id} 
+              all_software={all_software} 
+              assigned_software_ids={assigned_software_ids} 
+              on_assign={handleAssignSoftware}
+              on_unassign={handleUnassignSoftware}
+              is_loading={assignment_loading}
+              error={assignment_error}
             />
           </div>
-          {/* Add License Assignment Section */}
-           <div style={styles.assignmentSection}>
-             <ManagePCLicenseAssignments
-                 assignedLicenses={assignedLicenses}
-                 onUnassign={handleUnassignLicense}
-                 isLoading={licenseAssignmentLoading}
-                 error={licenseAssignmentError}
-             />
-           </div>
+
+          {/* License Assignment Section - Updated Props */}
+          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e9ecef' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#343a40', marginBottom: '1rem' }}>Assigned Licenses</h3>
+            <ManagePCLicenseAssignments
+              pc_id={selected_pc.pc_id}
+              assigned_licenses={assigned_licenses}
+              on_unassign={handleUnassignPcLicense}
+              is_loading={license_assignment_loading}
+              error={license_assignment_error}
+            />
+          </div>
         </EditableDetailsModal>
       )}
 

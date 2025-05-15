@@ -8,7 +8,7 @@ import { getUserPermissions } from '@/utils/server/permissionUtils'; // Import
 
 // Interface for expected request body
 interface UpdatePlatformsRequest {
-    platformIds: number[];
+    platform_ids: number[];
 }
 
 // Helper function for admin check (copied from users route)
@@ -50,11 +50,11 @@ export async function PUT(
     try {
         const body: UpdatePlatformsRequest = await request.json();
         // Validate platformIds
-        if (!Array.isArray(body.platformIds) || body.platformIds.some(id => typeof id !== 'number')) {
-             return NextResponse.json({ error: 'platformIds must be an array of numbers.' }, { status: 400 });
+        if (!Array.isArray(body.platform_ids) || body.platform_ids.some(id => typeof id !== 'number')) {
+             return NextResponse.json({ error: 'platform_ids must be an array of numbers.' }, { status: 400 });
         }
         
-        const platformIds = body.platformIds;
+        const platform_ids = body.platform_ids;
 
         // Use transaction for reliability
         await transaction(async (connection) => {
@@ -62,8 +62,8 @@ export async function PUT(
             await connection.query('DELETE FROM group_platform_access WHERE user_group_id = ?', [groupId]);
 
             // Insert new entries if any platforms were provided
-            if (platformIds.length > 0) {
-                const insertValues = platformIds.map(platformId => [groupId, platformId]);
+            if (platform_ids.length > 0) {
+                const insertValues = platform_ids.map(platformId => [groupId, platformId]);
                 await connection.query('INSERT INTO group_platform_access (user_group_id, platform_id) VALUES ?', [insertValues]);
             }
         });

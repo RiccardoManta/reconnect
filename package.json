@@ -8,9 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --fix",
-    "setup-db": "node src/db/setupDb.js"
+    "setup-db": "node src/db/initializeMySql.js"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "@types/pg": "^8.11.14",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.9.1",

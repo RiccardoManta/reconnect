@@ -1,142 +1,198 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { PcOverview, VmInstance } from '../../types/database';
-
-// Must match the structure passed from LicensesList
-interface FetchedAssignment {
-  assignmentId: number;
-  licenseId: number;
-  pcId: number | null;
-  vmId: number | null;
-  assignedOn: string | null;
-}
+import React, { useState, useMemo, useEffect } from 'react';
+import { PcOverview, VmInstance, License } from '../../types/database'; // License is needed for current_assignment_details
+import { PlusCircle, XCircle, RefreshCw } from 'lucide-react';
 
 interface ManageLicenseAssignmentProps {
-  allPcs: PcOverview[];
-  allVms: VmInstance[];
-  currentAssignment: FetchedAssignment | null;
-  isLoading: boolean;
-  error: string | null;
-  onAssign: (targetType: 'pc' | 'vm', targetId: number) => Promise<void>; // Mark as async void if needed
-  onUnassign: () => Promise<void>; // Mark as async void if needed
+  license_id: number;
+  license_name?: string | null; // For display purposes
+  all_pcs: PcOverview[];
+  all_vms: VmInstance[];
+  current_assignment_details: License | null; // Pass the full License object which contains assigned_to_name and assigned_to_type
+  on_assign: (license_id: number, target_type: 'pc' | 'vm', target_id: number) => Promise<void>;
+  on_unassign: (license_id: number) => Promise<void>;
+  is_loading: boolean; // Parent loading state for assign/unassign actions
+  error: string | null;    // Parent error state
 }
 
 export default function ManageLicenseAssignment({
-  allPcs,
-  allVms,
-  currentAssignment,
-  isLoading,
-  error,
-  onAssign,
-  onUnassign,
+  license_id,
+  license_name,
+  all_pcs,
+  all_vms,
+  current_assignment_details,
+  on_assign,
+  on_unassign,
+  is_loading,
+  error
 }: ManageLicenseAssignmentProps) {
 
-  const [selectedPc, setSelectedPc] = useState<string>(''); // Store ID as string for select value
-  const [selectedVm, setSelectedVm] = useState<string>(''); // Store ID as string for select value
+  const [selectedTarget, setSelectedTarget] = useState<string>('');
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  // Reset selections when assignment changes (e.g., after assign/unassign)
+  const isCurrentlyAssigned = !!current_assignment_details?.assigned_to_type;
+  const assignedToName = current_assignment_details?.assigned_to_name;
+  const assignedToTypeDisplay = current_assignment_details?.assigned_to_type === 'pc' ? 'PC' : current_assignment_details?.assigned_to_type === 'vm' ? 'VM' : null;
+
+  const availableTargets = useMemo(() => {
+    const pcOptions = all_pcs.map(pc => ({
+      value: `pc-${pc.pc_id}`,
+      label: `PC: ${pc.pc_name || `ID: ${pc.pc_id}`}`,
+    }));
+    const vmOptions = all_vms.map(vm => ({
+      value: `vm-${vm.vm_id}`,
+      label: `VM: ${vm.vm_name || `ID: ${vm.vm_id}`}`,
+    }));
+    return [...pcOptions, ...vmOptions].sort((a, b) => a.label.localeCompare(b.label));
+  }, [all_pcs, all_vms]);
+
+  // Effect to potentially pre-select the target in dropdown if already assigned
+  // This is optional for visual consistency, main thing is display below
   useEffect(() => {
-    setSelectedPc('');
-    setSelectedVm('');
-  }, [currentAssignment]);
+    if (isCurrentlyAssigned && current_assignment_details?.assigned_to_id) {
+      const currentTargetValue = `${current_assignment_details.assigned_to_type}-${current_assignment_details.assigned_to_id}`;
+      // Check if this target is actually in availableTargets to prevent invalid select state
+      if (availableTargets.some(t => t.value === currentTargetValue)) {
+        // setSelectedTarget(currentTargetValue); // Commenting out for now to allow easy re-assignment
+                                             // User can see current assignment below and select a new one if needed.
+      }
+    } else {
+      setSelectedTarget(''); // Clear selection if unassigned
+    }
+  // }, [isCurrentlyAssigned, current_assignment_details, availableTargets]); // Dependency on availableTargets removed for simplicity now
+  }, [isCurrentlyAssigned, current_assignment_details]);
 
-  const handleAssignClick = () => {
-    if (selectedPc) {
-      onAssign('pc', parseInt(selectedPc, 10));
-    } else if (selectedVm) {
-      onAssign('vm', parseInt(selectedVm, 10));
+  const handleAssignClick = async () => {
+    if (!selectedTarget) {
+      setActionError('Please select a PC or VM to assign the license to.');
+      return;
+    }
+    const [type, idStr] = selectedTarget.split('-');
+    const id = parseInt(idStr, 10);
+
+    if (!type || isNaN(id) || (type !== 'pc' && type !== 'vm')) {
+      setActionError('Invalid target selected.');
+      return;
+    }
+
+    // Prevent re-assigning to the same target if it's already assigned there
+    if (isCurrentlyAssigned && current_assignment_details?.assigned_to_type === type && current_assignment_details?.assigned_to_id === id) {
+      setActionError(`This license is already assigned to ${assignedToName}. Select a different target to re-assign.`);
+      return;
+    }
+
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await on_assign(license_id, type as 'pc' | 'vm', id);
+      // setSelectedTarget(''); // Don't reset dropdown, parent will refresh and effect will run
+    } catch (err) {
+      console.error("Assign license failed from ManageLicenseAssignment:", err);
+      setActionError(err instanceof Error ? err.message : 'Failed to assign license');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleUnassignClick = () => {
-    onUnassign();
+  const handleUnassignClick = async () => {
+    if (!isCurrentlyAssigned) return; // Should not happen if button is hidden
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await on_unassign(license_id);
+    } catch (err) {
+      console.error("Unassign license failed from ManageLicenseAssignment:", err);
+      setActionError(err instanceof Error ? err.message : 'Failed to unassign license');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  // Determine current assignment details for display
-  const getAssignmentDetails = () => {
-    if (!currentAssignment) return "Not assigned";
-    let targetName = 'Unknown';
-    if (currentAssignment.pcId) {
-      const pc = allPcs.find(p => p.pcId === currentAssignment.pcId);
-      targetName = pc ? `${pc.activeUser || 'Unknown User'}'s PC (${pc.pcName || '-'})` : `PC ID: ${currentAssignment.pcId}`;
-    } else if (currentAssignment.vmId) {
-      const vm = allVms.find(v => v.vmId === currentAssignment.vmId);
-      targetName = vm ? `${vm.vmName} (ID: ${vm.vmId})` : `VM ID: ${currentAssignment.vmId}`;
-    }
-    return `Assigned to: ${targetName}${currentAssignment.assignedOn ? ' on ' + new Date(currentAssignment.assignedOn).toLocaleDateString() : ''}`;
-  };
+  if (is_loading && !actionLoading) return <p>Loading assignment information...</p>;
+  if (error && !actionError) return <p style={{ color: 'red' }}>Error: {error}</p>; 
 
   return (
     <div>
-      {isLoading && <p>Loading assignment details...</p>}
-      {error && <p style={{ color: 'red', fontSize: '0.9rem' }}>Error: {error}</p>}
+      <h4 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '0.75rem' }}>
+        License: <span style={{fontWeight: 'bold'}}>{license_name || `ID: ${license_id}`}</span>
+      </h4>
 
-      {/* Current Assignment Display */}
-      <div style={{ marginBottom: '1rem', fontSize: '0.95rem', fontWeight: '500' }}>
-        {getAssignmentDetails()}
+      {/* Assignment Controls - Always Visible */}
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
+        <select
+          value={selectedTarget}
+          onChange={(e) => {
+            setSelectedTarget(e.target.value);
+            setActionError(null); // Clear error on new selection
+          }}
+          disabled={actionLoading} 
+          style={{
+            flexGrow: 1,
+            padding: '0.5rem',
+            borderRadius: '0.25rem',
+            border: '1px solid #d1d5db',
+            fontSize: '0.875rem',
+          }}
+        >
+          <option value="">Select PC/VM to assign...</option>
+          {availableTargets.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={handleAssignClick}
+          disabled={actionLoading || !selectedTarget}
+          style={{
+            padding: '0.5rem 0.75rem',
+            borderRadius: '0.25rem',
+            border: 'none',
+            backgroundColor: (actionLoading || !selectedTarget) ? '#9ca3af' : '#2563eb',
+            color: 'white',
+            fontSize: '0.875rem',
+            cursor: (actionLoading || !selectedTarget) ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.25rem'
+          }}
+        >
+          {actionLoading && selectedTarget ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }}/> : <PlusCircle size={16} />}
+          {isCurrentlyAssigned ? 'Update Assignment' : 'Assign'}
+        </button>
       </div>
 
-      {/* Assignment Controls */}
-      {!currentAssignment ? (
-        // Show controls to assign
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          {/* PC Dropdown */}
-          <select
-            value={selectedPc}
-            onChange={(e) => {
-              setSelectedPc(e.target.value);
-              if (e.target.value) setSelectedVm(''); // Clear VM if PC selected
-            }}
-            disabled={isLoading || selectedVm !== ''}
-            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-          >
-            <option value="">Assign to PC...</option>
-            {allPcs.map(pc => (
-              <option key={pc.pcId} value={pc.pcId}> 
-                {pc.activeUser || 'N/A'} - {pc.pcName || 'N/A'} (ID: {pc.pcId})
-              </option>
-            ))}
-          </select>
-
-          <span>OR</span>
-
-          {/* VM Dropdown */}
-          <select
-            value={selectedVm}
-            onChange={(e) => {
-              setSelectedVm(e.target.value);
-              if (e.target.value) setSelectedPc(''); // Clear PC if VM selected
-            }}
-            disabled={isLoading || selectedPc !== ''}
-            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-          >
-            <option value="">Assign to VM...</option>
-            {allVms.map(vm => (
-              <option key={vm.vmId} value={vm.vmId}>
-                {vm.vmName} (ID: {vm.vmId})
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleAssignClick}
-            disabled={isLoading || (!selectedPc && !selectedVm)}
-            style={{ padding: '0.5rem 1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-          >
-            Assign
-          </button>
-        </div>
-      ) : (
-        // Show button to unassign
-        <button
-          onClick={handleUnassignClick}
-          disabled={isLoading}
-          style={{ padding: '0.5rem 1rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          Unassign License
-        </button>
-      )}
+      {/* Current Assignment Status and Unassign Button */}
+      <div style={{ marginTop: '1rem', padding: '0.75rem', border: isCurrentlyAssigned ? '1px solid #e5e7eb' : 'none', borderRadius: '0.25rem', backgroundColor: isCurrentlyAssigned ? '#f9fafb' : 'transparent' }}>
+        {isCurrentlyAssigned ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <p style={{ margin: 0, fontSize: '0.875rem' }}>
+              Currently assigned to: <span style={{ fontWeight: 'bold' }}>{assignedToName}</span> ({assignedToTypeDisplay})
+            </p>
+            <button
+              onClick={handleUnassignClick}
+              disabled={actionLoading}
+              title="Unassign License"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: actionLoading ? '#9ca3af' : '#dc2626',
+                cursor: actionLoading ? 'not-allowed' : 'pointer',
+                padding: '0.25rem'
+              }}
+            >
+              {actionLoading ? <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <XCircle size={18} />}
+            </button>
+          </div>
+        ) : (
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
+            This license is not currently assigned.
+          </p>
+        )}
+      </div>
+      {actionError && <p style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.5rem' }}>{actionError}</p>}
     </div>
   );
 } 
