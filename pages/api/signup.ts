@@ -16,11 +16,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const { email, password } = req.body;
+    const { email, password, name, surname } = req.body;
 
     // Add more robust validation as needed
-    if (!email || !password || !email.includes('@') || password.trim().length < 8) {
-      return res.status(400).json({ message: 'Invalid input - email and password (min 8 chars) are required.' });
+    if (!name || !surname || !email || !password || !email.includes('@') || password.trim().length < 8) {
+      return res.status(400).json({ message: 'Invalid input - Name, Surname, Email, and Password (min 8 chars) are required.' });
     }
 
     // --- Check if user exists using email ---
@@ -38,14 +38,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // --- Generate default username from email --- 
-    const userName = email.split('@')[0]; // Take part before @
+    const user_name = `${name.trim()} ${surname.trim()}`;
 
     // --- Store User in Database ---
     // Include the generated user_name in the insert
     const insertSql = 'INSERT INTO users (email, password_hash, salt, user_name) VALUES (?, ?, ?, ?)';
-    const insertId = await insert(insertSql, [email, hashedPassword, salt, userName]);
+    const insertId = await insert(insertSql, [email, hashedPassword, salt, user_name]);
 
-    console.log(`Signup API: User created with ID: ${insertId}, UserName: ${userName}`);
+    console.log(`Signup API: User created with ID: ${insertId}, UserName: ${user_name}`);
 
     // Return success - user will still need to login separately via next-auth
     return res.status(201).json({ message: 'User created successfully! Please log in.' });

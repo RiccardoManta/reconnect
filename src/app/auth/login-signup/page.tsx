@@ -110,6 +110,8 @@ const styles: { [key: string]: React.CSSProperties } = {
 
 export default function LoginSignupPage() {
   const [isLoginView, setIsLoginView] = useState(true);
+  const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState(''); // For signup
@@ -162,7 +164,7 @@ export default function LoginSignupPage() {
       const response = await fetch('/api/signup', { // Replace with your actual signup endpoint
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email, password }),
+         body: JSON.stringify({ name, surname, email, password }),
       });
 
       const data = await response.json();
@@ -213,6 +215,36 @@ export default function LoginSignupPage() {
         )}
 
         <form onSubmit={isLoginView ? handleLoginSubmit : handleSignupSubmit} style={styles.form}>
+          {!isLoginView && (
+            <>
+              <div style={styles.inputGroup}>
+                <label htmlFor="name" style={styles.label}>First Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="John"
+                  style={styles.input}
+                  disabled={loading}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label htmlFor="surname" style={styles.label}>Last Name</label>
+                <input
+                  type="text"
+                  id="surname"
+                  value={surname}
+                  onChange={(e) => setSurname(e.target.value)}
+                  required
+                  placeholder="Doe"
+                  style={styles.input}
+                  disabled={loading}
+                />
+              </div>
+            </>
+          )}
           <div style={styles.inputGroup}>
             <label htmlFor="email" style={styles.label}>Email Address</label>
             <input
