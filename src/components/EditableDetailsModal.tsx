@@ -93,6 +93,7 @@ interface EditableDetailsModalProps {
   onDelete?: () => Promise<void>;
   excludeFields?: string[];
   children?: React.ReactNode;
+  isReadOnly?: boolean;
 }
 
 const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
@@ -104,7 +105,8 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
   onSave,
   onDelete,
   excludeFields = [],
-  children
+  children,
+  isReadOnly
 }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -277,9 +279,9 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
             color: '#111827',
           }}>{title}</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {!isEditMode && (
+            {!isEditMode && !isReadOnly && (
               <button
-                onClick={() => setIsEditMode(true)}
+                onClick={() => { setIsEditMode(true); setError(null); setSaveSuccess(false); }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -293,6 +295,7 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
                   border: 'none',
                   cursor: 'pointer',
                 }}
+                title="Edit entry"
               >
                 <Edit size={16} />
                 Edit
@@ -306,6 +309,7 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
                 cursor: 'pointer',
                 padding: '0.5rem',
               }}
+              title="Close"
             >
               <X size={24} />
             </button>
@@ -433,7 +437,7 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
           alignItems: 'center',
           marginTop: '1.5rem',
         }}>
-          {isEditMode && onDelete && (
+          {isEditMode && onDelete && !isReadOnly && (
             <button 
               onClick={onDelete} 
               disabled={isSaving || saveSuccess}
@@ -477,20 +481,20 @@ const EditableDetailsModal: React.FC<EditableDetailsModalProps> = ({
                 </button>
                 <button
                   onClick={saveSuccess ? onClose : handleSubmit} 
-                  disabled={isSaving}
+                  disabled={isSaving || isReadOnly}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.25rem',
                     padding: '0.5rem 0.75rem',
                     borderRadius: '0.25rem',
-                    backgroundColor: isSaving ? '#9ca3af' : '#39A2DB',
+                    backgroundColor: isSaving ? '#9ca3af' : (isReadOnly ? '#9ca3af' : '#39A2DB'),
                     color: 'white',
                     fontSize: '0.875rem',
                     fontWeight: '500',
                     border: 'none',
-                    cursor: isSaving ? 'not-allowed' : 'pointer',
-                    opacity: isSaving ? 0.7 : 1,
+                    cursor: (isSaving || isReadOnly) ? 'not-allowed' : 'pointer',
+                    opacity: (isSaving || isReadOnly) ? 0.7 : 1,
                     transition: 'background-color 0.2s ease-in-out',
                   }}
                 >

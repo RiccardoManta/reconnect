@@ -1,5 +1,7 @@
 import { query, queryOne } from '@/db/dbUtils';
 import { RowDataPacket } from 'mysql2/promise';
+import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 // Define expected return structure
 export interface UserPermissionContext {
@@ -86,4 +88,80 @@ export async function getUserPermissions(userId: number): Promise<UserPermission
         // Fallback to default permissions on any error during fetch
         return { permissionName: 'Default', accessiblePlatformIds: [] };
     }
+}
+
+// --- Added for API Route Protection ---
+
+interface ApiPermissionResult {
+    isAuthorized: boolean;
+    userId?: number;
+    userPermissions?: UserPermissionContext;
+    errorResponse?: NextResponse; // Only present if not authorized
+}
+
+/**
+ * Checks if the current user (from session) has the required permission for an API action.
+ * 
+ * @param request The NextRequest object.
+ * @param requiredPermissions An array of permission names (e.g., ['Write', 'Admin']) that allow the action.
+ *                          If user has any of these, they are authorized.
+ * @returns Promise<ApiPermissionResult>
+ */
+export async function checkApiPermission(
+    request: NextRequest,
+    requiredPermissions: string[]
+): Promise<ApiPermissionResult> {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+
+    if (!token || !token.id) {
+        console.warn('checkApiPermission: User not authenticated or token missing ID.');
+        return {
+            isAuthorized: false,
+            errorResponse: NextResponse.json({ error: 'Authentication required.' }, { status: 401 }),
+        };
+    }
+
+    const userId = parseInt(token.id as string, 10);
+    if (isNaN(userId)) {
+        console.error('checkApiPermission: User ID from token is not a valid number:', token.id);
+        return {
+            isAuthorized: false,
+            errorResponse: NextResponse.json({ error: 'Invalid user authentication.' }, { status: 401 }),
+        };
+    }
+
+    try {
+        const userPermissions = await getUserPermissions(userId);
+        
+        if (requiredPermissions.includes(userPermissions.permissionName)) {
+            return {
+                isAuthorized: true,
+                userId,
+                userPermissions,
+            };
+        } else {
+            console.warn(`checkApiPermission: User ${userId} with permission '${userPermissions.permissionName}' does not have required permissions: ${requiredPermissions.join(', ')}.`);
+            return {
+                isAuthorized: false,
+                userId, // Still return userId for logging if needed
+                userPermissions, // Still return permissions for logging
+                errorResponse: NextResponse.json(
+                    { error: 'Forbidden. You do not have the necessary permissions to perform this action.' }, 
+                    { status: 403 }
+                ),
+            };
+        }
+    } catch (error) {
+        console.error(`checkApiPermission: Error during permission check for user ${userId}:`, error);
+        return {
+            isAuthorized: false,
+            errorResponse: NextResponse.json({ error: 'Internal server error during permission check.' }, { status: 500 }),
+        };
+    }
+}
+
+// Example of how to use checkAdminPermission (specific to Admin only)
+// This uses the checkApiPermission internally.
+export async function checkAdminPermission(request: NextRequest): Promise<ApiPermissionResult> {
+    return checkApiPermission(request, ['Admin']);
 } 

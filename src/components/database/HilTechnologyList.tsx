@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { CircuitBoard, RefreshCw, PlusCircle } from 'lucide-react';
+import { CircuitBoard, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { HilTechnology, TestBench } from '../../types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 // ... (ModalField types definition) ...
@@ -25,6 +26,9 @@ export default function HilTechnologyList() {
   const [selected_technology, setSelectedTechnology] = useState<HilTechnology | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [test_benches, setTestBenches] = useState<TestBench[]>([]); // State for related TestBenches
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   // Fetch related TestBench data for dropdowns
   const fetchRelatedData = async () => {
@@ -72,13 +76,14 @@ export default function HilTechnologyList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     // fetchRelatedData(); // No longer needed here
     setIsAddModalOpen(true);
   };
 
   const handleRowClick = (tech: HilTechnology) => {
-      // fetchRelatedData(); // No longer needed here
-      setSelectedTechnology(tech);
+    // fetchRelatedData(); // No longer needed here
+    setSelectedTechnology(tech);
   }
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
@@ -227,9 +232,14 @@ export default function HilTechnologyList() {
         </div>
         <button
           onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new HIL technology"
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new technology" : "Add new HIL technology"}
         >
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
           Add Technology
         </button>
@@ -268,8 +278,8 @@ export default function HilTechnologyList() {
                       key={tech.tech_id}
                       style={styles.tableBodyRow}
                       onClick={() => handleRowClick(tech)}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f4f8'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
                       <td style={styles.tableBodyCell}>{tech.hil_name ?? 'N/A'}</td>
                       <td style={styles.tableBodyCell}>{tech.possible_tests ?? 'N/A'}</td>
@@ -295,8 +305,8 @@ export default function HilTechnologyList() {
           data={selected_technology}
           fields={detailsFields}
           onSave={handleUpdateTechnology}
-          title={`Edit HIL Technology (ID: ${selected_technology.tech_id})`}
-          // Optional: Add onDelete prop if delete functionality is needed
+          title={`Edit HIL Technology: ${selected_technology.hil_name || 'N/A'}`}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -307,6 +317,7 @@ export default function HilTechnologyList() {
           title="Add New HIL Technology"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

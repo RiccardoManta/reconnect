@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for Software data (matches the one in ../route.ts)
 interface SoftwareFromDb extends RowDataPacket {
@@ -55,8 +56,14 @@ export async function PUT(
     request: NextRequest,
     context: any // Temporarily use 'any' for build debugging
 ): Promise<NextResponse> {
+  const { id } = context.params;
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
-    const id = parseInt(context.params.id, 10);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid Software ID' }, { status: 400 });
     }
@@ -133,8 +140,14 @@ export async function DELETE(
     request: NextRequest, 
     context: any // Temporarily use 'any' for build debugging
 ): Promise<NextResponse> {
+  const { id } = context.params;
+  // API Protection: Only Admins and Edit users can delete
+  const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
-    const id = parseInt(context.params.id, 10);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid Software ID' }, { status: 400 });
     }

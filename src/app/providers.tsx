@@ -2,6 +2,7 @@
 
 import { SessionProvider } from 'next-auth/react';
 import React from 'react';
+import { PermissionProvider } from '@/contexts/PermissionContext';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -9,5 +10,11 @@ interface ProvidersProps {
 
 export default function Providers({ children }: ProvidersProps) {
   // No need to pass session prop here in App Router
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      <PermissionProvider>
+        {children}
+      </PermissionProvider>
+    </SessionProvider>
+  );
 } 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for PC Overview data (same as in parent route)
 interface PcOverview extends RowDataPacket {
@@ -71,6 +72,13 @@ export async function DELETE(
     // caused persistent build errors in the Docker environment (Next.js 15.3.0).
     context: any 
 ): Promise<NextResponse> {
+    const { pc_id } = context.params;
+    // API Protection: Only Admins and Edit users can delete
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     const pcIdStr = context?.params?.pc_id; // Access should still work
     if (typeof pcIdStr !== 'string') {
         return NextResponse.json({ error: 'Invalid or missing PC ID in params' }, { status: 400 });

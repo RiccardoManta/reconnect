@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
+import { ProjectOverviewRequestBody } from '@/types/database';
 
 // Interface for Project Overview data returned by API
 interface ProjectOverview extends RowDataPacket {
@@ -18,22 +20,6 @@ interface ProjectOverview extends RowDataPacket {
     ticket_notes: string | null;
     wetbench_id: number | null;
     wetbench_name?: string | null;
-}
-
-// Interface for POST/PUT request body
-interface ProjectOverviewRequestBody {
-    overview_id?: number;
-    bench_id: number;
-    platform_id?: number | string | null;
-    platform_name?: string;
-    system_supplier?: string;
-    wetbench_info?: string;
-    actuator_info?: string;
-    hardware?: string;
-    software?: string;
-    model_version?: string;
-    ticket_notes?: string;
-    wetbench_id?: number | string | null;
 }
 
 // Helper function to get or create platform_id
@@ -99,7 +85,13 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new test bench project overview
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
     const body: ProjectOverviewRequestBody = await request.json();
     
@@ -229,7 +221,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // PUT method to update an existing test bench project overview
-export async function PUT(request: NextRequest): Promise<NextResponse> {
+export async function PUT(request: NextRequest, context: any): Promise<NextResponse> {
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
     const body: ProjectOverviewRequestBody = await request.json();
     

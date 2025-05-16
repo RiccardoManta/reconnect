@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Archive, RefreshCw, PlusCircle } from 'lucide-react';
+import { Archive, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { ModelStand } from '../../types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 // (Consider moving to a shared file)
@@ -24,6 +25,9 @@ export default function ModelStandsList() {
   const [error, setError] = useState<string | null>(null);
   const [selectedModelStand, setSelectedModelStand] = useState<ModelStand | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   const fetchData = async () => {
     setLoading(true);
@@ -48,7 +52,12 @@ export default function ModelStandsList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
+  };
+
+  const handleRowClick = (model: ModelStand) => {
+    setSelectedModelStand(model);
   };
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
@@ -164,9 +173,14 @@ export default function ModelStandsList() {
         </div>
         <button
           onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new model stand"
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new model stand" : "Add new model stand"}
         >
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
           Add Model Stand
         </button>
@@ -199,7 +213,7 @@ export default function ModelStandsList() {
                 modelStands.map((model) => (
                   <tr key={model.model_id}
                     style={styles.tableBodyRow}
-                    onClick={() => setSelectedModelStand(model)}
+                    onClick={() => handleRowClick(model)}
                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
@@ -224,6 +238,7 @@ export default function ModelStandsList() {
           data={selectedModelStand}
           fields={detailsFields}
           onSave={handleUpdateModelStand}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -234,6 +249,7 @@ export default function ModelStandsList() {
           title="Add New Model Stand"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

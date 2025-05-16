@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Cloud, RefreshCw, PlusCircle, ListChecks, Edit3 } from 'lucide-react';
+import { Cloud, RefreshCw, PlusCircle, ListChecks, Edit3, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { VmInstance, Software } from '../../types/database';
 import ManagePCSwAssignments from './ManagePCSwAssignments';
 import ManageVMLicenseAssignments from './ManageVMLicenseAssignments';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 // (Consider moving to a shared file)
@@ -36,6 +37,9 @@ export default function VmInstancesList() {
   const [error, setError] = useState<string | null>(null);
   const [selectedVmInstance, setSelectedVmInstance] = useState<VmInstance | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   // State for software relationship management
   const [allSoftware, setAllSoftware] = useState<Software[]>([]);
@@ -134,6 +138,7 @@ export default function VmInstancesList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
@@ -217,6 +222,7 @@ export default function VmInstancesList() {
 
   // --- Handlers for Assigning/Unassigning Software to VM --- 
   const handleAssignVmSoftware = async (software_id: number) => {
+    if (isReadOnly || permissionsLoading) return;
     if (!selectedVmInstance?.vm_id) {
       setAssignmentError("No VM selected to assign software to.");
       return;
@@ -243,6 +249,7 @@ export default function VmInstancesList() {
   };
 
   const handleUnassignVmSoftware = async (software_id: number) => {
+    if (isReadOnly || permissionsLoading) return;
     if (!selectedVmInstance?.vm_id) {
       setAssignmentError("No VM selected to unassign software from.");
       return;
@@ -268,6 +275,7 @@ export default function VmInstancesList() {
 
   // --- Handlers for Assigning/Unassigning Licenses to VM ---
   const handleUnassignVmLicense = async (license_id: number) => {
+    if (isReadOnly || permissionsLoading) return;
     if (!selectedVmInstance?.vm_id) {
       setLicenseAssignmentError("No VM selected to unassign license from.");
       return;
@@ -370,9 +378,14 @@ export default function VmInstancesList() {
         </div>
         <button
           onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new VM instance"
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new VM" : "Add new VM Instance"}
         >
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
           Add VM Instance
         </button>
@@ -432,6 +445,7 @@ export default function VmInstancesList() {
           fields={detailsFields}
           onSave={handleUpdateVmInstance}
           title={`Edit VM Instance: ${selectedVmInstance.vm_name}`}
+          isReadOnly={isReadOnly}
         >
           {/* Software Assignment Section */}
           <div style={styles.assignmentSection}>
@@ -444,6 +458,7 @@ export default function VmInstancesList() {
               on_unassign={handleUnassignVmSoftware}
               is_loading={assignmentLoading}
               error={assignmentError}
+              isReadOnly={isReadOnly}
             />
           </div>
 
@@ -456,6 +471,7 @@ export default function VmInstancesList() {
               on_unassign={handleUnassignVmLicense}
               is_loading={licenseAssignmentLoading}
               error={licenseAssignmentError}
+              isReadOnly={isReadOnly}
             />
           </div>
         </EditableDetailsModal>
@@ -468,6 +484,7 @@ export default function VmInstancesList() {
           title="Add New VM Instance"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

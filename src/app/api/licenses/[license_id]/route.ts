@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
+import { LicenseRequestBody } from '@/types/database';
 
 // Interface for License data (matches the one in parent route)
 interface License extends RowDataPacket {
@@ -86,6 +88,12 @@ export async function DELETE(request: NextRequest, context: any): Promise<NextRe
         return NextResponse.json({ error: 'Invalid license ID format' }, { status: 400 });
     }
 
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
         const affectedRows = await dbUtils.update(
             `DELETE FROM licenses WHERE license_id = ?`,
@@ -117,103 +125,56 @@ export async function DELETE(request: NextRequest, context: any): Promise<NextRe
 
 // PUT method to update an existing license by ID
 export async function PUT(request: NextRequest, context: any): Promise<NextResponse> {
-    const licenseIdStr = context?.params?.license_id;
-    if (typeof licenseIdStr !== 'string') {
-        return NextResponse.json({ error: 'Invalid or missing license ID in URL path' }, { status: 400 });
-    }
-    const licenseId = parseInt(licenseIdStr, 10);
-    if (isNaN(licenseId)) {
-        return NextResponse.json({ error: 'Invalid license ID format' }, { status: 400 });
+    const { license_id } = context.params;
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
     }
 
     try {
-        const body: LicensePutBody = await request.json();
-
-        if (body.license_id !== undefined && body.license_id !== licenseId) {
-            return NextResponse.json({ error: 'License ID mismatch between URL and request body' }, { status: 400 });
-        }
-        if (body.software_id === undefined || body.software_id === null) {
-            return NextResponse.json({ error: 'Software ID (software_id) is required' }, { status: 400 });
+        const body: Partial<LicenseRequestBody> = await request.json();
+        if (Object.keys(body).length === 0) {
+            return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
         }
 
-        const affectedRows = await dbUtils.transaction<number>(async (connection) => {
-            const softwareExists = await connection.query<RowDataPacket[]>('SELECT software_id FROM software WHERE software_id = ?', [body.software_id]);
-            if (!softwareExists[0] || softwareExists[0].length === 0) {
-                throw new Error(`Referenced Software with ID ${body.software_id} not found.`);
-            }
+        const fieldsToUpdate: string[] = [];
+        const values: any[] = [];
 
-            const updateQuery = `
-                UPDATE licenses SET
-                    software_id = ?,
-                    license_name = ?,
-                    license_description = ?,
-                    license_number = ?,
-                    dongle_number = ?,
-                    activation_key = ?,
-                    system_id = ?,
-                    license_user = ?,
-                    maintenance_end = ?,
-                    owner = ?,
-                    license_type = ?,
-                    remarks = ?
-                WHERE license_id = ?
-            `;
-            const updateValues = [
-                body.software_id,
-                body.license_name || null,
-                body.license_description || null,
-                body.license_number || null,
-                body.dongle_number || null,
-                body.activation_key || null,
-                body.system_id || null,
-                body.license_user || null,
-                body.maintenance_end || null,
-                body.owner || null,
-                body.license_type || null,
-                body.remarks || null,
-                licenseId
-            ];
-
-            const [result] = await connection.query<ResultSetHeader>(updateQuery, updateValues);
-            if (result.affectedRows === 0) {
-                const licenseExists = await connection.query<RowDataPacket[]>('SELECT license_id FROM licenses WHERE license_id = ?', [licenseId]);
-                if (!licenseExists[0] || licenseExists[0].length === 0) {
-                    throw new Error(`License with ID ${licenseId} not found.`);
-                }
+        // Dynamically build the SET clause
+        (Object.keys(body) as Array<keyof LicenseRequestBody>).forEach(key => {
+            if (body[key] !== undefined && key !== 'software_id') { // software_id is not usually updatable directly here
+                fieldsToUpdate.push(`${key} = ?`);
+                values.push(body[key]);
             }
-            return result.affectedRows;
         });
+         if (body.software_id !== undefined) { // Allow updating software_id if provided
+            fieldsToUpdate.push('software_id = ?');
+            values.push(body.software_id);
+        }
 
+        if (fieldsToUpdate.length === 0) {
+            return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 });
+        }
+
+        values.push(license_id); // For the WHERE clause
+
+        const affectedRows = await dbUtils.update(
+            `UPDATE licenses SET ${fieldsToUpdate.join(', ')} WHERE license_id = ?`,
+            values
+        );
+
+        if (affectedRows === 0) {
+            return NextResponse.json({ error: 'License not found or no changes made' }, { status: 404 });
+        }
         const updatedLicense = await dbUtils.queryOne<License>(
-            `SELECT * FROM licenses WHERE license_id = ?`,
-            [licenseId]
+            'SELECT l.*, s.software_name FROM licenses l LEFT JOIN software s ON l.software_id = s.software_id WHERE l.license_id = ?',
+            [license_id]
         );
+        return NextResponse.json({ success: true, license: updatedLicense });
 
-        if (!updatedLicense) {
-            return NextResponse.json({ error: 'Failed to retrieve license after update.' }, { status: 404 });
-        }
-
-        return NextResponse.json({ 
-            success: true, 
-            message: affectedRows > 0 ? 'License updated successfully' : 'License update successful (no changes detected)', 
-            license: updatedLicense
-        });
-
-    } catch (error: unknown) {
-        console.error(`[API PUT /api/licenses/${licenseId}] Error:`, error);
-        const message = error instanceof Error ? error.message : 'Unknown error';
-         if (message.includes('foreign key constraint fails')) {
-            return NextResponse.json(
-                { error: `Failed to update license: Invalid software_id.`, details: message },
-                { status: 400 }
-            );
-        }
-         if (message.includes('not found')) {
-             return NextResponse.json({ error: message }, { status: 404 });
-         }
-        return NextResponse.json(
-            { error: 'Failed to update license', details: message },
-            { status: 500 }
-        );
+    } catch (error) {
+        console.error(`Error updating license ${license_id}:`, error);
+        return NextResponse.json({ error: 'Failed to update license' }, { status: 500 });
     }
 } 

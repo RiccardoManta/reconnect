@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import mysql, { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
+import mysql, { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
 dotenv.config(); // Load .env variables at the very beginning
 
@@ -19,7 +19,7 @@ const pool: Pool = mysql.createPool({
 pool
   .getConnection()
   .then((connection) => {
-    console.log('Successfully connected to MySQL database pool.');
+    // console.log('Successfully connected to MySQL database pool.'); // Quieter log
     connection.release();
   })
   .catch((err) => {
@@ -32,80 +32,140 @@ pool
 
 // Execute a query with parameters and return results (array of rows)
 // Define a generic type for query results, defaulting to RowDataPacket[]
-export async function query<T extends mysql.RowDataPacket[]>(sql: string, params: any[] = []): Promise<T> {
-  let connection: PoolConnection | null = null;
+export async function query<T extends mysql.RowDataPacket[]>(
+  sql: string, 
+  params: any[] = [], 
+  providedConnection?: PoolConnection | null 
+): Promise<T> {
+  let connection: PoolConnection | null = providedConnection || null;
+  const releaseAfterUse = !providedConnection;
+
   try {
-    connection = await pool.getConnection();
+    if (!connection) {
+      connection = await pool.getConnection();
+    }
     const [rows] = await connection.query<T>(sql, params);
     return rows;
   } catch (err) {
     console.error('Database query error:', err);
     throw err; // Re-throw the error to be handled by the caller
   } finally {
-    if (connection) {
+    if (releaseAfterUse && connection) {
       connection.release();
     }
   }
 }
 
 // Execute a query with parameters and return a single row
-export async function queryOne<T extends mysql.RowDataPacket>(sql: string, params: any[] = []): Promise<T | null> {
-  let connection: PoolConnection | null = null;
+export async function queryOne<T extends mysql.RowDataPacket>(
+  sql: string, 
+  params: any[] = [], 
+  providedConnection?: PoolConnection | null
+): Promise<T | null> {
+  let connection: PoolConnection | null = providedConnection || null;
+  const releaseAfterUse = !providedConnection;
+
   try {
-    // Apply the same explicit connection handling to queryOne for consistency
-    connection = await pool.getConnection();
+    if (!connection) {
+      connection = await pool.getConnection();
+    }
     const [rows] = await connection.query<T[]>(sql, params); // Query returns array
-    const result = rows[0] || null;
-    return result;
+    return rows[0] || null;
   } catch (err) {
     console.error('Database queryOne error:', err);
     throw err;
   } finally {
-    if (connection) {
+    if (releaseAfterUse && connection) {
       connection.release();
     }
   }
 }
 
 // Execute an insert query and return the last inserted ID
-export async function insert(sql: string, params: any[] = []): Promise<number | bigint> {
+export async function insert(
+  sql: string,
+  params: any[] = [],
+  providedConnection?: PoolConnection | null
+): Promise<number | bigint> {
+  let connection: PoolConnection | null = providedConnection || null;
+  const releaseAfterUse = !providedConnection;
+
   try {
-    const [result] = await pool.query<ResultSetHeader>(sql, params);
+    if (!connection) {
+      connection = await pool.getConnection();
+    }
+    const [result] = await connection.query<ResultSetHeader>(sql, params);
     return result.insertId;
   } catch (err) {
     console.error('Database insert error:', err);
     throw err;
+  } finally {
+    if (releaseAfterUse && connection) {
+      connection.release();
+    }
   }
 }
 
 // Execute an update or delete query and return the number of affected rows
-export async function update(sql: string, params: any[] = []): Promise<number> {
+export async function update(
+  sql: string,
+  params: any[] = [],
+  providedConnection?: PoolConnection | null
+): Promise<number> {
+  let connection: PoolConnection | null = providedConnection || null;
+  const releaseAfterUse = !providedConnection;
+
   try {
-    const [result] = await pool.query<ResultSetHeader>(sql, params);
+    if (!connection) {
+      connection = await pool.getConnection();
+    }
+    const [result] = await connection.query<ResultSetHeader>(sql, params);
     return result.affectedRows;
   } catch (err) {
     console.error('Database update/delete error:', err);
     throw err;
+  } finally {
+    if (releaseAfterUse && connection) {
+      connection.release();
+    }
   }
 }
 
 // Execute a query that doesn't need to return specific data (e.g., DDL)
-export async function run(sql: string, params: any[] = []): Promise<void> {
+export async function run(
+  sql: string,
+  params: any[] = [],
+  providedConnection?: PoolConnection | null
+): Promise<void> {
+  let connection: PoolConnection | null = providedConnection || null;
+  const releaseAfterUse = !providedConnection;
+
   try {
-    await pool.query(sql, params);
+    if (!connection) {
+      connection = await pool.getConnection();
+    }
+    await connection.query(sql, params);
   } catch (err) {
     console.error('Database run error:', err);
     throw err;
+  } finally {
+    if (releaseAfterUse && connection) {
+      connection.release();
+    }
   }
 }
 
 // Execute a transaction with multiple queries
 // The callback should be an async function that accepts a PoolConnection
-export async function transaction<T>(callback: (connection: PoolConnection) => Promise<T>): Promise<T> {
+export async function transaction<T>(
+  callback: (connection: PoolConnection) => Promise<T>
+): Promise<T> {
   let connection: PoolConnection | null = null;
   try {
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    // The callback now uses the passed-in connection, 
+    // and the dbUtils functions (query, queryOne, insert, update, run) will use it if passed.
     const result = await callback(connection);
     await connection.commit();
     return result;

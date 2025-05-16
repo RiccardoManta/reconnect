@@ -6,7 +6,9 @@ import {
     Network, // Added for Connect
     CalendarDays, // Added for Bookings
     Activity, // Added for Activities
-    FlaskConical // Added for Testautomation
+    FlaskConical, // Added for Testautomation
+    LayoutGrid, // Added for SW-Installation
+    Server // Added for Benches
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
@@ -130,6 +132,22 @@ export default function Header() {
          >
           <FlaskConical size={18} /> Testautomation
          </button>
+
+        {/* SW-Installation Button (Placeholder) */}
+        <button style={navLinkStyle(false)} 
+            onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+          <LayoutGrid size={18} /> Installationmanager
+        </button>
+
+        {/* Benches Button (Placeholder) */}
+        <button style={navLinkStyle(false)} 
+            onMouseOver={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+        >
+          <Server size={18} /> Benches
+        </button>
          
         {/* Database Link */}
         <Link href="/database" passHref style={navLinkStyle(pathname === '/database')}

@@ -1,36 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-
-// Interface for HIL Technology data returned by API
-interface HilTechnology extends RowDataPacket {
-    tech_id: number;
-    bench_id: number;
-    hil_name: string; // Joined from test_benches
-    fiu_info: string | null;
-    io_info: string | null;
-    can_interface: string | null;
-    power_interface: string | null;
-    possible_tests: string | null;
-    leakage_module: string | null;
-}
-
-// Interface for POST/PUT request body
-interface HilTechnologyRequestBody {
-    tech_id?: number; // Only for PUT
-    bench_id: number;
-    fiu_info?: string;
-    io_info?: string;
-    can_interface?: string;
-    power_interface?: string;
-    possible_tests?: string;
-    leakage_module?: string;
-}
+import { HilTechnology as HilTechnologyType, HilTechnologyRequestBody, TestBench } from '@/types/database';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // GET method to fetch all HIL technology data
 export async function GET(): Promise<NextResponse> {
   try {
-    const technology = await dbUtils.query<HilTechnology[]>(`
+    const technology = await dbUtils.query<HilTechnologyType[]>(`
       SELECT h.*, t.hil_name 
       FROM hil_technology h
       LEFT JOIN test_benches t ON h.bench_id = t.bench_id
@@ -50,75 +27,65 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new HIL technology entry
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const body: HilTechnologyRequestBody = await request.json();
-    
-    // Validate required fields
-    if (!body.bench_id) {
-      return NextResponse.json(
-        { error: 'Test Bench ID (bench_id) is required' },
-        { status: 400 }
-      );
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
     }
+    try {
+        const body: HilTechnologyRequestBody = await request.json();
 
-    // Check if the referenced test bench exists
-    const testBench = await dbUtils.queryOne(
-        `SELECT bench_id FROM test_benches WHERE bench_id = ?`, 
-        [body.bench_id]
-    );
-    if (!testBench) {
-      return NextResponse.json(
-        { error: 'Test Bench with the specified bench_id not found' },
-        { status: 404 }
-      );
+        // Basic validation
+        if (!body.bench_id) {
+            return NextResponse.json({ error: 'Test Bench ID (bench_id) is required.' }, { status: 400 });
+        }
+        // Add more validation as needed for other fields
+
+        const result = await dbUtils.insert(
+            `INSERT INTO hil_technology (bench_id, fiu_info, io_info, can_interface, power_interface, possible_tests, leakage_module) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+            [
+                body.bench_id, 
+                body.fiu_info || null, 
+                body.io_info || null, 
+                body.can_interface || null,
+                body.power_interface || null,
+                body.possible_tests || null,
+                body.leakage_module || null
+            ]
+        );
+        const newHilTechId = result;
+
+        // Fetch the newly created record with joined data to return it
+        const newHilTechnology = await dbUtils.queryOne<HilTechnologyType>(
+            `SELECT ht.*, tb.hil_name 
+             FROM hil_technology ht
+             JOIN test_benches tb ON ht.bench_id = tb.bench_id
+             WHERE ht.tech_id = ?`,
+            [newHilTechId]
+        );
+
+        return NextResponse.json({ success: true, hil_technology: newHilTechnology }, { status: 201 });
+
+    } catch (error: unknown) {
+        console.error('[API POST /api/hiltechnology] Error:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        if (message.includes('foreign key constraint fails')) {
+            return NextResponse.json(
+                { error: `Failed to add HIL technology: Invalid bench_id.`, details: message },
+                { status: 400 }
+            );
+        }
+        return NextResponse.json(
+            { error: 'Failed to add HIL technology entry', details: message },
+            { status: 500 }
+        );
     }
-
-    // Insert the new HIL technology record using dbUtils.insert
-    const techId = await dbUtils.insert(
-      `INSERT INTO hil_technology (bench_id, fiu_info, io_info, can_interface, power_interface, possible_tests, leakage_module) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`, 
-      [
-        body.bench_id,
-        body.fiu_info || null,
-        body.io_info || null,
-        body.can_interface || null,
-        body.power_interface || null,
-        body.possible_tests || null,
-        body.leakage_module || null
-      ]
-    );
-
-    if (!techId) {
-        throw new Error("Failed to get tech_id after insert.");
-    }
-
-    // Get the newly inserted record
-    const newTechnology = await dbUtils.queryOne<HilTechnology>(
-      `SELECT h.*, t.hil_name 
-       FROM hil_technology h
-       LEFT JOIN test_benches t ON h.bench_id = t.bench_id
-       WHERE h.tech_id = ?`,
-      [techId]
-    );
-        
-    return NextResponse.json({ 
-      success: true, 
-      message: 'HIL technology added successfully',
-      technology: newTechnology
-    }, { status: 201 });
-    
-  } catch (error: unknown) {
-    console.error('Error adding HIL technology:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: 'Failed to add HIL technology', details: message },
-      { status: 500 }
-    );
-  }
 }
 
 // PUT method to update an existing HIL technology entry
+/*
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body: HilTechnologyRequestBody = await request.json();
@@ -139,7 +106,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     // Check if the referenced test bench exists
     const testBench = await dbUtils.queryOne(
-        `SELECT bench_id FROM test_benches WHERE bench_id = ?`, 
+        \`SELECT bench_id FROM test_benches WHERE bench_id = ?\`, 
         [body.bench_id]
     );
     if (!testBench) {
@@ -151,7 +118,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     // Update the HIL technology record using dbUtils.update
     const affectedRows = await dbUtils.update(
-      `UPDATE hil_technology SET
+      \`UPDATE hil_technology SET
          bench_id = ?, 
          fiu_info = ?, 
          io_info = ?,
@@ -159,7 +126,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
          power_interface = ?,
          possible_tests = ?,
          leakage_module = ?
-       WHERE tech_id = ?`, 
+       WHERE tech_id = ?\`, 
       [
         body.bench_id,
         body.fiu_info || null,
@@ -180,11 +147,11 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     // Get the updated record
-    const updatedTechnology = await dbUtils.queryOne<HilTechnology>(
-        `SELECT h.*, t.hil_name 
+    const updatedTechnology = await dbUtils.queryOne<HilTechnologyType>(
+        \`SELECT h.*, t.hil_name 
          FROM hil_technology h
          LEFT JOIN test_benches t ON h.bench_id = t.bench_id
-         WHERE h.tech_id = ?`,
+         WHERE h.tech_id = ?\`,
         [body.tech_id]
     );
         
@@ -203,3 +170,4 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     );
   }
 } 
+*/ 

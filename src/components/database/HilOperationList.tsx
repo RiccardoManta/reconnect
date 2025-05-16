@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Activity, RefreshCw, Plus } from 'lucide-react';
+import { SlidersHorizontal, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { HilOperation, TestBench } from '../../types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 // ... (ModalField types definition) ...
@@ -114,12 +115,15 @@ const styles: { [key: string]: CSSProperties } = {
 };
 
 export default function HilOperationList() {
-  const [hilOperations, setHilOperations] = useState<HilOperation[]>([]);
+  const [hil_operations, setHilOperations] = useState<HilOperation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedOperation, setSelectedOperation] = useState<HilOperation | null>(null);
+  const [selected_operation, setSelectedOperation] = useState<HilOperation | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [testBenches, setTestBenches] = useState<TestBench[]>([]);
+  const [test_benches, setTestBenches] = useState<TestBench[]>([]);
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   // Fetch related TestBench data for dropdowns
   const fetchRelatedData = async () => {
@@ -166,11 +170,12 @@ export default function HilOperationList() {
   }, []); // Empty dependency array means this runs once on mount
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
-  const handleRowClick = (op: HilOperation) => {
-    setSelectedOperation(op);
+  const handleRowClick = (operation: HilOperation) => {
+    setSelectedOperation(operation);
   };
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
@@ -237,7 +242,7 @@ export default function HilOperationList() {
       label: 'Test Bench',
       type: 'select',
       required: true,
-      options: testBenches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
+      options: test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
     },
     { name: 'possible_tests', label: 'Possible Tests', type: 'text' },
     { name: 'vehicle_datasets', label: 'Vehicle Datasets', type: 'text' },
@@ -253,7 +258,7 @@ export default function HilOperationList() {
       type: 'select',
       required: true,
       editable: true,
-      options: testBenches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
+      options: test_benches.map(tb => ({ value: String(tb.bench_id), label: tb.hil_name }))
     },
     { name: 'hil_name', label: 'HIL Name', type: 'text', editable: false },
     { name: 'possible_tests', label: 'Possible Tests', type: 'text', editable: true },
@@ -267,18 +272,23 @@ export default function HilOperationList() {
       {/* Page Header */}
       <div style={styles.headerContainer}>
         <div style={styles.headerTitleContainer}>
-          <Activity size={28} style={styles.headerIcon} />
+          <SlidersHorizontal size={28} style={styles.headerIcon} />
           <h1 style={styles.headerTitle}>
-            HIL Operations {hilOperations.length > 0 ? `(${hilOperations.length})` : ''}
+            HIL Operation {hil_operations.length > 0 ? `(${hil_operations.length})` : ''}
           </h1>
         </div>
         <button
           onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new HIL operation"
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new operation" : "Add new HIL operation"}
         >
-          <Plus size={18} style={{ marginRight: '0.5rem' }} />
-          Add HIL Operation
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
+          <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+          Add Operation
         </button>
       </div>
 
@@ -314,18 +324,18 @@ export default function HilOperationList() {
                     </div>
                   </td>
                 </tr>
-              ) : hilOperations.length === 0 && !error ? (
+              ) : hil_operations.length === 0 && !error ? (
                 <tr>
                   <td colSpan={5} style={styles.noDataCell}>No HIL operations found.</td>
                 </tr>
               ) : (
-                hilOperations.map((op) => (
+                hil_operations.map((op) => (
                   <tr 
                     key={op.operation_id} 
-                    onClick={() => handleRowClick(op)} 
                     style={styles.tableBodyRow}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f4f8'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    onClick={() => handleRowClick(op)}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     <td style={styles.tableBodyCell}>{op.hil_name ?? 'N/A'}</td>
                     <td style={styles.tableBodyCell}>{op.possible_tests ?? 'N/A'}</td>
@@ -340,24 +350,26 @@ export default function HilOperationList() {
         )}
       </div>
 
+      {selected_operation && (
+        <EditableDetailsModal
+          isOpen={!!selected_operation}
+          onClose={() => setSelectedOperation(null)}
+          title={`Edit HIL Operation: ${selected_operation.hil_name || 'N/A'}`}
+          data={selected_operation}
+          fields={detailsFields}
+          onSave={handleUpdateOperation}
+          isReadOnly={isReadOnly}
+        />
+      )}
+
       {isAddModalOpen && (
         <AddEntryModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
-          onSave={handleSaveEntry}
-          fields={addEntryFields}
           title="Add New HIL Operation"
-        />
-      )}
-
-      {selectedOperation && (
-        <EditableDetailsModal
-          isOpen={!!selectedOperation}
-          onClose={() => setSelectedOperation(null)}
-          data={selectedOperation}
-          fields={detailsFields}
-          onSave={handleUpdateOperation}
-          title={`Edit HIL Operation (ID: ${selectedOperation.operation_id})`}
+          fields={addEntryFields}
+          onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
 

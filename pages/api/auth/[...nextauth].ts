@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { queryOne } from "../../../src/db/dbUtils"; // Adjust path if needed
 import { RowDataPacket } from "mysql2/promise";
 import bcrypt from 'bcrypt';
+import { getUserPermissions } from '../../../src/utils/server/permissionUtils'; // Added import
 
 // Interface for user data from our DB (using user_id)
 interface DbUser extends RowDataPacket {
@@ -21,6 +22,7 @@ declare module "next-auth" {
   interface Session {
     user?: {
       id: string; // Add id property
+      permissionName?: string; // Added permissionName
     } & NextAuthUser; // Keep default properties like name, email, image
   }
 
@@ -33,6 +35,7 @@ declare module "next-auth/jwt" {
   /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
   interface JWT {
     id?: string; // Add id to the token
+    permissionName?: string; // Added permissionName
   }
 }
 // --- End Type Augmentation ---
@@ -107,20 +110,38 @@ export const authOptions: NextAuthOptions = {
   // Callbacks are asynchronous functions you can use to control what happens
   // when an action is performed.
   callbacks: {
-    // Add user id to the JWT token
+    // Add user id and permissionName to the JWT token
     async jwt({ token, user }) {
-      if (user) {
+      if (user?.id) {
         // On sign in, add user.id to the token
         token.id = user.id;
+        try {
+          // Fetch user permissions
+          const userIdInt = parseInt(user.id, 10);
+          if (!isNaN(userIdInt)) {
+            const permissions = await getUserPermissions(userIdInt);
+            token.permissionName = permissions.permissionName;
+            console.log(`JWT: Added id (${token.id}) and permissionName (${token.permissionName}) to token for user.`);
+          } else {
+            console.error('JWT: User ID from token is not a valid number:', user.id);
+          }
+        } catch (error) {
+          console.error('JWT: Error fetching user permissions:', error);
+          // Decide if you want to clear the permission or leave it (might be stale)
+          // token.permissionName = undefined; 
+        }
       }
       return token;
     },
-    // Add user id to the session object available on the client
+    // Add user id and permissionName to the session object available on the client
     async session({ session, token }) {
       if (token?.id && session.user) {
-        // Add the id from the token to the session user object
-        session.user.id = token.id; // Assign id from token to session
+        session.user.id = token.id; 
       }
+      if (token?.permissionName && session.user) {
+        session.user.permissionName = token.permissionName;
+      }
+      // console.log("Session callback, final session object:", JSON.stringify(session, null, 2));
       return session;
     },
   },

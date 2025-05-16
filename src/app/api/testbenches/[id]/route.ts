@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { TestBench as DatabaseTestBench } from '@/types/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for Test Bench data (updated to match new schema and camelCase)
 interface TestBench extends RowDataPacket {
@@ -96,6 +97,13 @@ export async function GET(request: NextRequest, context: any): Promise<NextRespo
 
 // PUT method to update an existing test bench
 export async function PUT(request: NextRequest, context: any): Promise<NextResponse> {
+  const { id } = context.params;
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
     const idStr = (context?.params?.id as string) || '';
     const bench_id = parseInt(idStr, 10);
@@ -229,6 +237,13 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
 
 // It's also good practice to have a DELETE handler here
 export async function DELETE(request: NextRequest, context: any): Promise<NextResponse> {
+  const { id } = context.params;
+  // API Protection: Only Admins and Edit users can delete
+  const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']); 
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
     const idStr = (context?.params?.id as string) || '';
     const bench_id = parseInt(idStr, 10);

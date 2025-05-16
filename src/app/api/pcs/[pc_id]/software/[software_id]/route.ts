@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // DELETE: Unassign a specific software from a PC
 export async function DELETE(
@@ -8,10 +9,17 @@ export async function DELETE(
     // caused persistent build errors in the Docker environment (Next.js 15.3.0).
     context: any 
 ): Promise<NextResponse> {
+    const { pc_id, software_id } = context.params;
+    // API Protection: Only Admins and Edit users can delete
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
         // Access params via context.params.pc_id and context.params.software_id
-        const pcId = parseInt(context.params.pc_id, 10);
-        const softwareId = parseInt(context.params.software_id, 10);
+        const pcId = parseInt(pc_id, 10);
+        const softwareId = parseInt(software_id, 10);
 
         if (isNaN(pcId) || isNaN(softwareId)) {
             return NextResponse.json({ error: 'Invalid PC ID or Software ID' }, { status: 400 });

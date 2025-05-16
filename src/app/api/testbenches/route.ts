@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
-import { TestBench } from '@/types/database'; // Using the global snake_case type
+import { TestBench, TestBenchPostBody } from '@/types/database'; // Added TestBenchPostBody
 import { ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for POST/PUT request body (snake_case)
 // Derived from TestBench, but all fields are optional for PUT, some required for POST.
@@ -99,9 +100,15 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new test bench
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
-    const body: TestBenchRequestBodyForPost = await request.json();
+    const body: TestBenchPostBody = await request.json(); // Use imported type
     
     if (!body.hil_name || body.hil_name.trim() === '') {
       return NextResponse.json(

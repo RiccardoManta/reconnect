@@ -84,6 +84,7 @@ interface AddEntryModalProps {
   title: string;
   fields: Field[];
   onSave: (formData: Record<string, any>) => Promise<void>;
+  isReadOnly?: boolean;
 }
 
 const AddEntryModal: React.FC<AddEntryModalProps> = ({ 
@@ -91,7 +92,8 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
   onClose, 
   title, 
   fields, 
-  onSave
+  onSave,
+  isReadOnly
 }) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -224,6 +226,7 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
                     value={formData[field.name] || ''}
                     onChange={(e) => handleChange(field.name, e.target.value)}
                     required={field.required}
+                    disabled={isReadOnly}
                     style={{
                       width: '100%',
                       padding: '0.5rem',
@@ -246,6 +249,7 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
                     value={formData[field.name] || ''}
                     onChange={(e) => handleChange(field.name, e.target.value)}
                     required={field.required}
+                    disabled={isReadOnly}
                     style={{
                       width: '100%',
                       padding: '0.5rem',
@@ -296,11 +300,12 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
                 alignItems: 'center',
                 gap: '0.25rem',
               }}
-              disabled={saving}
+              disabled={saving || isReadOnly}
+              title={isReadOnly ? "Read-only: Cannot save new entry" : "Save entry"}
             >
               {saving ? 'Saving...' : (
                 <>
-                  <Save size={16} />
+                  <Save size={16} style={{ marginRight: '0.5rem' }} />
                   Save
                 </>
               )}

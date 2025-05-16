@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { KeyRound, RefreshCw, PlusCircle } from 'lucide-react';
+import { KeyRound, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { License, Software, PcOverview, VmInstance } from '../../types/database';
 import ManageLicenseAssignment from './ManageLicenseAssignment';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 // (Consider moving to a shared file)
@@ -36,6 +37,9 @@ export default function LicensesList() {
   const [selected_license, setSelectedLicense] = useState<License | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [software, setSoftware] = useState<Software[]>([]);
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   // State for license assignment management
   const [all_pcs, setAllPcs] = useState<PcOverview[]>([]);
@@ -107,6 +111,7 @@ export default function LicensesList() {
   }, []); // Empty dependency array ensures this runs once on mount
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     // fetchRelatedData(); // No longer needed here, fetched on mount
     setIsAddModalOpen(true);
   };
@@ -288,6 +293,11 @@ export default function LicensesList() {
 
   // --- Handlers for Assigning/Unassigning License ---
   const handleAssignLicenseWrapper = async (license_id_to_assign: number, target_type: 'pc' | 'vm', target_id: number) => {
+    if (isReadOnly || permissionsLoading) {
+        alert("Read-only: You do not have permission to assign licenses.");
+        return;
+    }
+    console.log(`Assigning license ${license_id_to_assign} to ${target_type} ID ${target_id}`);
     setLoading(true); // Use main loading state or a specific one for this operation
     setError(null);
 
@@ -368,6 +378,11 @@ export default function LicensesList() {
   };
 
   const handleUnassignLicenseWrapper = async (license_id_to_unassign: number) => {
+    if (isReadOnly || permissionsLoading) {
+        alert("Read-only: You do not have permission to unassign licenses.");
+        return;
+    }
+    console.log(`Unassigning license ${license_id_to_unassign}`);
     setLoading(true);
     setError(null);
     try {
@@ -443,11 +458,16 @@ export default function LicensesList() {
           <KeyRound size={28} style={styles.headerIcon} />
           <h1 style={styles.headerTitle}>Licenses {licenses.length > 0 ? `(${licenses.length})` : ''}</h1>
         </div>
-        <button
-          onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new license"
+        <button 
+          onClick={handleAddClick} 
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new licenses" : "Add new License"}
         >
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
           Add License
         </button>
@@ -518,6 +538,7 @@ export default function LicensesList() {
           fields={detailsFields} // These are for editing license properties, not assignment
           onSave={handleUpdateLicense} // This handles updates to license properties
           title={`Edit License: ${selected_license.license_name || selected_license.license_key}`}
+          isReadOnly={isReadOnly}
         >
           {/* License Assignment Section using the new component */}
           <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e9ecef' }}>
@@ -534,6 +555,7 @@ export default function LicensesList() {
               on_unassign={handleUnassignLicenseWrapper}
               is_loading={loading} // Use the main list loading state for now, or a more specific one if needed
               error={error}       // Pass the main list error state
+              isReadOnly={isReadOnly}
             />
           </div>
         </EditableDetailsModal>
@@ -546,6 +568,7 @@ export default function LicensesList() {
           title="Add New License"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

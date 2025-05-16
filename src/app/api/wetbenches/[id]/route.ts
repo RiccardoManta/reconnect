@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
+import { WetbenchRequestBody } from '@/types/database';
 
 // Interface for Wetbench data (updated to remove platform and use camelCase)
 interface Wetbench extends RowDataPacket {
@@ -55,9 +57,64 @@ export async function GET(request: NextRequest, context: any): Promise<NextRespo
     }
 }
 
+// PUT method to update a wetbench by ID
+export async function PUT(request: NextRequest, context: any) {
+    const { id } = context.params;
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+    try {
+        const body: Partial<WetbenchRequestBody> = await request.json();
+        if (Object.keys(body).length === 0) {
+            return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
+        }
+
+        const fieldsToUpdate: string[] = [];
+        const values: any[] = [];
+
+        (Object.keys(body) as Array<keyof WetbenchRequestBody>).forEach(key => {
+            if (body[key] !== undefined) {
+                fieldsToUpdate.push(`${key} = ?`);
+                values.push(body[key]);
+            }
+        });
+
+        if (fieldsToUpdate.length === 0) {
+            return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 });
+        }
+
+        values.push(id); // For the WHERE clause
+
+        const affectedRows = await dbUtils.update(
+            `UPDATE wetbenches SET ${fieldsToUpdate.join(', ')} WHERE wetbench_id = ?`,
+            values
+        );
+
+        if (affectedRows === 0) {
+            return NextResponse.json({ error: 'Wetbench not found or no changes made' }, { status: 404 });
+        }
+        const updatedWetbench = await dbUtils.queryOne<Wetbench>(
+            'SELECT w.*, tb.hil_name FROM wetbenches w LEFT JOIN test_benches tb ON w.linked_bench_id = tb.bench_id WHERE w.wetbench_id = ?',
+            [id]
+        );
+        return NextResponse.json({ success: true, wetbench: updatedWetbench });
+
+    } catch (error) {
+        console.error(`Error updating wetbench ${id}:`, error);
+        return NextResponse.json({ error: 'Failed to update wetbench' }, { status: 500 });
+    }
+}
+
 // DELETE method to remove a wetbench by ID
 export async function DELETE(request: NextRequest, context: any): Promise<NextResponse> {
-    const id = context?.params?.id;
+    const { id } = context.params;
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
     if (typeof id !== 'string') {
         return NextResponse.json({ error: 'Invalid or missing wetbench ID in params' }, { status: 400 });
     }

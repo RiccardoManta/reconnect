@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { License } from '@/types/database'; // Use the main License type
-
-// Interface for POST/PUT request body (snake_case)
-interface LicenseRequestBody {
-    license_id?: number; // Only for PUT
-    software_id: number; // Changed from tool_name, required
-    license_name?: string | null;
-    license_description?: string | null;
-    license_number?: string | null;
-    dongle_number?: string | null;
-    activation_key?: string | null;
-    system_id?: string | null;
-    license_user?: string | null;
-    maintenance_end?: string | null;
-    owner?: string | null;
-    license_type?: string | null;
-    remarks?: string | null;
-}
+import { License, LicenseRequestBody } from '@/types/database'; // Added LicenseRequestBody
+import { checkApiPermission } from '@/utils/server/permissionUtils'; // Corrected import path
 
 // GET method to fetch all licenses
 export async function GET(): Promise<NextResponse> {
@@ -57,8 +41,14 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new license
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
   try {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     const body: LicenseRequestBody = await request.json();
     
     // Validate required fields
@@ -143,6 +133,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // PUT method to update an existing license
+/*
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body: LicenseRequestBody = await request.json();
@@ -245,3 +236,4 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     );
   }
 } 
+*/ 

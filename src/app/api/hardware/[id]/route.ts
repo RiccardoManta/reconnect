@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { HardwareInstallation } from '@/types/database';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise'; // For type from dbUtils.update/insert
+import { checkApiPermission } from '@/utils/server/permissionUtils'; // Added import
 
 // Interface for PUT request body (snake_case)
 // All fields are optional for PUT. Client sends only what needs to be changed.
@@ -128,7 +129,14 @@ export async function GET(request: NextRequest, context: any): Promise<NextRespo
 
 // PUT method to update an existing hardware installation by ID
 export async function PUT(request: NextRequest, context: any): Promise<NextResponse> {
-    const install_id = parseInt(context?.params?.id as string, 10);
+    const { id } = context.params;
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
+    const install_id = parseInt(id as string, 10);
     console.log(`[PUT /api/hardware/${install_id}] Handler started.`);
 
     if (isNaN(install_id)) {
@@ -240,7 +248,14 @@ export async function PUT(request: NextRequest, context: any): Promise<NextRespo
 
 // DELETE method to remove a hardware installation by ID
 export async function DELETE(request: NextRequest, context: any): Promise<NextResponse> {
-    const install_id = parseInt(context?.params?.id as string, 10);
+    const { id } = context.params;
+    // API Protection: Only Admins and Edit users can delete
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
+    const install_id = parseInt(id as string, 10);
     console.log(`[DELETE /api/hardware/${install_id}] Handler started.`);
 
     if (isNaN(install_id)) {

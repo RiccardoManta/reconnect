@@ -5,10 +5,12 @@ import { Users, RefreshCw, PlusCircle } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { User } from '../../types/database';
+import { UserGroup } from '@/app/api/usergroups/route'; // Import UserGroup type
 
 // --- Reusable Modal Field Type Definitions ---
 type FieldType = 'text' | 'number' | 'date' | 'select';
-interface SelectOption { value: string; label: string; }
+// SelectOption value must be string for modal compatibility
+interface SelectOption { value: string; label: string; } 
 interface BaseField { name: string; label: string; required?: boolean; editable?: boolean; }
 interface TextField extends BaseField { type: 'text'; }
 interface NumberField extends BaseField { type: 'number'; }
@@ -23,8 +25,10 @@ export default function UsersList() {
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [userGroupOptions, setUserGroupOptions] = useState<SelectOption[]>([]);
 
-  const fetchData = async () => {
+  // Fetch main user data
+  const fetchUsers = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -42,8 +46,29 @@ export default function UsersList() {
     }
   };
 
+  // Fetch user groups for the select dropdown
+  const fetchUserGroups = async () => {
+    try {
+      const response = await fetch('/api/usergroups');
+      if (!response.ok) {
+        throw new Error('Failed to fetch user groups');
+      }
+      const data = await response.json();
+      const groups = data.user_groups as UserGroup[];
+      setUserGroupOptions(
+        groups.map(group => ({ 
+          value: String(group.user_group_id), // Convert number to string for SelectOption value
+          label: `${group.user_group_name} (Permission: ${group.permission_name || 'N/A'})`
+        }))
+      );
+    } catch (err) {
+      console.error('Error fetching user groups:', err);
+    }
+  };
+
   useEffect(() => {
-    fetchData();
+    fetchUsers();
+    fetchUserGroups();
   }, []);
 
   const handleAddClick = () => {
@@ -52,10 +77,17 @@ export default function UsersList() {
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
     try {
+      const payload = { ...formData };
+      if (payload.user_group_id !== undefined && payload.user_group_id !== '') {
+        payload.user_group_id = Number(payload.user_group_id); // Convert string from select back to number
+      } else {
+        payload.user_group_id = null; // Handle case where no group is selected
+      }
+
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -63,9 +95,7 @@ export default function UsersList() {
         throw new Error(errorData.error || 'Failed to add user');
       }
 
-      const savedData = await response.json();
-      const newUser = savedData.user as User;
-      setUsers(prev => [...prev, newUser]);
+      fetchUsers(); 
       setIsAddModalOpen(false);
 
     } catch (err) {
@@ -74,55 +104,77 @@ export default function UsersList() {
     }
   };
 
-  const handleUpdateUser = async (formData: Record<string, any>) => {
-    try {
-      if (!formData.user_id) {
-        throw new Error('User ID (user_id) is required');
-      }
+  const handleUpdateUserDetailsAndGroup = async (formData: Record<string, any>) => {
+    if (!selectedUser || !selectedUser.user_id) {
+        throw new Error('Selected user or user ID is missing.');
+    }
+    const userId = selectedUser.user_id;
 
-      const response = await fetch('/api/users', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+    const userDetailsPayload: any = {};
+    if (formData.user_name !== undefined && selectedUser.user_name !== formData.user_name) userDetailsPayload.user_name = formData.user_name;
+    if (formData.email !== undefined && selectedUser.email !== formData.email) userDetailsPayload.email = formData.email;
+    if (formData.company_username !== undefined && selectedUser.company_username !== formData.company_username) userDetailsPayload.company_username = formData.company_username;
+    
+    let userUpdated = false;
+    if (Object.keys(userDetailsPayload).length > 0) {
+        try {
+            const response = await fetch(`/api/users`, { 
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, ...userDetailsPayload }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update user details');
+            }
+            userUpdated = true;
+        } catch (err) {
+            console.error("Failed to update user details:", err);
+            throw err; 
+        }
+    }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update user');
-      }
+    let groupUpdated = false;
+    // formData.user_group_id will be a string from the select, or undefined/empty if not touched/set
+    const newGroupIdString = formData.user_group_id;
+    const newGroupId = newGroupIdString !== undefined && newGroupIdString !== '' ? Number(newGroupIdString) : null;
+    const currentGroupId = selectedUser.user_group_id === undefined ? null : selectedUser.user_group_id;
 
-      const data = await response.json();
-      const updatedUser = data.user as User;
+    if (newGroupId !== currentGroupId) {
+        try {
+            const groupUpdateResponse = await fetch(`/api/users/${userId}/group`, { 
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_group_id: newGroupId }), 
+            });
+            if (!groupUpdateResponse.ok) {
+                const errorData = await groupUpdateResponse.json();
+                throw new Error(errorData.error || 'Failed to update user group');
+            }
+            groupUpdated = true;
+        } catch (err) {
+            console.error("Failed to update user group:", err);
+            throw err; 
+        }
+    }
 
-      setUsers(prev =>
-        prev.map(user =>
-          user.user_id === updatedUser.user_id ? updatedUser : user
-        )
-      );
-
-      if (selectedUser?.user_id === updatedUser.user_id) {
-         setSelectedUser(updatedUser);
-      }
-
-    } catch (err) {
-      console.error("Failed to update user:", err);
-      throw err;
+    if (userUpdated || groupUpdated) {
+        fetchUsers(); 
     }
   };
 
-  // Define fields for the add entry modal using snake_case names
   const addEntryFields: ModalField[] = [
     { name: 'user_name', label: 'User Name', type: 'text', required: true },
     { name: 'company_username', label: 'Company Username', type: 'text' },
     { name: 'email', label: 'Email', type: 'text', required: true },
+    { name: 'user_group_id', label: 'User Group', type: 'select', options: userGroupOptions, required: false }
   ];
 
-  // Define fields for the editable details modal using snake_case names
   const detailsFields: ModalField[] = [
-    { name: 'user_id', label: 'User ID', type: 'number', editable: false },
     { name: 'user_name', label: 'User Name', type: 'text', required: true, editable: true },
     { name: 'company_username', label: 'Company Username', type: 'text', editable: true },
     { name: 'email', label: 'Email', type: 'text', required: true, editable: true },
+    { name: 'user_group_id', label: 'User Group', type: 'select', options: userGroupOptions, editable: true, required: false },
   ];
 
   // --- Styles ---
@@ -187,15 +239,16 @@ export default function UsersList() {
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeaderCell}>ID</th>
                 <th style={styles.tableHeaderCell}>User Name</th>
                 <th style={styles.tableHeaderCell}>Company Username</th>
                 <th style={styles.tableHeaderCell}>Email</th>
+                <th style={styles.tableHeaderCell}>Group</th>
+                <th style={styles.tableHeaderCell}>Permission</th>
               </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
-                <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No users found</td></tr>
+                <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No users found</td></tr>
               ) : (
                 users.map((user) => (
                   <tr key={user.user_id}
@@ -204,10 +257,11 @@ export default function UsersList() {
                     onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
                     onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <td style={styles.tableBodyCell}>{user.user_id}</td>
                     <td style={styles.tableBodyCell}>{user.user_name}</td>
                     <td style={styles.tableBodyCell}>{user.company_username || '-'}</td>
                     <td style={styles.tableBodyCell}>{user.email || '-'}</td>
+                    <td style={styles.tableBodyCell}>{user.user_group_name || 'N/A'}</td>
+                    <td style={styles.tableBodyCell}>{user.permission_name || 'N/A'}</td>
                   </tr>
                 ))
               )}
@@ -221,10 +275,10 @@ export default function UsersList() {
         <EditableDetailsModal
           isOpen={selectedUser !== null}
           onClose={() => setSelectedUser(null)}
-          title={`User Details: ${selectedUser.user_name}`}
+          title={`Edit User: ${selectedUser.user_name}`}
           data={selectedUser}
-          fields={detailsFields}
-          onSave={handleUpdateUser}
+          fields={detailsFields} 
+          onSave={handleUpdateUserDetailsAndGroup} 
         />
       )}
 
@@ -233,7 +287,7 @@ export default function UsersList() {
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           title="Add New User"
-          fields={addEntryFields}
+          fields={addEntryFields} 
           onSave={handleSaveEntry}
         />
       )}

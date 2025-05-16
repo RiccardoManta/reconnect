@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for Project Overview data (updated for new schema and camelCase)
 interface ProjectOverview extends RowDataPacket {
@@ -76,7 +77,12 @@ export async function GET(request: NextRequest, context: any): Promise<NextRespo
 
 // DELETE method to remove a project overview by ID
 export async function DELETE(request: NextRequest, context: any): Promise<NextResponse> {
-    const id = context?.params?.id;
+    const { id } = context.params; // overview_id
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
     if (typeof id !== 'string') {
         return NextResponse.json({ error: 'Invalid or missing overview ID in params' }, { status: 400 });
     }

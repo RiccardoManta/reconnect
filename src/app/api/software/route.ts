@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
+import { SoftwareRequestBody } from '@/types/database';
 
 // Interface for Software data from the database
 interface SoftwareFromDb extends RowDataPacket {
@@ -8,14 +10,6 @@ interface SoftwareFromDb extends RowDataPacket {
     software_name: string;
     major_version: string | null;
     vendor: string | null;
-}
-
-// Interface for POST/PUT request body (snake_case)
-interface SoftwareRequestBody {
-    software_id?: number; // Only for PUT
-    software_name: string; // Required
-    major_version?: string | null;
-    vendor?: string | null;
 }
 
 // GET method to fetch all software
@@ -41,7 +35,13 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new software entry
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
     const body: SoftwareRequestBody = await request.json();
 

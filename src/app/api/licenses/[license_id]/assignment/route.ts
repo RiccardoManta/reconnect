@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for the assignment data
 interface LicenseAssignment extends RowDataPacket {
@@ -72,6 +73,12 @@ export async function POST(
     request: NextRequest,
     context: any 
 ): Promise<NextResponse> {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
         const licenseIdStr = (context?.params?.license_id as string) || ''; 
         const licenseId = parseInt(licenseIdStr, 10);
@@ -182,6 +189,12 @@ export async function DELETE(
     // Apply workaround: Use context: any
     context: any 
 ): Promise<NextResponse> {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
         // Access licenseId via context using optional chaining and casting
         const licenseIdStr = (context?.params?.license_id as string) || '';

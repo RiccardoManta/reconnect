@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise'; // ResultSetHeader is used by dbUtils.insert
-import { HardwareInstallation } from '@/types/database';
-
-// Interface for POST request body (snake_case)
-interface HardwareInstallationRequestBody {
-  hardware_group_id: number;
-  bench_id: number;
-  description?: string | null;
-  hardware_number?: string | null;
-  part_number?: string | null;
-  software_version?: string | null;
-  manufacturer?: string | null;
-  installation_date?: string | null; // Expecting YYYY-MM-DD string
-}
+import { HardwareInstallation, HardwareInstallationPostBody } from '@/types/database';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // GET method to fetch hardware installation data
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -58,8 +47,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 // POST method to add a new hardware installation record
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
-    const body: HardwareInstallationRequestBody = await request.json();
+    const body: HardwareInstallationPostBody = await request.json();
 
     // Validate required fields
     if (body.hardware_group_id === undefined || body.hardware_group_id === null) {

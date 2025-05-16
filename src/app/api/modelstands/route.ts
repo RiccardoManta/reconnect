@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { TestBench } from '@/types/database';
+import { TestBench, ModelStandRequestBody } from '@/types/database';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for Model Stand data returned by API
 interface ModelStand extends RowDataPacket {
@@ -10,14 +11,6 @@ interface ModelStand extends RowDataPacket {
     svn_link: string | null;
     features: string | null;
     associated_hil_names?: string | null;
-}
-
-// Interface for POST/PUT request body
-interface ModelStandRequestBody {
-    model_id?: number; // Only for PUT
-    model_name: string;
-    svn_link?: string;
-    features?: string;
 }
 
 // GET method to fetch all model stands
@@ -51,8 +44,14 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new model stand
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
   try {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     const body: ModelStandRequestBody = await request.json();
     
     // Validate required fields
@@ -114,6 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // PUT method to update an existing model stand
+/*
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body: ModelStandRequestBody = await request.json();
@@ -189,3 +189,4 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     );
   }
 } 
+*/ 

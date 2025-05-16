@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { Project as ProjectType, ProjectRequestBody } from '@/types/database';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for Project data returned by API
 interface Project extends RowDataPacket {
     project_id: number;
     project_number: string | null;
-    project_name: string;
-}
-
-// Interface for POST/PUT request body
-interface ProjectRequestBody {
-    project_id?: number; // Only for PUT
-    project_number?: string;
     project_name: string;
 }
 
@@ -36,8 +31,14 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new project
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
   try {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     const body: ProjectRequestBody = await request.json();
     
     // Validate required fields
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // PUT method to update an existing project
+/*
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body: ProjectRequestBody = await request.json();
@@ -158,3 +160,4 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     );
   }
 } 
+*/ 

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 // Removed License import as all_licenses is removed
-import { XCircle, RefreshCw } from 'lucide-react';
+import { XCircle, RefreshCw, Ban } from 'lucide-react';
 
 // Use the same interface defined in PcOverviewList (now snake_case)
 interface AssignedLicenseInfo {
@@ -21,6 +21,7 @@ interface ManagePCLicenseAssignmentsProps {
   on_unassign: (license_id: number) => Promise<void>; 
   is_loading: boolean; 
   error: string | null;  
+  isReadOnly?: boolean;
 }
 
 export default function ManagePCLicenseAssignments({
@@ -30,7 +31,8 @@ export default function ManagePCLicenseAssignments({
   // on_assign removed
   on_unassign,
   is_loading, 
-  error      
+  error,      
+  isReadOnly
 }: ManagePCLicenseAssignmentsProps) {
 
   // Removed selectedLicenseToAdd state
@@ -45,6 +47,7 @@ export default function ManagePCLicenseAssignments({
   // Removed handleAssignLicense
 
   const handleUnassignClick = async (license_id: number) => {
+    if (isReadOnly) return;
     setActionLoading(true);
     setActionError(null);
     try {
@@ -97,17 +100,22 @@ export default function ManagePCLicenseAssignments({
               </div>
               <button
                 onClick={() => handleUnassignClick(license.license_id)}
-                disabled={actionLoading} 
-                title="Unassign License"
+                disabled={actionLoading || isReadOnly}
+                title={isReadOnly ? "Read-only: Cannot unassign license" : "Unassign License"}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: actionLoading ? '#9ca3af' : '#dc2626', 
-                  cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  color: (actionLoading || isReadOnly) ? '#9ca3af' : '#dc2626', 
+                  cursor: (actionLoading || isReadOnly) ? 'not-allowed' : 'pointer',
                   padding: '0.25rem'
                 }}
               >
-                {actionLoading && assignedLicenseIds.includes(license.license_id) ? <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <XCircle size={18} />}
+                {isReadOnly ? <Ban size={18} /> : 
+                  (actionLoading && assignedLicenseIds.includes(license.license_id) ? 
+                    <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 
+                    <XCircle size={18} />
+                  )
+                }
               </button>
             </li>
           ))}

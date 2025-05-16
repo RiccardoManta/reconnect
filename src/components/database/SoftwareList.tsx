@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Package, RefreshCw, PlusCircle, Trash2 } from 'lucide-react';
+import { Package, RefreshCw, PlusCircle, Trash2, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { Software } from '../../types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 // (Ideally move to a shared file if not already done)
@@ -24,6 +25,9 @@ export default function SoftwareList() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSoftware, setSelectedSoftware] = useState<Software | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   const fetchData = async () => {
     setLoading(true);
@@ -48,6 +52,7 @@ export default function SoftwareList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
@@ -129,6 +134,10 @@ export default function SoftwareList() {
   };
 
   const handleDeleteSoftware = async (id: number | undefined) => {
+    if (isReadOnly || permissionsLoading) {
+      alert("Read-only: You do not have permission to delete software.");
+      return;
+    }
     if (id === undefined) {
         console.error("Delete failed: ID is undefined");
         // Consider showing error in a less intrusive way (toast)
@@ -220,9 +229,14 @@ export default function SoftwareList() {
         </div>
         <button
           onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new software"
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new software" : "Add new software"}
         >
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
           Add Software
         </button>
@@ -273,13 +287,14 @@ export default function SoftwareList() {
       {/* Modals */} 
       {selectedSoftware && (
         <EditableDetailsModal
-          isOpen={selectedSoftware !== null}
+          isOpen={!!selectedSoftware}
           onClose={() => setSelectedSoftware(null)}
-          title={`Software Details: ${selectedSoftware.software_name}`}
+          title={`Edit Software: ${selectedSoftware.software_name}`}
           data={selectedSoftware}
           fields={detailsFields}
           onSave={handleUpdateSoftware}
-          onDelete={() => handleDeleteSoftware(selectedSoftware?.software_id)}
+          onDelete={() => handleDeleteSoftware(selectedSoftware.software_id)}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -290,6 +305,7 @@ export default function SoftwareList() {
           title="Add New Software"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

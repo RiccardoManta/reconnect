@@ -190,8 +190,8 @@ export default function DatabasePage() {
   }
 
   // Permission denied state - only show header and error message
-  // Only allow Admin or Edit users to access the database
-  if (userPermission !== 'Admin' && userPermission !== 'Edit') {
+  // Allow Admin, Edit, or Read users to access the database
+  if (!['Admin', 'Edit', 'Read'].includes(userPermission)) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Header />

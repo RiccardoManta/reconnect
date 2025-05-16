@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
+import { VmInstance as VmInstanceType, VmInstancePostRequestBody } from '@/types/database';
 
 // Interface for VM Instance data returned by API
 interface VmInstance extends RowDataPacket {
@@ -8,13 +10,6 @@ interface VmInstance extends RowDataPacket {
     vm_name: string;
     vm_address: string | null;
     // installed_tools: string | null; // Removed based on error
-}
-
-// Interface for POST request body
-interface VmInstancePostRequestBody {
-    vm_name: string;
-    vm_address?: string;
-    // installed_tools?: string; // Removed based on error
 }
 
 // GET method to fetch all VM instances
@@ -37,8 +32,14 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new VM instance
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
   try {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     const body: VmInstancePostRequestBody = await request.json();
     
     // Validate required fields

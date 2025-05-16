@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
+import { HilTechnology as HilTechnologyType, HilTechnologyRequestBody } from '@/types/database';
 
 // Interface for HIL Technology data (same as in parent route)
 interface HilTechnology extends RowDataPacket {
@@ -53,11 +55,90 @@ export async function GET(request: NextRequest, context: any): Promise<NextRespo
     }
 }
 
+// PUT method to update an HIL technology record by ID
+export async function PUT(request: NextRequest, context: any) {
+    const { id } = context.params; // tech_id
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+    
+    let requestBody: Partial<HilTechnologyRequestBody> | null = null;
+
+    try {
+        requestBody = await request.json(); 
+        if (!requestBody) {
+            return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+        }
+        const body = requestBody;
+
+        if (Object.keys(body).length === 0 && body.bench_id === undefined) { 
+             return NextResponse.json({ error: 'Request body is empty or missing bench_id for update' }, { status: 400 });
+        }
+
+        const fieldsToUpdate: string[] = [];
+        const values: any[] = [];
+
+        if (body.bench_id !== undefined) { fieldsToUpdate.push('bench_id = ?'); values.push(body.bench_id); }
+        if (body.fiu_info !== undefined) { fieldsToUpdate.push('fiu_info = ?'); values.push(body.fiu_info); }
+        if (body.io_info !== undefined) { fieldsToUpdate.push('io_info = ?'); values.push(body.io_info); }
+        if (body.can_interface !== undefined) { fieldsToUpdate.push('can_interface = ?'); values.push(body.can_interface); }
+        if (body.power_interface !== undefined) { fieldsToUpdate.push('power_interface = ?'); values.push(body.power_interface); }
+        if (body.possible_tests !== undefined) { fieldsToUpdate.push('possible_tests = ?'); values.push(body.possible_tests); }
+        if (body.leakage_module !== undefined) { fieldsToUpdate.push('leakage_module = ?'); values.push(body.leakage_module); }
+
+        if (fieldsToUpdate.length === 0) {
+            return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 });
+        }
+
+        values.push(id); 
+
+        const affectedRows = await dbUtils.update(
+            `UPDATE hil_technology SET ${fieldsToUpdate.join(', ')} WHERE tech_id = ?`,
+            values
+        );
+
+        if (affectedRows === 0) {
+            const exists = await dbUtils.queryOne<HilTechnologyType>('SELECT tech_id FROM hil_technology WHERE tech_id = ?', [id]);
+            if (!exists) {
+                return NextResponse.json({ error: 'HIL Technology not found' }, { status: 404 });
+            }
+            return NextResponse.json({ message: 'No changes applied to HIL Technology', status: 'no_change' }, { status: 200 }); 
+        }
+
+        const updatedEntry = await dbUtils.queryOne<HilTechnologyType>(
+            `SELECT ht.*, tb.hil_name 
+             FROM hil_technology ht
+             JOIN test_benches tb ON ht.bench_id = tb.bench_id
+             WHERE ht.tech_id = ?`,
+            [id]
+        );
+        return NextResponse.json({ success: true, hil_technology: updatedEntry });
+
+    } catch (error: unknown) {
+        console.error(`Error updating HIL Technology ${id}:`, error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        // Use requestBody here, which is in the outer scope
+        if (message.includes('foreign key constraint fails') && requestBody && requestBody.bench_id !== undefined) {
+            return NextResponse.json(
+                { error: `Failed to update HIL technology: Invalid bench_id ${requestBody.bench_id}.`, details: message },
+                { status: 400 }
+            );
+        }
+        return NextResponse.json({ error: 'Failed to update HIL Technology' , details: message}, { status: 500 });
+    }
+}
+
 // DELETE method to remove an HIL technology record by ID
 export async function DELETE(request: NextRequest, context: any): Promise<NextResponse> {
-    // Assuming context structure { params: { id: string } }
-    const id = context?.params?.id;
-     if (typeof id !== 'string') {
+    const { id } = context.params; // tech_id
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+    if (typeof id !== 'string') {
         return NextResponse.json({ error: 'Invalid or missing technology ID in params' }, { status: 400 });
     }
     const techId = parseInt(id, 10);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // DELETE: Unassign a specific software from a VM
 export async function DELETE(
@@ -7,9 +8,16 @@ export async function DELETE(
     // Using 'any' due to persistent build errors with specific context type
     context: any
 ): Promise<NextResponse> {
+    const { vm_id, software_id } = context.params;
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Admin', 'Edit']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
-        const vmId = parseInt(context.params.vm_id, 10);
-        const softwareId = parseInt(context.params.software_id, 10);
+        const vmId = parseInt(vm_id, 10);
+        const softwareId = parseInt(software_id, 10);
 
         if (isNaN(vmId) || isNaN(softwareId)) {
             return NextResponse.json({ error: 'Invalid VM ID or Software ID' }, { status: 400 });

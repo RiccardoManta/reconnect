@@ -14,6 +14,7 @@ import AddUserModal, { NewUserData as AddUserModalData } from '@/components/admi
 interface AdminUserDisplay extends Pick<User, 'user_id' | 'user_name' | 'company_username' | 'email'> {
   user_group_id: number | null; 
   user_group_name: string | null; 
+  permission_name?: string | null; // Added permission_name
 }
 
 // Placeholder for the AddUserModal props if needed for handleSaveNewUser
@@ -248,41 +249,30 @@ export default function AdminUsersPage() {
            <table style={styles.table}>
              <thead>
                <tr>
-                 <th style={{...styles.tableHeaderCell, width: '10%'}}>ID</th>
-                 <th style={{...styles.tableHeaderCell, width: '20%'}}>User Name</th>
-                 <th style={{...styles.tableHeaderCell, width: '20%'}}>Company Username</th>
-                 <th style={{...styles.tableHeaderCell, width: '25%'}}>Email</th>
-                 <th style={{...styles.tableHeaderCell, width: '15%'}}>Group</th>
-                 <th style={{...styles.tableHeaderCell, width: '10%'}}>Actions</th>
+                 <th style={styles.tableHeaderCell}>Username</th>
+                 <th style={styles.tableHeaderCell}>Company Username</th>
+                 <th style={styles.tableHeaderCell}>Email</th>
+                 <th style={styles.tableHeaderCell}>Group</th>
+                 <th style={styles.tableHeaderCell}>Permission</th>
                </tr>
              </thead>
              <tbody>
                {users.length === 0 ? (
-                 <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No users found</td></tr> // Increased colspan
+                 <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No users found</td></tr>
                ) : (
                  users.map((user) => (
-                   <tr key={user.user_id} style={styles.tableBodyRow}>
-                     <td style={styles.tableBodyCell}>{user.user_id}</td>
+                   <tr 
+                     key={user.user_id} 
+                     style={styles.tableBodyRow} 
+                     onClick={() => setSelectedUser(user)}
+                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0f8ff')}
+                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                   >
                      <td style={styles.tableBodyCell}>{user.user_name}</td>
                      <td style={styles.tableBodyCell}>{user.company_username || '-'}</td>
                      <td style={styles.tableBodyCell}>{user.email}</td>
                      <td style={styles.tableBodyCell}>{user.user_group_name || 'N/A'}</td>
-                     <td style={styles.tableBodyCell}>
-                       <button 
-                         onClick={() => setSelectedUser(user)} 
-                         style={{
-                           border: 'none',
-                           borderRadius: '0.375rem',
-                           padding: '0.25rem 0.5rem',
-                           cursor: 'pointer',
-                           fontSize: '0.875rem',
-                           fontWeight: 500,
-                           boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                         }}
-                       >
-                         Edit
-                       </button>
-                     </td>
+                     <td style={styles.tableBodyCell}>{user.permission_name || 'N/A'}</td>
                    </tr>
                  ))
                )}
@@ -294,11 +284,10 @@ export default function AdminUsersPage() {
       {/* Edit User Group Modal */}
       {selected_user && (
         <EditUserGroupModal
-          user={selected_user} // Pass the selected user (now AdminUserDisplay in snake_case)
+          user={selected_user}
           isOpen={!!selected_user}
           onClose={() => setSelectedUser(null)}
           onSave={handleSaveChanges}
-          // fetchUserGroups is passed to EditUserGroupModal if it needs to fetch groups itself
         />
       )}
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
 
 // Interface for data returned by GET
 interface PcSoftwareLink extends RowDataPacket {
@@ -57,6 +58,13 @@ export async function POST(
     request: NextRequest,
     context: any // Use 'any' as per Important_Information.md workaround
 ): Promise<NextResponse> {
+    const { pc_id } = context.params;
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     try {
         const pcIdStr = (context?.params?.pc_id as string) || '';
         const pcId = parseInt(pcIdStr, 10);

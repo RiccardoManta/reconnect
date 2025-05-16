@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { XCircle, RefreshCw } from 'lucide-react';
+import { XCircle, RefreshCw, Ban } from 'lucide-react';
 
 // Interface for assigned license data (matches API response - snake_case)
 interface AssignedLicenseInfo {
@@ -19,6 +19,7 @@ interface ManageVMLicenseAssignmentsProps {
   on_unassign: (license_id: number) => Promise<void>; // Function to call when unassign is clicked
   is_loading: boolean; // Loading state for assign/unassign actions by parent
   error: string | null;   // Error message for assign/unassign actions from parent
+  isReadOnly?: boolean; // Added isReadOnly prop
 }
 
 export default function ManageVMLicenseAssignments({
@@ -26,7 +27,8 @@ export default function ManageVMLicenseAssignments({
   assigned_licenses,
   on_unassign,
   is_loading,
-  error
+  error,
+  isReadOnly
 }: ManageVMLicenseAssignmentsProps) {
 
   const [actionLoading, setActionLoading] = useState<boolean>(false);
@@ -37,6 +39,7 @@ export default function ManageVMLicenseAssignments({
   }, [assigned_licenses]);
 
   const handleUnassignClick = async (license_id: number) => {
+    if (isReadOnly) return; // Prevent action if read-only
     setActionLoading(true);
     setActionError(null);
     try {
@@ -85,17 +88,22 @@ export default function ManageVMLicenseAssignments({
               </div>
               <button
                 onClick={() => handleUnassignClick(license.license_id)}
-                disabled={actionLoading}
-                title="Unassign License"
+                disabled={actionLoading || isReadOnly}
+                title={isReadOnly ? "Read-only: Cannot unassign license" : "Unassign License"}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: actionLoading ? '#9ca3af' : '#dc2626',
-                  cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  color: (actionLoading || isReadOnly) ? '#9ca3af' : '#dc2626',
+                  cursor: (actionLoading || isReadOnly) ? 'not-allowed' : 'pointer',
                   padding: '0.25rem'
                 }}
               >
-                {actionLoading && assignedLicenseIds.includes(license.license_id) ? <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <XCircle size={18} />}
+                {isReadOnly ? <Ban size={18} /> :
+                  (actionLoading && assignedLicenseIds.includes(license.license_id) ? 
+                    <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 
+                    <XCircle size={18} />
+                  )
+                }
               </button>
             </li>
           ))}

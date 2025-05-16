@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { checkApiPermission } from '@/utils/server/permissionUtils';
+import { PcOverviewPostBody } from '@/types/database';
 
 // Interface for PC Overview data returned by API
 interface PcOverview extends RowDataPacket {
@@ -18,24 +20,6 @@ interface PcOverview extends RowDataPacket {
     pc_info_text: string | null;
     status: string | null;
     active_user: string | null;
-}
-
-// Interface for POST/PUT request body
-interface PcOverviewRequestBody {
-    pc_id?: number; // Only for PUT
-    bench_id: number | null;
-    pc_name: string;
-    casual_name?: string | null;
-    purchase_year?: number | null;
-    inventory_number?: string | null;
-    pc_role?: string | null;
-    pc_model?: string | null;
-    special_equipment?: string | null;
-    mac_address?: string | null;
-    ip_address?: string | null;
-    pc_info_text?: string | null;
-    status?: string | null;
-    active_user?: string | null;
 }
 
 // GET method to fetch all PC overviews
@@ -66,9 +50,15 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new PC overview
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
-    const body: PcOverviewRequestBody = await request.json();
+    const body: PcOverviewPostBody = await request.json();
     
     // Validate required fields
     if (body.bench_id === undefined || body.bench_id === null) {
@@ -159,7 +149,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // PUT method to update an existing PC overview
-export async function PUT(request: NextRequest): Promise<NextResponse> {
+/*
+export async function PUT(request: NextRequest, context: any): Promise<NextResponse> {
+  // API Protection
+  const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+  if (!permissionCheck.isAuthorized) {
+    return permissionCheck.errorResponse!;
+  }
+
   try {
     const body: PcOverviewRequestBody = await request.json();
     
@@ -290,3 +287,4 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     );
   }
 } 
+*/ 

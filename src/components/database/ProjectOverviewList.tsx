@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Gauge, RefreshCw, Plus } from 'lucide-react';
+import { Gauge, RefreshCw, Plus, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { ProjectOverview, TestBench, Platform, Wetbench } from '../../types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // Reusable Modal Field Type Definitions
 interface SelectOption { value: string; label: string; }
@@ -57,6 +58,9 @@ export default function ProjectOverviewList() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [wetbenches, setWetbenches] = useState<Wetbench[]>([]);
 
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
+
   const fetchRelatedData = async () => {
      try {
        const benchResponse = await fetch('/api/testbenches');
@@ -104,9 +108,12 @@ export default function ProjectOverviewList() {
     loadInitialData();
   }, []);
 
-  const handleAddClick = () => setIsAddModalOpen(true);
+  const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
+    setIsAddModalOpen(true);
+  }
   const handleRowClick = (overview: ProjectOverview) => {
-     setSelectedOverview(overview);
+    setSelectedOverview(overview);
   }
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
@@ -193,7 +200,16 @@ export default function ProjectOverviewList() {
           <Gauge size={28} style={styles.headerIcon} />
           <h1 style={styles.headerTitle}>Project Overviews {projectOverviews.length > 0 ? `(${projectOverviews.length})` : ''}</h1>
         </div>
-        <button onClick={handleAddClick} style={styles.addButton} title="Add new project overview">
+        <button 
+          onClick={handleAddClick} 
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new overview" : "Add new project overview"}
+        >
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
           <Plus size={18} style={{marginRight: '0.5rem'}} /> Add Overview
         </button>
       </div>
@@ -245,10 +261,11 @@ export default function ProjectOverviewList() {
         <EditableDetailsModal
           isOpen={selectedOverview !== null}
           onClose={() => setSelectedOverview(null)}
-          title={`Project Overview Details: ${selectedOverview.hilName || selectedOverview.overviewId}`}
+          title={`Project Overview Details: ${selectedOverview.hil_name || selectedOverview.overview_id}`}
           data={selectedOverview}
           fields={detailsFields}
           onSave={handleUpdateOverview}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -256,9 +273,10 @@ export default function ProjectOverviewList() {
         <AddEntryModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
-          title="Add New Project Overview"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          title="Add New Project Overview"
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

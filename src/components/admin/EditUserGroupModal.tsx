@@ -69,19 +69,17 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
 
   // Update local state when user_data changes, ONLY if it actually changed
   useEffect(() => {
-    if (user) { // Changed from user_data
-      const currentGroupIdString = user.user_group_id !== null ? String(user.user_group_id) : ''; // Changed from user_data
-      if (currentGroupIdString !== selected_group_id) {
-          setSelectedGroupId(currentGroupIdString); 
-          setError(null);
-          setSaving(false);
-      }
+    if (user) {
+      const currentGroupIdString = user.user_group_id !== null ? String(user.user_group_id) : '';
+      setSelectedGroupId(currentGroupIdString); 
+      setError(null);
+      setSaving(false);
     } else {
       setSelectedGroupId('');
       setError(null);
       setSaving(false);
     }
-  }, [user, selected_group_id]); // Changed from user_data
+  }, [user]);
 
   if (!isOpen || !user) return null; // Changed from user_data
 
@@ -90,7 +88,7 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
     setError(null);
     try {
       await onSave({ 
-          user_id: user.user_id, // Changed from user_data
+          user_id: user.user_id,
           user_group_id: selected_group_id === '' ? null : parseInt(selected_group_id, 10) 
       });
       setSaving(false);
@@ -143,11 +141,11 @@ const EditUserGroupModal: React.FC<EditUserGroupModalProps> = ({
         {/* User Info (Read-only) */}
         <div style={{ marginBottom: '1.5rem' }}>
           <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', color: '#6b7280' }}>User Name</p>
-          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937', fontWeight: 500 }}>{user.user_name}</p> // Changed from user_data
+          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937', fontWeight: 500 }}>{user.user_name}</p>
         </div>
         <div style={{ marginBottom: '1.5rem' }}>
           <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', color: '#6b7280' }}>Email</p>
-          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937' }}>{user.email}</p> // Changed from user_data
+          <p style={{ margin: 0, fontSize: '1rem', color: '#1f2937' }}>{user.email}</p>
         </div>
 
         {/* Group Selection */}

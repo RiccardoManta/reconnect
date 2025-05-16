@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { ClipboardList, RefreshCw, PlusCircle } from 'lucide-react';
+import { ClipboardList, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '@/components/EditableDetailsModal';
 import AddEntryModal from '@/components/AddEntryModal';
 import { Project } from '@/types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions (Consider moving to a shared file) ---
 type FieldType = 'text' | 'number' | 'date' | 'select';
@@ -48,6 +49,9 @@ export default function ProjectsList() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
+
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -72,6 +76,7 @@ export default function ProjectsList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
@@ -199,9 +204,14 @@ export default function ProjectsList() {
          </div>
          <button
            onClick={handleAddClick}
-           style={styles.addButton}
-           title="Add new project"
+           style={{
+             ...styles.addButton,
+             ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+           }}
+           disabled={isReadOnly || permissionsLoading}
+           title={isReadOnly ? "Read-only: Cannot add new project" : "Add new project"}
          >
+           {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
            <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
            Add Project
          </button>
@@ -249,12 +259,13 @@ export default function ProjectsList() {
       {/* Modals */} 
       {selectedProject && (
         <EditableDetailsModal
-          isOpen={selectedProject !== null}
+          isOpen={!!selectedProject}
           onClose={() => setSelectedProject(null)}
-          title={`Project Details: ${selectedProject.project_name}`}
           data={selectedProject}
           fields={detailsFields}
           onSave={handleUpdateProject}
+          title={`Edit Project: ${selectedProject.project_name}`}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -265,6 +276,7 @@ export default function ProjectsList() {
           title="Add New Project"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

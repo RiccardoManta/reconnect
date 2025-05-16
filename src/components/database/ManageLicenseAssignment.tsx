@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PcOverview, VmInstance, License } from '../../types/database'; // License is needed for current_assignment_details
-import { PlusCircle, XCircle, RefreshCw } from 'lucide-react';
+import { PlusCircle, XCircle, RefreshCw, Ban } from 'lucide-react';
 
 interface ManageLicenseAssignmentProps {
   license_id: number;
@@ -14,6 +14,7 @@ interface ManageLicenseAssignmentProps {
   on_unassign: (license_id: number) => Promise<void>;
   is_loading: boolean; // Parent loading state for assign/unassign actions
   error: string | null;    // Parent error state
+  isReadOnly?: boolean; // Added isReadOnly prop (camelCase)
 }
 
 export default function ManageLicenseAssignment({
@@ -25,7 +26,8 @@ export default function ManageLicenseAssignment({
   on_assign,
   on_unassign,
   is_loading,
-  error
+  error,
+  isReadOnly // Destructure isReadOnly
 }: ManageLicenseAssignmentProps) {
 
   const [selectedTarget, setSelectedTarget] = useState<string>('');
@@ -65,6 +67,7 @@ export default function ManageLicenseAssignment({
   }, [isCurrentlyAssigned, current_assignment_details]);
 
   const handleAssignClick = async () => {
+    if (isReadOnly) return; // Prevent action if read-only
     if (!selectedTarget) {
       setActionError('Please select a PC or VM to assign the license to.');
       return;
@@ -97,6 +100,7 @@ export default function ManageLicenseAssignment({
   };
 
   const handleUnassignClick = async () => {
+    if (isReadOnly) return; // Prevent action if read-only
     if (!isCurrentlyAssigned) return; // Should not happen if button is hidden
     setActionLoading(true);
     setActionError(null);
@@ -127,13 +131,14 @@ export default function ManageLicenseAssignment({
             setSelectedTarget(e.target.value);
             setActionError(null); // Clear error on new selection
           }}
-          disabled={actionLoading} 
+          disabled={actionLoading || isReadOnly}
           style={{
             flexGrow: 1,
             padding: '0.5rem',
             borderRadius: '0.25rem',
             border: '1px solid #d1d5db',
             fontSize: '0.875rem',
+            cursor: isReadOnly ? 'not-allowed' : 'auto'
           }}
         >
           <option value="">Select PC/VM to assign...</option>
@@ -145,20 +150,22 @@ export default function ManageLicenseAssignment({
         </select>
         <button
           onClick={handleAssignClick}
-          disabled={actionLoading || !selectedTarget}
+          disabled={actionLoading || !selectedTarget || isReadOnly}
           style={{
             padding: '0.5rem 0.75rem',
             borderRadius: '0.25rem',
             border: 'none',
-            backgroundColor: (actionLoading || !selectedTarget) ? '#9ca3af' : '#2563eb',
+            backgroundColor: (actionLoading || !selectedTarget || isReadOnly) ? '#9ca3af' : '#2563eb',
             color: 'white',
             fontSize: '0.875rem',
-            cursor: (actionLoading || !selectedTarget) ? 'not-allowed' : 'pointer',
+            cursor: (actionLoading || !selectedTarget || isReadOnly) ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: '0.25rem'
           }}
+          title={isReadOnly ? "Read-only: Cannot assign license" : (isCurrentlyAssigned ? 'Update Assignment' : 'Assign License')}
         >
+          {isReadOnly && <Ban size={16} style={{marginRight: '0.25rem'}}/>}
           {actionLoading && selectedTarget ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }}/> : <PlusCircle size={16} />}
           {isCurrentlyAssigned ? 'Update Assignment' : 'Assign'}
         </button>
@@ -173,17 +180,19 @@ export default function ManageLicenseAssignment({
             </p>
             <button
               onClick={handleUnassignClick}
-              disabled={actionLoading}
-              title="Unassign License"
+              disabled={actionLoading || isReadOnly}
+              title={isReadOnly ? "Read-only: Cannot unassign license" : "Unassign License"}
               style={{
                 background: 'none',
                 border: 'none',
-                color: actionLoading ? '#9ca3af' : '#dc2626',
-                cursor: actionLoading ? 'not-allowed' : 'pointer',
+                color: (actionLoading || isReadOnly) ? '#9ca3af' : '#dc2626',
+                cursor: (actionLoading || isReadOnly) ? 'not-allowed' : 'pointer',
                 padding: '0.25rem'
               }}
             >
-              {actionLoading ? <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <XCircle size={18} />}
+              {isReadOnly ? <Ban size={18}/> : 
+                (actionLoading ? <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <XCircle size={18} />)
+              }
             </button>
           </div>
         ) : (

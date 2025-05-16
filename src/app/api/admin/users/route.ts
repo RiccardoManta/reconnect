@@ -14,6 +14,7 @@ interface AdminUserResponse extends RowDataPacket {
   email: string;
   user_group_id: number | null; // Renamed from group_id
   user_group_name: string | null; // Renamed from group_name
+  permission_name: string | null; // Added permission_name
 }
 
 // Interface for POST request body (New User)
@@ -56,17 +57,19 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Join users with user_groups to get user_group_name
+        // Join users with user_groups to get user_group_name and permissions to get permission_name
         const users = await query<AdminUserResponse[]>(`
             SELECT
                 u.user_id,
                 u.user_name,
                 u.company_username,
                 u.email,
-                u.user_group_id,        -- Renamed column
-                ug.user_group_name      -- Renamed column and table alias
+                u.user_group_id,
+                ug.user_group_name,
+                p.permission_name
             FROM users u
-            LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id -- Renamed table and columns
+            LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
+            LEFT JOIN permissions p ON ug.permission_id = p.permission_id
             ORDER BY u.user_name ASC
         `);
 
@@ -143,9 +146,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             const newUser = await query<AdminUserResponse[]>(`
                 SELECT
                     u.user_id, u.user_name, u.company_username, u.email,
-                    u.user_group_id, ug.user_group_name
+                    u.user_group_id, ug.user_group_name,
+                    p.permission_name
                 FROM users u
                 LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
+                LEFT JOIN permissions p ON ug.permission_id = p.permission_id
                 WHERE u.user_id = ?
             `, [newUserId]);
 
@@ -226,9 +231,11 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
             const updatedUser = await query<AdminUserResponse[]>(`
                 SELECT
                     u.user_id, u.user_name, u.company_username, u.email,
-                    u.user_group_id, ug.user_group_name
+                    u.user_group_id, ug.user_group_name,
+                    p.permission_name
                 FROM users u
                 LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
+                LEFT JOIN permissions p ON ug.permission_id = p.permission_id
                 WHERE u.user_id = ?
             `, [user_id]);
 
@@ -249,9 +256,11 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
             const currentUserData = await query<AdminUserResponse[]>(`
                 SELECT
                     u.user_id, u.user_name, u.company_username, u.email,
-                    u.user_group_id, ug.user_group_name
+                    u.user_group_id, ug.user_group_name,
+                    p.permission_name
                 FROM users u
                 LEFT JOIN user_groups ug ON u.user_group_id = ug.user_group_id
+                LEFT JOIN permissions p ON ug.permission_id = p.permission_id
                 WHERE u.user_id = ?
             `, [user_id]);
             return NextResponse.json({

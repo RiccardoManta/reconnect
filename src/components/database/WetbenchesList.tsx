@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { TestTube, RefreshCw, PlusCircle } from 'lucide-react';
+import { TestTube, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { Wetbench, TestBench } from '../../types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 type FieldType = 'text' | 'number' | 'date' | 'select';
@@ -24,6 +25,9 @@ export default function WetbenchesList() {
   const [selected_wetbench, setSelectedWetbench] = useState<Wetbench | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [test_benches, setTestBenches] = useState<TestBench[]>([]);
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   // Fetch related TestBench data for dropdowns
   const fetchRelatedData = async () => {
@@ -70,11 +74,12 @@ export default function WetbenchesList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
   const handleRowClick = (wetbench: Wetbench) => {
-      setSelectedWetbench(wetbench);
+    setSelectedWetbench(wetbench);
   }
 
   const handleSaveEntry = async (formData: Record<string, any>) => {
@@ -224,9 +229,14 @@ export default function WetbenchesList() {
         </div>
         <button
           onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new wetbench"
+          style={{
+            ...styles.addButton,
+            ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+          }}
+          disabled={isReadOnly || permissionsLoading}
+          title={isReadOnly ? "Read-only: Cannot add new wetbench" : "Add new wetbench"}
         >
+          {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
           <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
           Add Wetbench
         </button>
@@ -295,6 +305,7 @@ export default function WetbenchesList() {
           fields={detailsFields}
           onSave={handleUpdateWetbench}
           title={`Edit Wetbench (ID: ${selected_wetbench.wetbench_id})`}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -305,6 +316,7 @@ export default function WetbenchesList() {
           title="Add New Wetbench"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as dbUtils from '@/db/dbUtils';
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { Wetbench } from '@/types/database'; // Use the main Wetbench type
-
-// Interface for POST/PUT request body
-interface WetbenchRequestBody {
-    wetbench_id?: number;
-    wetbench_name: string;
-    pp_number?: string;
-    owner?: string;
-    system_type?: string;
-    system_supplier?: string;
-    linked_bench_id?: number | null;
-    actuator_info?: string;
-    hardware_components?: string;
-    inventory_number?: string;
-}
+import { Wetbench, WetbenchRequestBody } from '@/types/database'; // Assuming WetbenchRequestBody exists
+import { checkApiPermission } from '@/utils/server/permissionUtils'; // Corrected import path
 
 // GET method to fetch all wetbenches
 export async function GET(): Promise<NextResponse> {
@@ -43,8 +30,14 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST method to add a new wetbench
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest, context: any): Promise<NextResponse> {
   try {
+    // API Protection
+    const permissionCheck = await checkApiPermission(request, ['Edit', 'Admin']);
+    if (!permissionCheck.isAuthorized) {
+        return permissionCheck.errorResponse!;
+    }
+
     const body: WetbenchRequestBody = await request.json();
     
     if (!body.wetbench_name) {
@@ -120,6 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // PUT method to update an existing wetbench
+/*
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body: WetbenchRequestBody = await request.json();
@@ -218,3 +212,4 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     );
   }
 } 
+*/ 

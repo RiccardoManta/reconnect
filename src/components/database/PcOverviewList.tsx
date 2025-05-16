@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { PcCase as Cpu, RefreshCw, PlusCircle } from 'lucide-react';
+import { PcCase as Cpu, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { PcOverview, TestBench, Software } from '../../types/database';
 import ManagePCSwAssignments from './ManagePCSwAssignments';
 import ManagePCLicenseAssignments from './ManagePCLicenseAssignments';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 // ... (ModalField types definition) ...
@@ -37,6 +38,9 @@ export default function PcOverviewList() {
   const [selected_pc, setSelectedPc] = useState<PcOverview | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [test_benches, setTestBenches] = useState<TestBench[]>([]); // For dropdown
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   // State for software relationship management
   const [all_software, setAllSoftware] = useState<Software[]>([]);
@@ -158,6 +162,7 @@ export default function PcOverviewList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
@@ -296,6 +301,7 @@ export default function PcOverviewList() {
 
   // --- Handlers for Assigning/Unassigning Software --- 
   const handleAssignSoftware = async (software_id: number) => {
+    if (isReadOnly || permissionsLoading) return;
     if (!selected_pc?.pc_id) {
       console.error("Cannot assign software: No PC selected.");
       setAssignmentError("Cannot assign software: No PC selected.");
@@ -325,6 +331,7 @@ export default function PcOverviewList() {
   };
 
   const handleUnassignSoftware = async (software_id: number) => {
+    if (isReadOnly || permissionsLoading) return;
     if (!selected_pc?.pc_id) {
       console.error("Cannot unassign software: No PC selected.");
       setAssignmentError("Cannot unassign software: No PC selected.");
@@ -354,6 +361,7 @@ export default function PcOverviewList() {
 
   // --- Handlers for Assigning/Unassigning Licenses ---
   const handleUnassignPcLicense = async (license_id: number) => {
+    if (isReadOnly || permissionsLoading) return;
     if (!selected_pc?.pc_id) {
       setLicenseAssignmentError("No PC selected to unassign license from.");
       return;
@@ -517,13 +525,18 @@ export default function PcOverviewList() {
           <Cpu size={28} style={styles.headerIcon} />
           <h1 style={styles.headerTitle}>PC Overviews {pc_overviews.length > 0 ? `(${pc_overviews.length})` : ''}</h1>
         </div>
-        <button
-          onClick={handleAddClick}
-          style={styles.addButton}
-          title="Add new PC overview"
+        <button 
+            onClick={handleAddClick} 
+            style={{
+                ...styles.addButton,
+                ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+            }}
+            disabled={isReadOnly || permissionsLoading}
+            title={isReadOnly ? "Read-only: Cannot add new entries" : "Add new PC Overview"}
         >
-          <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
-          Add PC
+            {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
+            <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
+            Add PC
         </button>
       </div>
 
@@ -595,6 +608,7 @@ export default function PcOverviewList() {
           fields={detailsFields}
           onSave={handleUpdatePc}
           title={`Edit PC Overview (ID: ${selected_pc.pc_id})`}
+          isReadOnly={isReadOnly}
         >
           {/* Software Assignment Section */}
           <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e9ecef' }}>
@@ -607,6 +621,7 @@ export default function PcOverviewList() {
               on_unassign={handleUnassignSoftware}
               is_loading={assignment_loading}
               error={assignment_error}
+              isReadOnly={isReadOnly}
             />
           </div>
 
@@ -619,6 +634,7 @@ export default function PcOverviewList() {
               on_unassign={handleUnassignPcLicense}
               is_loading={license_assignment_loading}
               error={license_assignment_error}
+              isReadOnly={isReadOnly}
             />
           </div>
         </EditableDetailsModal>
@@ -631,6 +647,7 @@ export default function PcOverviewList() {
           title="Add New PC Overview"
           fields={addEntryFields}
           onSave={handleSaveEntry}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

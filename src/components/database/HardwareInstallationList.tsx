@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Wrench as Tool, RefreshCw, Plus } from 'lucide-react';
+import { Wrench as Tool, RefreshCw, Plus, Ban } from 'lucide-react';
 import EditableDetailsModal from '../EditableDetailsModal';
 import AddEntryModal from '../AddEntryModal';
 import { HardwareInstallation, TestBench, HardwareGroupType } from '../../types/database';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // --- Reusable Modal Field Type Definitions ---
 type FieldType = 'text' | 'number' | 'date' | 'select';
@@ -56,6 +57,9 @@ export default function HardwareInstallationList() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [testBenches, setTestBenches] = useState<TestBench[]>([]);
   const [hardwareGroupTypes, setHardwareGroupTypes] = useState<HardwareGroupType[]>([]);
+
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
 
   const fetchRelatedData = async () => {
     try {
@@ -110,6 +114,7 @@ export default function HardwareInstallationList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
@@ -282,14 +287,21 @@ export default function HardwareInstallationList() {
       <div style={styles.headerContainer}>
         <div style={styles.headerTitleContainer}>
           <Tool size={28} style={styles.headerIcon} />
-          <h1 style={styles.headerTitle}>Hardware Installations</h1>
+          <h1 style={styles.headerTitle}>Hardware Installations {hardwareInstallations.length > 0 ? `(${hardwareInstallations.length})` : ''}</h1>
         </div>
-        <div>
-          <button onClick={handleAddClick} style={styles.addButton} disabled={loading}>
-            <Plus size={16} style={{ marginRight: '0.5rem' }} />
+        <button 
+            onClick={handleAddClick} 
+            style={{
+                ...styles.addButton,
+                ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+            }}
+            disabled={isReadOnly || permissionsLoading}
+            title={isReadOnly ? "Read-only: Cannot add new entries" : "Add new Hardware Installation"}
+        >
+            {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
+            <Plus size={18} style={{ marginRight: '0.5rem' }} />
             Add Hardware
-          </button>
-        </div>
+        </button>
       </div>
 
       {error && (
@@ -305,7 +317,8 @@ export default function HardwareInstallationList() {
           data={selectedHardware} 
           fields={modalFields} 
           onSave={handleUpdateHardware}
-          title="Edit Hardware Installation"
+          title={`Edit Hardware: ${selectedHardware.description || 'N/A'}`}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -315,6 +328,7 @@ export default function HardwareInstallationList() {
         fields={addEntryFields}
         onSave={handleSaveEntry}
         title="Add New Hardware Installation"
+        isReadOnly={isReadOnly}
       />
 
       <div style={styles.tableContainer}>

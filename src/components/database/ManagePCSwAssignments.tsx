@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Software } from '../../types/database';
-import { PlusCircle, XCircle, RefreshCw } from 'lucide-react';
+import { PlusCircle, XCircle, RefreshCw, Ban } from 'lucide-react';
 
 interface ManagePCSwAssignmentsProps {
   pc_id: number;
@@ -10,6 +10,7 @@ interface ManagePCSwAssignmentsProps {
   on_unassign: (software_id: number) => Promise<void>;
   is_loading: boolean; // Loading state for assign/unassign actions
   error: string | null;   // Error message for assign/unassign actions
+  isReadOnly?: boolean; // Added isReadOnly prop
 }
 
 const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
@@ -19,7 +20,8 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
   on_assign,
   on_unassign,
   is_loading,
-  error
+  error,
+  isReadOnly
 }) => {
   const [selectedSoftwareToAdd, setSelectedSoftwareToAdd] = useState<string>(''); // Store ID as string for select
 
@@ -41,7 +43,7 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
   }, [all_software, assigned_software_ids]);
 
   const handleAddSoftware = async () => {
-    if (!selectedSoftwareToAdd) return;
+    if (!selectedSoftwareToAdd || isReadOnly) return;
     const software_id = parseInt(selectedSoftwareToAdd, 10);
     if (isNaN(software_id)) return;
     
@@ -56,13 +58,14 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
         <select
           value={selectedSoftwareToAdd}
           onChange={(e) => setSelectedSoftwareToAdd(e.target.value)}
-          disabled={is_loading}
+          disabled={is_loading || isReadOnly}
           style={{
             flexGrow: 1,
             padding: '0.5rem',
             borderRadius: '0.25rem',
             border: '1px solid #d1d5db',
             fontSize: '0.875rem',
+            cursor: isReadOnly ? 'not-allowed' : 'auto'
           }}
         >
           <option value="">Select software to add...</option>
@@ -74,20 +77,22 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
         </select>
         <button
           onClick={handleAddSoftware}
-          disabled={is_loading || !selectedSoftwareToAdd}
+          disabled={is_loading || !selectedSoftwareToAdd || isReadOnly}
           style={{
             padding: '0.5rem 0.75rem',
             borderRadius: '0.25rem',
             border: 'none',
-            backgroundColor: (is_loading || !selectedSoftwareToAdd) ? '#9ca3af' : '#2563eb',
+            backgroundColor: (is_loading || !selectedSoftwareToAdd || isReadOnly) ? '#9ca3af' : '#2563eb',
             color: 'white',
             fontSize: '0.875rem',
-            cursor: (is_loading || !selectedSoftwareToAdd) ? 'not-allowed' : 'pointer',
+            cursor: (is_loading || !selectedSoftwareToAdd || isReadOnly) ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: '0.25rem'
           }}
+          title={isReadOnly ? "Read-only: Cannot assign software" : "Assign selected software"}
         >
+            {isReadOnly && <Ban size={16} style={{marginRight: '0.25rem'}}/>}
             {is_loading ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }}/> : <PlusCircle size={16} />}
              Add
         </button>
@@ -119,17 +124,17 @@ const ManagePCSwAssignments: React.FC<ManagePCSwAssignmentsProps> = ({
               </span>
               <button
                 onClick={() => on_unassign(sw.software_id)}
-                disabled={is_loading}
-                title="Unassign Software"
+                disabled={is_loading || isReadOnly}
+                title={isReadOnly ? "Read-only: Cannot unassign software" : "Unassign Software"}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: is_loading ? '#9ca3af' : '#dc2626', 
-                  cursor: is_loading ? 'not-allowed' : 'pointer',
+                  color: (is_loading || isReadOnly) ? '#9ca3af' : '#dc2626', 
+                  cursor: (is_loading || isReadOnly) ? 'not-allowed' : 'pointer',
                   padding: '0.25rem'
                 }}
               >
-                <XCircle size={18} />
+                {isReadOnly ? <Ban size={18}/> : <XCircle size={18} />}
               </button>
             </li>
           ))}

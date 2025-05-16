@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, CSSProperties } from 'react';
-import { Server, RefreshCw, PlusCircle } from 'lucide-react';
+import { Server, RefreshCw, PlusCircle, Ban } from 'lucide-react';
 import EditableDetailsModal from '@/components/EditableDetailsModal';
 import AddEntryModal from '@/components/AddEntryModal';
 import { TestBench, Project, ModelStand, Platform } from '@/types/database';
 import { ColumnDef } from "@tanstack/react-table";
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // Define field types for modals
 type FieldType = 'text' | 'number' | 'date' | 'select';
@@ -122,6 +123,9 @@ export default function TestBenchList() {
   const [systemTypes, setSystemTypes] = useState<string[]>([]);
   const [benchTypes, setBenchTypes] = useState<string[]>([]);
 
+  const { permissionName, isLoading: permissionsLoading } = usePermissions();
+  const isReadOnly = permissionName === 'Read';
+
   const fetchRelatedData = async () => {
     try {
       const projectsResponse = await fetch('/api/projects');
@@ -180,6 +184,7 @@ export default function TestBenchList() {
   }, []);
 
   const handleAddClick = () => {
+    if (isReadOnly || permissionsLoading) return;
     setIsAddModalOpen(true);
   };
 
@@ -372,14 +377,22 @@ export default function TestBenchList() {
       <div style={styles.headerContainer}>
         <div style={styles.headerTitleContainer}>
           <Server size={28} style={styles.headerIcon} />
-          <h1 style={styles.headerTitle}>Test Benches</h1>
+          <h1 style={styles.headerTitle}>Test Benches {testBenches.length > 0 ? `(${testBenches.length})` : ''}</h1>
         </div>
-        <div>
-          <button onClick={handleAddClick} style={{...styles.buttonCommon, ...styles.addButton}} disabled={loading}>
+        <button 
+            onClick={handleAddClick} 
+            style={{
+                ...styles.buttonCommon, 
+                ...styles.addButton,
+                ...( (isReadOnly || permissionsLoading) ? { cursor: 'not-allowed', opacity: 0.7 } : {}),
+            }}
+            disabled={isReadOnly || permissionsLoading}
+            title={isReadOnly ? "Read-only: Cannot add new entries" : "Add new Test Bench"}
+        >
+            {(isReadOnly && !permissionsLoading) && <Ban size={16} style={{ marginRight: '0.5rem' }} />}
             <PlusCircle size={18} style={{ marginRight: '0.5rem' }} />
             Add Test Bench
-          </button>
-        </div>
+        </button>
       </div>
 
       {error && (
@@ -391,11 +404,12 @@ export default function TestBenchList() {
       {selectedTestBench && (
         <EditableDetailsModal
           isOpen={!!selectedTestBench}
-          onClose={() => { setSelectedTestBench(null); setError(null); }} // Clear error on close
-          data={selectedTestBench} // Data is already snake_case
+          onClose={() => { setSelectedTestBench(null); setError(null); }}
+          data={selectedTestBench}
           fields={detailsFields} 
           onSave={handleUpdateTestBench}
           title={`Edit Test Bench (ID: ${selectedTestBench.bench_id})`}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -405,6 +419,7 @@ export default function TestBenchList() {
         fields={addEntryFields}
         onSave={handleSaveEntry}
         title="Add New Test Bench"
+        isReadOnly={isReadOnly}
       />
 
       <div style={styles.tableContainer}>
